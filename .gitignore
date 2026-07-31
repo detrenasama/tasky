@@ -1,0 +1,6 @@
+/tasky
+*.db
+*.db-shm
+*.db-wal
+.idea/
+*.log

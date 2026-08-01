@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 
 	"github.com/kalpamer/tasky/internal/db"
 )
@@ -110,6 +111,80 @@ func indexRune(runes []rune, r rune) int {
 		}
 	}
 	return -1
+}
+
+func TestProjectsResizeColumns(t *testing.T) {
+	conn, err := db.Open(t.TempDir() + "/test.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if _, err := db.CreateProject(conn, "P"); err != nil {
+		t.Fatal(err)
+	}
+	s := newProjectsScreen(conn)
+	s.load()
+	cases := []struct{ w, list, desc, info int }{
+		{150, 30, 87, 29},
+		{110, 22, 63, 21},
+		{109, 53, 0, 54},
+		{60, 29, 0, 29},
+		{59, 59, 0, 0},
+	}
+	for _, c := range cases {
+		s.resize(c.w, 26)
+		if s.listW != c.list || s.descW != c.desc || s.infoW != c.info {
+			t.Errorf("w=%d: list=%d desc=%d info=%d, ожидались %d/%d/%d",
+				c.w, s.listW, s.descW, s.infoW, c.list, c.desc, c.info)
+		}
+	}
+}
+
+func TestProjectsViewFillsWidth(t *testing.T) {
+	conn, err := db.Open(t.TempDir() + "/test.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if _, err := db.CreateProject(conn, "P"); err != nil {
+		t.Fatal(err)
+	}
+	s := newProjectsScreen(conn)
+	s.load()
+	for _, w := range []int{150, 90, 60} {
+		s.resize(w, 26)
+		out := s.view(w, 26)
+		rows := strings.Split(out, "\n")
+		if len(rows) != 26 {
+			t.Errorf("w=%d: строк %d, ожидалось 26", w, len(rows))
+		}
+		for i, r := range rows {
+			if lipgloss.Width(r) != w {
+				t.Errorf("w=%d: строка %d шириной %d, ожидалось %d", w, i, lipgloss.Width(r), w)
+			}
+		}
+	}
+}
+
+func TestTabsLine(t *testing.T) {
+	lipgloss.SetColorProfile(termenv.ANSI256)
+	line := tabsLine(screenProjects, 100)
+	if got := lipgloss.Width(line); got != 100 {
+		t.Errorf("видимая ширина %d, ожидалось 100", got)
+	}
+	plain := stripANSI(line)
+	for _, tb := range tabs {
+		label := tb.title + " <" + tb.key + ">"
+		if !strings.Contains(plain, label) {
+			t.Errorf("вкладка %q отсутствует в %q", label, plain)
+		}
+	}
+	if !strings.Contains(line, "38;5;212") {
+		t.Error("текущая вкладка не выделена цветом")
+	}
+	if n := strings.Count(line, "\x1b[2m"); n != 3 {
+		t.Errorf("dim-вкладок: %d, ожидалось 3", n)
+	}
 }
 
 func TestInfoBottomBorderVisible(t *testing.T) {

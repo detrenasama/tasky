@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbletea"
@@ -32,7 +33,36 @@ type screen int
 const (
 	screenTasks screen = iota
 	screenProjects
+	screenReports
+	screenSettings
 )
+
+type tab struct {
+	title string
+	key   string
+	scr   screen
+}
+
+var tabs = []tab{
+	{"Задачи", "t", screenTasks},
+	{"Проекты", "p", screenProjects},
+	{"Отчеты", "r", screenReports},
+	{"Настройки", "s", screenSettings},
+}
+
+// tabsLine — строка вкладок страниц: текущая выделена цветом, остальные dim.
+func tabsLine(cur screen, w int) string {
+	parts := make([]string, 0, len(tabs))
+	for _, t := range tabs {
+		label := t.title + " <" + t.key + ">"
+		if t.scr == cur {
+			parts = append(parts, headerStyle.Render(label))
+		} else {
+			parts = append(parts, faint(label))
+		}
+	}
+	return padW(strings.Join(parts, "  "), w)
+}
 
 type model struct {
 	db     *sql.DB
@@ -40,8 +70,10 @@ type model struct {
 	width  int
 	height int
 
-	tasks *tasksScreen
-	proj  *projectsScreen
+	tasks    *tasksScreen
+	proj     *projectsScreen
+	reports  *reportsScreen
+	settings *settingsScreen
 }
 
 type tickMsg time.Time
@@ -56,11 +88,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-		if m.height < 3 {
-			m.height = 3
+		if m.height < 4 {
+			m.height = 4
 		}
-		m.tasks.resize(m.width, m.height-2)
-		m.proj.resize(m.width, m.height-2)
+		m.tasks.resize(m.width, m.height-3)
+		m.proj.resize(m.width, m.height-3)
 		return m, nil
 	case tea.KeyMsg:
 		if m.screen == screenProjects && m.proj.mode == projInput {
@@ -73,10 +105,34 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			return m, tea.Quit
 		}
+		if !m.modalOpen() {
+			switch msg.String() {
+			case "t":
+				m.switchScreen(screenTasks)
+				return m, nil
+			case "p":
+				m.switchScreen(screenProjects)
+				return m, nil
+			case "r":
+				m.switchScreen(screenReports)
+				return m, nil
+			case "s":
+				m.switchScreen(screenSettings)
+				return m, nil
+			case "esc":
+				if m.screen != screenTasks {
+					m.switchScreen(screenTasks)
+					return m, nil
+				}
+			}
+		}
 		if m.screen == screenTasks {
 			return m.updateTasks(msg)
 		}
-		return m.updateProjects(msg)
+		if m.screen == screenProjects {
+			return m.updateProjects(msg)
+		}
+		return m, nil
 	case tickMsg:
 		now := time.Time(msg)
 		m.tasks.now = now
@@ -89,27 +145,51 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m *model) modalOpen() bool {
+	return m.tasks.mode != taskBrowse || m.proj.mode != projBrowse
+}
+
+// switchScreen переключает страницу и подгружает её данные.
+func (m *model) switchScreen(s screen) {
+	m.screen = s
+	switch s {
+	case screenTasks:
+		m.tasks.load()
+	case screenProjects:
+		m.proj.load()
+	}
+}
+
 func (m model) View() string {
 	w, h := m.width, m.height
-	if h < 3 {
-		h = 3
+	if h < 4 {
+		h = 4
 	}
-	midH := h - 2
+	midH := h - 3
 
 	var header, mid, footer string
 	var dlg string
 	var modalOpen bool
-	if m.screen == screenProjects {
+	switch m.screen {
+	case screenProjects:
 		header, footer = m.proj.header(w), m.proj.footer(w)
 		mid = m.proj.view(w, midH)
 		dlg, modalOpen = m.proj.dialog()
-	} else {
+	case screenReports:
+		header, footer = m.reports.header(w), m.reports.footer(w)
+		mid = m.reports.view(w, midH)
+		dlg, modalOpen = m.reports.dialog()
+	case screenSettings:
+		header, footer = m.settings.header(w), m.settings.footer(w)
+		mid = m.settings.view(w, midH)
+		dlg, modalOpen = m.settings.dialog()
+	default:
 		header, footer = m.tasks.header(w), m.tasks.footer(w)
 		mid = m.tasks.view(w, midH)
 		dlg, modalOpen = m.tasks.dialog()
 	}
 
-	full := header + "\n" + mid + "\n" + footer
+	full := tabsLine(m.screen, w) + "\n" + header + "\n" + mid + "\n" + footer
 	if modalOpen {
 		full = overlay(full, dlg, w, h)
 	}
@@ -129,6 +209,8 @@ func main() {
 	m.tasks.load()
 	m.proj = newProjectsScreen(conn)
 	m.proj.load()
+	m.reports = newReportsScreen()
+	m.settings = newSettingsScreen()
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {

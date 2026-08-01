@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/kalpamer/tasky/internal/db"
 )
@@ -38,6 +39,11 @@ type projectsScreen struct {
 	input     textinput.Model
 	confirmID int64
 	lastErr   error
+
+	midH  int
+	listW int
+	descW int
+	infoW int
 }
 
 func newProjectsScreen(conn *sql.DB) *projectsScreen {
@@ -69,8 +75,23 @@ func (s *projectsScreen) load() {
 }
 
 func (s *projectsScreen) resize(w, h int) {
-	s.list.SetWidth(w - 2)
-	s.list.SetHeight(h - 2)
+	s.midH = max(h, 3)
+	listW, descW, infoW := 0, 0, 0
+	if w >= 110 {
+		// три колонки 1:3:1 на всю ширину
+		u := (w - 4) / 5
+		listW, descW, infoW = u, 3*u, u
+		listW += (w - 4) - 5*u
+	} else if w >= 60 {
+		// list + info (1:1)
+		listW = (w - 2) / 2
+		infoW = w - 2 - listW
+	} else {
+		listW = w
+	}
+	s.listW, s.descW, s.infoW = listW, descW, infoW
+	s.list.SetWidth(listW - 2)
+	s.list.SetHeight(s.midH - 2)
 }
 
 func (s *projectsScreen) header(w int) string {
@@ -82,13 +103,35 @@ func (s *projectsScreen) footer(w int) string {
 }
 
 func (s *projectsScreen) view(w, h int) string {
-	var body string
+	var left string
 	if len(s.projects) == 0 && s.mode == projBrowse {
-		body = dimBox.Render("Проектов нет.\nНажмите n для создания.")
+		left = fixedBox(dimBox, "Проектов нет.\nНажмите n для создания.", s.listW, s.midH)
 	} else {
-		body = focusBox.Render(s.list.View())
+		// bubbles/list не дополняет строки до ширины — паддинг вручную
+		left = focusBox.Render(padLines(s.list.View(), max(s.listW-4, 0), max(s.midH-2, 0)))
 	}
+
+	cols := []string{left}
+	if s.descW > 0 {
+		cols = append(cols, "  ", s.descBox())
+	}
+	if s.infoW > 0 {
+		cols = append(cols, "  ", s.infoBox())
+	}
+	body := lipgloss.JoinHorizontal(lipgloss.Top, cols...)
 	return padH(body, w, h)
+}
+
+// descBox — средняя колонка: описание проекта (ссылки, имена, контакты) —
+// зарезервированная dim-заглушка.
+func (s *projectsScreen) descBox() string {
+	return fixedBox(dimBox, "Описание проекта.\n\nСсылки, имена,\nконтакты — здесь.", s.descW, s.midH)
+}
+
+// infoBox — правая колонка: сводка и настройки проекта (коэффициент времени
+// и т.п.) — dim-заглушка.
+func (s *projectsScreen) infoBox() string {
+	return fixedBox(dimBox, "Сводка и настройки\n\nКоэффициент времени:\n1.0", s.infoW, s.midH)
 }
 
 func (s *projectsScreen) dialog() (string, bool) {
@@ -163,10 +206,6 @@ func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				s.confirmID = item.p.ID
 				s.mode = projConfirm
 			}
-			return m, nil
-		case "esc":
-			m.screen = screenTasks
-			m.tasks.load()
 			return m, nil
 		}
 		var cmd tea.Cmd

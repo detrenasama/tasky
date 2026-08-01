@@ -332,7 +332,7 @@ func (s *tasksScreen) header(w int) string {
 }
 
 func (s *tasksScreen) footer(w int) string {
-	hint := "↑/↓ выбор · Enter раскрыть · n задача · a подзадача · d удалить · Ctrl+L старт/пауза · [ / ] проект · p проекты · q выход"
+	hint := "↑/↓ выбор · Enter раскрыть · n задача · a подзадача · d удалить · Ctrl+L старт/пауза · [ / ] проект · q выход"
 	return padW(faint(hint), w)
 }
 
@@ -643,10 +643,6 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			s.mode = taskConfirm
 		}
-		return m, nil
-	case "p":
-		m.screen = screenProjects
-		m.proj.load()
 		return m, nil
 	}
 	var cmd tea.Cmd

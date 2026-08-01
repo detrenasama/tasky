@@ -54,3 +54,30 @@ func padH(body string, w, h int) string {
 	}
 	return strings.Join(lines, "\n")
 }
+
+// fixedBox рендерит content в рамке style ровно w×h (контент дополняется
+// пробелами по ширине и высоте, лишние строки обрезаются). Хром рамки
+// boxStyle = 4 (бордер 2 + паддинг 2), поэтому контент паддится до w-4.
+func fixedBox(style lipgloss.Style, content string, w, h int) string {
+	if h < 2 {
+		h = 2
+	}
+	inner := padLines(content, max(w-4, 1), h-2)
+	return style.Render(inner)
+}
+
+// padLines приводит многострочный текст к холсту w×h, дополняя пробелами
+// и обрезая лишние строки.
+func padLines(content string, w, h int) string {
+	lines := strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n")
+	if len(lines) > h {
+		lines = lines[:h]
+	}
+	for i := range lines {
+		lines[i] = padW(lines[i], w)
+	}
+	for len(lines) < h {
+		lines = append(lines, strings.Repeat(" ", w))
+	}
+	return strings.Join(lines, "\n")
+}

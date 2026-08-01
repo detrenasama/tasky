@@ -301,26 +301,18 @@ func (s *tasksScreen) deleteItem(kind paneKind, id int64) {
 }
 
 func (s *tasksScreen) resize(w, h int) {
-	s.midH = h
-	if s.midH < 3 {
-		s.midH = 3
-	}
-	infoW, descW := 34, 0
-	if w < 70 {
-		infoW = 0
-	}
+	s.midH = max(h, 3)
+	listW, descW, infoW := 0, 0, 0
 	if w >= 110 {
-		descW = 26
-	}
-	listW := w - infoW - descW
-	if infoW > 0 {
-		listW -= 2
-	}
-	if descW > 0 {
-		listW -= 2
-	}
-	if listW < 30 {
-		infoW, descW = 0, 0
+		// три колонки 2:2:1 на всю ширину
+		u := (w - 4) / 5
+		listW, descW, infoW = 2*u, 2*u, u
+		listW += (w - 4) - 5*u
+	} else if w >= 70 {
+		// list + info (2:1)
+		listW = (w - 2) * 2 / 3
+		infoW = w - 2 - listW
+	} else {
 		listW = w
 	}
 	s.listW, s.descW, s.infoW = listW, descW, infoW
@@ -344,11 +336,12 @@ func (s *tasksScreen) footer(w int) string {
 func (s *tasksScreen) view(w, h int) string {
 	var left string
 	if len(s.projects) == 0 {
-		left = dimBox.Render("Нет проектов.\nНажмите p и создайте проект.")
+		left = fixedBox(dimBox, "Нет проектов.\nНажмите p и создайте проект.", s.listW, s.midH)
 	} else if len(s.tasks) == 0 {
-		left = dimBox.Render("Задач в проекте нет.")
+		left = fixedBox(dimBox, "Задач в проекте нет.", s.listW, s.midH)
 	} else {
-		left = focusBox.Render(s.list.View())
+		// bubbles/list не дополняет строки до ширины — паддинг вручную
+		left = focusBox.Render(padLines(s.list.View(), s.listW-4, s.midH-2))
 	}
 
 	cols := []string{left}
@@ -408,23 +401,22 @@ func (s *tasksScreen) dialog() (string, bool) {
 
 // descBox — зарезервированная колонка под описание задачи/подзадачи.
 func (s *tasksScreen) descBox() string {
-	title := faint("Описание")
-	return dimBox.Render(title + strings.Repeat("\n", max(s.midH-3, 0)))
+	return fixedBox(dimBox, faint("Описание"), s.descW, s.midH)
 }
 
-// infoBox — правая колонка: выбранный элемент + общая информация.
+// infoBox — правая колонка: выбранный элемент (на всю высоту) + общая
+// информация (по высоте контента).
 func (s *tasksScreen) infoBox() string {
-	top := s.infoTop()
-	topH := len(strings.Split(top, "\n"))
-	botH := s.midH - topH
-	if botH < 3 {
-		botH = 3
+	bot := s.infoBottom()
+	botH := len(strings.Split(bot, "\n"))
+	topH := s.midH - botH - 1
+	if topH < 3 {
+		topH = 3
 	}
-	return lipgloss.JoinVertical(lipgloss.Left,
-		top, "\n", s.infoBottom(botH))
+	return s.infoTop(topH) + "\n\n" + bot
 }
 
-func (s *tasksScreen) infoTop() string {
+func (s *tasksScreen) infoTop(topH int) string {
 	kind, id := s.selectedKindID()
 	var body []string
 	switch {
@@ -488,7 +480,9 @@ func (s *tasksScreen) infoTop() string {
 	default:
 		body = append(body, faint("Выберите задачу или подзадачу."))
 	}
-	return boxStyle.Render(strings.Join(body, "\n"))
+	inner := strings.Join(body, "\n")
+	inner = padLines(inner, max(s.infoW-4, 1), topH-2)
+	return boxStyle.Render(inner)
 }
 func entryLine(e db.TimeEntry, now time.Time) string {
 	start := e.StartedAt.Format("15:04")
@@ -499,7 +493,7 @@ func entryLine(e db.TimeEntry, now time.Time) string {
 	return start + "–" + e.EndedAt.Format("15:04") + " · " + fmtDur(d)
 }
 
-func (s *tasksScreen) infoBottom(botH int) string {
+func (s *tasksScreen) infoBottom() string {
 	body := []string{
 		faint("Неделя (Пн–Вс): ") + fmtDur(s.weekly),
 		"",
@@ -511,8 +505,10 @@ func (s *tasksScreen) infoBottom(botH int) string {
 	} else {
 		body = append(body, faint("Ничего не запущено."))
 	}
-	inner := strings.Join(body, "\n")
-	return boxStyle.Render(inner + strings.Repeat("\n", max(botH-2-len(body), 0)))
+	for i := range body {
+		body[i] = padW(body[i], max(s.infoW-4, 1))
+	}
+	return boxStyle.Render(strings.Join(body, "\n"))
 }
 
 func statusRU(s string) string {

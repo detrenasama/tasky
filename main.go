@@ -20,6 +20,9 @@ var (
 	headerStyle = lipgloss.NewStyle().Bold(true).Foreground(accent)
 	faintStyle  = lipgloss.NewStyle().Faint(true)
 	errorStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
+	boxStyle    = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0, 1)
+	focusBox    = boxStyle.Copy().BorderForeground(accent)
+	dimBox      = boxStyle.Copy().Faint(true)
 )
 
 func faint(s string) string { return faintStyle.Render(s) }

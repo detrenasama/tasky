@@ -83,6 +83,45 @@ ORDER BY t.created_at, t.id`, projectID)
 	return out, rows.Err()
 }
 
+func SubtasksByProject(conn *sql.DB, projectID int64) ([]SubtaskWithTime, error) {
+	rows, err := conn.Query(`
+SELECT s.id, s.task_id, s.title, s.status, s.sort_order, s.created_at, s.completed_at,
+       COALESCE((SELECT SUM(te.ended_at - te.started_at) FROM time_entries te
+                 WHERE te.subtask_id = s.id AND te.ended_at IS NOT NULL), 0),
+       (SELECT te.started_at FROM time_entries te
+        WHERE te.subtask_id = s.id AND te.ended_at IS NULL LIMIT 1)
+FROM subtasks s
+JOIN tasks t ON t.id = s.task_id
+WHERE t.project_id = ?
+ORDER BY s.task_id, s.sort_order, s.id`, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []SubtaskWithTime
+	for rows.Next() {
+		var s SubtaskWithTime
+		var created, total int64
+		var completed, active sql.NullInt64
+		if err := rows.Scan(&s.ID, &s.TaskID, &s.Title, &s.Status, &s.SortOrder,
+			&created, &completed, &total, &active); err != nil {
+			return nil, err
+		}
+		s.CreatedAt = time.Unix(created, 0)
+		s.TotalSeconds = total
+		if completed.Valid {
+			c := time.Unix(completed.Int64, 0)
+			s.CompletedAt = &c
+		}
+		if active.Valid {
+			s.ActiveSince = &active.Int64
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
 func SubtasksWithTime(conn *sql.DB, taskID int64) ([]SubtaskWithTime, error) {
 	rows, err := conn.Query(`
 SELECT s.id, s.task_id, s.title, s.status, s.sort_order, s.created_at, s.completed_at,

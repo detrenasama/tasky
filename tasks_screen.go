@@ -14,13 +14,6 @@ import (
 	"github.com/kalpamer/tasky/internal/db"
 )
 
-type paneFocus bool
-
-const (
-	focusTasks paneFocus = true
-	focusSubs  paneFocus = false
-)
-
 type taskMode int
 
 const (
@@ -36,24 +29,27 @@ const (
 	kindSubtask
 )
 
-var (
-	boxStyle = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0, 1)
-	focusBox = boxStyle.Copy().BorderForeground(accent)
-	dimBox   = boxStyle.Copy().Faint(true)
-)
-
-type taskItem struct{ t db.Task }
+type taskItem struct {
+	t        db.Task
+	expanded bool
+}
 
 func (i taskItem) FilterValue() string { return i.t.Title }
 
-func (i taskItem) Title() string { return i.t.Title }
+func (i taskItem) Title() string {
+	marker := "▸"
+	if i.expanded {
+		marker = "▾"
+	}
+	return marker + " " + i.t.Title
+}
 
 func (i taskItem) Description() string {
 	plural := "подзадач"
 	if i.t.SubCount == 1 {
 		plural = "подзадача"
 	}
-	return fmt.Sprintf("%s · %d %s", statusRU(i.t.Status), i.t.SubCount, plural)
+	return statusRU(i.t.Status) + " · " + fmt.Sprintf("%d %s", i.t.SubCount, plural)
 }
 
 type subItem struct {
@@ -63,7 +59,7 @@ type subItem struct {
 
 func (i subItem) FilterValue() string { return i.st.Title }
 
-func (i subItem) Title() string { return i.st.Title }
+func (i subItem) Title() string { return "  ├ " + i.st.Title }
 
 func (i subItem) Description() string {
 	text := statusRU(i.st.Status)
@@ -80,10 +76,10 @@ type tasksScreen struct {
 	projects []db.Project
 	projIdx  int
 	tasks    []db.Task
-	taskList list.Model
 	subs     []db.SubtaskWithTime
-	subList  list.Model
-	focus    paneFocus
+	list     list.Model
+	items    []list.Item
+	expanded map[int64]bool
 	weekly   time.Duration
 	now      time.Time
 
@@ -96,23 +92,15 @@ type tasksScreen struct {
 }
 
 func newTasksScreen(conn *sql.DB) *tasksScreen {
-	s := &tasksScreen{db: conn, focus: focusTasks}
+	s := &tasksScreen{db: conn, expanded: map[int64]bool{}}
 
-	td := list.NewDefaultDelegate()
-	td.ShowDescription = true
-	s.taskList = list.New(nil, td, 40, 20)
-	s.taskList.Title = "Задачи"
-	s.taskList.SetShowHelp(false)
-	s.taskList.SetShowPagination(false)
-	s.taskList.SetShowStatusBar(false)
-
-	sd := list.NewDefaultDelegate()
-	sd.ShowDescription = true
-	s.subList = list.New(nil, sd, 40, 20)
-	s.subList.Title = "Подзадачи"
-	s.subList.SetShowHelp(false)
-	s.subList.SetShowPagination(false)
-	s.subList.SetShowStatusBar(false)
+	d := list.NewDefaultDelegate()
+	d.ShowDescription = true
+	s.list = list.New(nil, d, 80, 20)
+	s.list.Title = "Задачи"
+	s.list.SetShowHelp(false)
+	s.list.SetShowPagination(false)
+	s.list.SetShowStatusBar(false)
 
 	s.input = textinput.New()
 	s.input.Placeholder = "Название"
@@ -128,15 +116,20 @@ func (s *tasksScreen) load() {
 	if s.projIdx >= len(s.projects) {
 		s.projIdx = 0
 	}
-	if len(s.projects) > 0 {
-		s.loadTasks()
-	} else {
+	s.loadData()
+	s.weekly, _ = db.WeeklyTotal(s.db, s.now)
+}
+
+func (s *tasksScreen) loadData() {
+	if s.projIdx < 0 || s.projIdx >= len(s.projects) {
 		s.tasks = nil
 		s.subs = nil
-		s.taskList.SetItems(nil)
-		s.subList.SetItems(nil)
+		s.buildItems()
+		return
 	}
-	s.weekly, _ = db.WeeklyTotal(s.db, s.now)
+	s.tasks, _ = db.TasksByProject(s.db, s.currentProjectID())
+	s.subs, _ = db.SubtasksByProject(s.db, s.currentProjectID())
+	s.buildItems()
 }
 
 func (s *tasksScreen) currentProjectID() int64 {
@@ -146,43 +139,105 @@ func (s *tasksScreen) currentProjectID() int64 {
 	return s.projects[s.projIdx].ID
 }
 
-func (s *tasksScreen) loadTasks() {
-	s.tasks, _ = db.TasksByProject(s.db, s.currentProjectID())
-	items := make([]list.Item, len(s.tasks))
-	for i, t := range s.tasks {
-		items[i] = taskItem{t}
+func (s *tasksScreen) buildItems() {
+	s.items = []list.Item{}
+	for _, t := range s.tasks {
+		s.items = append(s.items, taskItem{t: t, expanded: s.expanded[t.ID]})
+		if s.expanded[t.ID] {
+			for _, st := range s.subs {
+				if st.TaskID == t.ID {
+					s.items = append(s.items, subItem{st: st, scr: s})
+				}
+			}
+		}
 	}
-	s.taskList.SetItems(items)
-	if len(items) > 0 {
-		s.taskList.Select(0)
+	selKind, selID := s.selectedKindID()
+	s.list.SetItems(s.items)
+	if len(s.items) > 0 {
+		idx := s.indexByKindID(selKind, selID)
+		if idx < 0 {
+			idx = 0
+		}
+		s.list.Select(idx)
 	}
-	s.loadSubs()
 }
 
-func (s *tasksScreen) loadSubs() {
-	s.subs = nil
-	if s.taskList.Index() < 0 {
-		s.subList.SetItems(nil)
-		return
+func (s *tasksScreen) selectedKindID() (paneKind, int64) {
+	switch item := s.list.SelectedItem().(type) {
+	case taskItem:
+		return kindTask, item.t.ID
+	case subItem:
+		return kindSubtask, item.st.ID
 	}
-	ti, ok := s.taskList.SelectedItem().(taskItem)
-	if !ok {
-		s.subList.SetItems(nil)
-		return
+	return kindTask, 0
+}
+
+func (s *tasksScreen) indexByKindID(kind paneKind, id int64) int {
+	if id == 0 {
+		return -1
 	}
-	s.subs, _ = db.SubtasksWithTime(s.db, ti.t.ID)
-	items := make([]list.Item, len(s.subs))
-	for i, st := range s.subs {
-		items[i] = subItem{st: st, scr: s}
-	}
-	s.subList.SetItems(items)
-	if len(items) > 0 {
-		idx := s.subList.Index()
-		if idx >= len(items) {
-			idx = len(items) - 1
+	for i, item := range s.items {
+		switch it := item.(type) {
+		case taskItem:
+			if kind == kindTask && it.t.ID == id {
+				return i
+			}
+		case subItem:
+			if kind == kindSubtask && it.st.ID == id {
+				return i
+			}
 		}
-		s.subList.Select(idx)
 	}
+	return -1
+}
+
+func (s *tasksScreen) selectByKindID(kind paneKind, id int64) {
+	idx := s.indexByKindID(kind, id)
+	if idx < 0 {
+		return
+	}
+	s.list.Select(idx)
+}
+
+func (s *tasksScreen) selectedKind() paneKind {
+	switch s.list.SelectedItem().(type) {
+	case taskItem:
+		return kindTask
+	case subItem:
+		return kindSubtask
+	}
+	return kindTask
+}
+
+// selectedTaskID возвращает ID задачи: выбранной или родителя выбранной подзадачи.
+func (s *tasksScreen) selectedTaskID() int64 {
+	switch item := s.list.SelectedItem().(type) {
+	case taskItem:
+		return item.t.ID
+	case subItem:
+		return item.st.TaskID
+	}
+	return 0
+}
+
+func (s *tasksScreen) toggleExpand() {
+	item, ok := s.list.SelectedItem().(taskItem)
+	if !ok {
+		return
+	}
+	s.expanded[item.t.ID] = !s.expanded[item.t.ID]
+	s.buildItems()
+}
+
+func (s *tasksScreen) canCreate(kind paneKind) bool {
+	if kind == kindTask {
+		return s.projIdx >= 0 && s.projIdx < len(s.projects)
+	}
+	return s.selectedTaskID() != 0
+}
+
+func (s *tasksScreen) canDelete() bool {
+	return s.list.Index() >= 0 && len(s.items) > 0
 }
 
 func (s *tasksScreen) switchProject(dir int) {
@@ -190,63 +245,32 @@ func (s *tasksScreen) switchProject(dir int) {
 		return
 	}
 	s.projIdx = (s.projIdx + dir + len(s.projects)) % len(s.projects)
-	s.loadTasks()
+	s.loadData()
 }
 
-func (s *tasksScreen) focusedKind() paneKind {
-	if s.focus == focusSubs {
-		return kindSubtask
-	}
-	return kindTask
-}
-
-func (s *tasksScreen) selectedTaskID() int64 {
-	ti, ok := s.taskList.SelectedItem().(taskItem)
+func (s *tasksScreen) toggleTimer() {
+	item, ok := s.list.SelectedItem().(subItem)
 	if !ok {
-		return 0
+		return
 	}
-	return ti.t.ID
+	now := time.Now()
+	if item.st.ActiveSince != nil {
+		db.StopSession(s.db, item.st.ID, now)
+	} else {
+		db.StartSession(s.db, item.st.ID, now)
+	}
+	s.now = now
+	s.loadData()
+	s.weekly, _ = db.WeeklyTotal(s.db, now)
 }
 
-func (s *tasksScreen) canCreate() bool {
-	if s.focusedKind() == kindTask {
-		return s.projIdx >= 0 && s.projIdx < len(s.projects)
-	}
-	return s.selectedTaskID() != 0
-}
-
-func (s *tasksScreen) canDelete() bool {
-	if s.focusedKind() == kindTask {
-		return s.taskList.Index() >= 0 && len(s.tasks) > 0
-	}
-	return s.subList.Index() >= 0 && len(s.subs) > 0
-}
-
-func (s *tasksScreen) selectTask(id int64) {
-	for i, t := range s.tasks {
-		if t.ID == id {
-			s.taskList.Select(i)
-			break
-		}
-	}
-}
-
-func (s *tasksScreen) selectSubtask(id int64) {
-	for i, st := range s.subs {
-		if st.ID == id {
-			s.subList.Select(i)
-			break
-		}
-	}
-}
-
-func (s *tasksScreen) createItem(kind paneKind, title string) error {
+func (s *tasksScreen) createItem(kind paneKind, title string) (int64, error) {
 	if kind == kindTask {
-		_, err := db.CreateTask(s.db, s.currentProjectID(), title)
-		return err
+		t, err := db.CreateTask(s.db, s.currentProjectID(), title)
+		return t.ID, err
 	}
-	_, err := db.CreateSubtask(s.db, s.selectedTaskID(), title)
-	return err
+	st, err := db.CreateSubtask(s.db, s.selectedTaskID(), title)
+	return st.ID, err
 }
 
 func (s *tasksScreen) deleteItem(kind paneKind, id int64) {
@@ -257,44 +281,21 @@ func (s *tasksScreen) deleteItem(kind paneKind, id int64) {
 	db.DeleteSubtask(s.db, id)
 }
 
-func (s *tasksScreen) toggleTimer() {
-	if s.subList.Index() < 0 || len(s.subs) == 0 {
-		return
-	}
-	sub := s.subs[s.subList.Index()]
-	now := time.Now()
-	if sub.ActiveSince != nil {
-		db.StopSession(s.db, sub.ID, now)
-	} else {
-		db.StartSession(s.db, sub.ID, now)
-	}
-	s.now = now
-	s.loadSubs()
-	s.weekly, _ = db.WeeklyTotal(s.db, now)
-}
-
 func (s *tasksScreen) resize(w, h int) {
 	bodyH := h - 5
 	if bodyH < 3 {
 		bodyH = 3
 	}
-	leftW := w*2/5 - 4
-	if leftW < 20 {
-		leftW = 20
+	rightW := 26
+	if w < 60 {
+		rightW = 0
 	}
-	rightW := w - leftW - 6
-	if rightW < 20 {
-		rightW = 20
+	leftW := w - rightW - 6
+	if leftW < 24 {
+		leftW = 24
 	}
-	s.taskList.SetWidth(leftW)
-	s.taskList.SetHeight(bodyH)
-
-	subH := bodyH - 6
-	if subH < 3 {
-		subH = 3
-	}
-	s.subList.SetWidth(rightW)
-	s.subList.SetHeight(subH)
+	s.list.SetWidth(leftW)
+	s.list.SetHeight(bodyH)
 }
 
 func (s *tasksScreen) view() string {
@@ -303,11 +304,16 @@ func (s *tasksScreen) view() string {
 		header += "  " + faint("проект: ") + s.projects[s.projIdx].Name
 	}
 
-	body := lipgloss.JoinHorizontal(lipgloss.Top,
-		s.taskPane(),
-		"  ",
-		lipgloss.JoinVertical(lipgloss.Left, s.subPane(), "", s.weeklyBox()),
-	)
+	var left string
+	if len(s.projects) == 0 {
+		left = dimBox.Render("Нет проектов.\nНажмите p и создайте проект.")
+	} else if len(s.tasks) == 0 {
+		left = dimBox.Render("Задач в проекте нет.")
+	} else {
+		left = focusBox.Render(s.list.View())
+	}
+
+	body := lipgloss.JoinHorizontal(lipgloss.Top, left, "  ", s.weeklyBox())
 
 	switch s.mode {
 	case taskInput:
@@ -340,43 +346,8 @@ func (s *tasksScreen) view() string {
 		}
 	}
 
-	footer := faint("↑/↓ выбор · Tab фокус · n создать · d удалить · Ctrl+L старт/пауза · [ / ] проект · p проекты · q выход")
+	footer := faint("↑/↓ выбор · Enter раскрыть · n задача · a подзадача · d удалить · Ctrl+L старт/пауза · [ / ] проект · p проекты · q выход")
 	return header + "\n\n" + body + "\n\n" + footer
-}
-
-func (s *tasksScreen) taskPane() string {
-	if len(s.projects) == 0 {
-		return dimBox.Render("Нет проектов.\nНажмите p и создайте проект.")
-	}
-	if len(s.tasks) == 0 {
-		return dimBox.Render("Задач в проекте нет.")
-	}
-	view := s.taskList.View()
-	if s.focus != focusTasks {
-		view = faintStyle.Render(view)
-	}
-	return focusOrDim(s.taskList, view)
-}
-
-func (s *tasksScreen) subPane() string {
-	if len(s.projects) == 0 || len(s.tasks) == 0 {
-		return dimBox.Render("Подзадачи появятся здесь.")
-	}
-	if len(s.subs) == 0 {
-		return dimBox.Render("Подзадач нет.")
-	}
-	view := s.subList.View()
-	if s.focus != focusSubs {
-		view = faintStyle.Render(view)
-	}
-	return focusOrDim(s.subList, view)
-}
-
-func focusOrDim(l list.Model, view string) string {
-	if l.Index() < 0 {
-		return dimBox.Render(view)
-	}
-	return focusBox.Render(view)
 }
 
 func (s *tasksScreen) weeklyBox() string {
@@ -384,6 +355,8 @@ func (s *tasksScreen) weeklyBox() string {
 		faint("по всем проектам: ") + headerStyle.Render(fmtDur(s.weekly))
 	return dimBox.Render(body)
 }
+
+// selectByKindID выделяет элемент по (kind, id) в текущем списке.
 
 func statusRU(s string) string {
 	switch s {
@@ -437,23 +410,14 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "enter":
 			title := strings.TrimSpace(s.input.Value())
 			if title != "" {
-				var created int64
-				if s.inputKind == kindTask {
-					t, err := db.CreateTask(s.db, s.currentProjectID(), title)
-					s.lastErr = err
-					created = t.ID
-				} else {
-					st, err := db.CreateSubtask(s.db, s.selectedTaskID(), title)
-					s.lastErr = err
-					created = st.ID
-				}
-				if s.lastErr == nil {
-					s.loadTasks()
-					if s.inputKind == kindTask {
-						s.selectTask(created)
-					} else {
-						s.selectSubtask(created)
+				created, err := s.createItem(s.inputKind, title)
+				s.lastErr = err
+				if err == nil {
+					if s.inputKind == kindSubtask {
+						s.expanded[s.selectedTaskID()] = true
 					}
+					s.loadData()
+					s.selectByKindID(s.inputKind, created)
 				}
 			}
 			s.input.SetValue("")
@@ -470,7 +434,7 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "y", "enter":
 			s.deleteItem(s.confirmKind, s.confirmID)
 			s.mode = taskBrowse
-			s.loadTasks()
+			s.loadData()
 		case "n", "esc":
 			s.mode = taskBrowse
 		}
@@ -478,10 +442,8 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg.String() {
-	case "tab":
-		if s.projIdx >= 0 && len(s.tasks) > 0 {
-			s.focus = !s.focus
-		}
+	case "enter", "right":
+		s.toggleExpand()
 		return m, nil
 	case "ctrl+l":
 		s.toggleTimer()
@@ -493,8 +455,16 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		s.switchProject(1)
 		return m, nil
 	case "n":
-		if s.canCreate() {
-			s.inputKind = s.focusedKind()
+		if s.canCreate(kindTask) {
+			s.inputKind = kindTask
+			s.lastErr = nil
+			s.mode = taskInput
+			s.input.Focus()
+		}
+		return m, nil
+	case "a":
+		if s.canCreate(kindSubtask) {
+			s.inputKind = kindSubtask
 			s.lastErr = nil
 			s.mode = taskInput
 			s.input.Focus()
@@ -502,11 +472,16 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "d":
 		if s.canDelete() {
-			s.confirmKind = s.focusedKind()
-			if s.confirmKind == kindTask {
-				s.confirmID = s.tasks[s.taskList.Index()].ID
-			} else {
-				s.confirmID = s.subs[s.subList.Index()].ID
+			s.confirmKind = s.selectedKind()
+			switch s.confirmKind {
+			case kindTask:
+				if item, ok := s.list.SelectedItem().(taskItem); ok {
+					s.confirmID = item.t.ID
+				}
+			case kindSubtask:
+				if item, ok := s.list.SelectedItem().(subItem); ok {
+					s.confirmID = item.st.ID
+				}
 			}
 			s.mode = taskConfirm
 		}
@@ -516,16 +491,7 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.proj.load()
 		return m, nil
 	}
-	if s.focus == focusTasks {
-		before := s.taskList.Index()
-		var cmd tea.Cmd
-		s.taskList, cmd = s.taskList.Update(msg)
-		if s.taskList.Index() != before {
-			s.loadSubs()
-		}
-		return m, cmd
-	}
 	var cmd tea.Cmd
-	s.subList, cmd = s.subList.Update(msg)
+	s.list, cmd = s.list.Update(msg)
 	return m, cmd
 }

@@ -94,6 +94,47 @@ func TestDeleteSubtaskCascadesTime(t *testing.T) {
 	}
 }
 
+func TestSubtasksByProject(t *testing.T) {
+	conn := openTestDB(t)
+	pid := seedProject(t, conn)
+	t1, err := CreateTask(conn, pid, "t1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t2, err := CreateTask(conn, pid, "t2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, title := range []string{"a1", "a2"} {
+		if _, err := CreateSubtask(conn, t1.ID, title); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := CreateSubtask(conn, t2.ID, "b1"); err != nil {
+		t.Fatal(err)
+	}
+
+	subs, err := SubtasksByProject(conn, pid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(subs) != 3 {
+		t.Fatalf("подзадач: %d, ожидалось 3", len(subs))
+	}
+	want := []struct {
+		taskID int64
+		title  string
+	}{
+		{t1.ID, "a1"}, {t1.ID, "a2"}, {t2.ID, "b1"},
+	}
+	for i, w := range want {
+		if subs[i].TaskID != w.taskID || subs[i].Title != w.title {
+			t.Errorf("subs[%d] = task %d %q, ожидалось task %d %q",
+				i, subs[i].TaskID, subs[i].Title, w.taskID, w.title)
+		}
+	}
+}
+
 func seedProject(t *testing.T, conn *sql.DB) int64 {
 	t.Helper()
 	now := time.Now().Unix()

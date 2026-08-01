@@ -176,6 +176,34 @@ func taskIDOfSubtask(t *testing.T, conn *sql.DB, sid int64) int64 {
 	return tid
 }
 
+func TestTodayTotal(t *testing.T) {
+	conn := openTestDB(t)
+	sid := seedSubtask(t, conn)
+
+	day := time.Date(2026, 7, 29, 0, 0, 0, 0, time.Local)
+	now := day.Add(15 * time.Hour)
+
+	addClosed := func(start, end time.Time) {
+		exec(t, conn, "INSERT INTO time_entries (subtask_id, started_at, ended_at) VALUES (?, ?, ?)",
+			sid, start.Unix(), end.Unix())
+	}
+	addClosed(day.Add(10*time.Hour), day.Add(11*time.Hour))                     // 3600с сегодня
+	addClosed(day.AddDate(0, 0, -1).Add(23*time.Hour), day.Add(30*time.Minute)) // пересекает полночь: 1800с
+	addClosed(day.AddDate(0, 0, -2), day.AddDate(0, 0, -1))                     // целиком до сегодня
+
+	exec(t, conn, "INSERT INTO time_entries (subtask_id, started_at) VALUES (?, ?)",
+		sid, day.AddDate(0, 0, -1).Add(23*time.Hour).Unix()) // активная со вчера 23:00
+
+	want := 3600 + 1800 + int64(now.Sub(day).Seconds())
+	got, err := TodayTotal(conn, now)
+	if err != nil {
+		t.Fatalf("TodayTotal: %v", err)
+	}
+	if int64(got.Seconds()) != want {
+		t.Errorf("TodayTotal = %ds, ожидалось %ds", int64(got.Seconds()), want)
+	}
+}
+
 func TestWeeklyTotal(t *testing.T) {
 	conn := openTestDB(t)
 	sid := seedSubtask(t, conn)

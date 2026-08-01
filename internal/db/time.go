@@ -83,16 +83,27 @@ LIMIT 1`)
 	return &st, nil
 }
 
+// TodayTotal возвращает суммарное время за сегодня (00:00 — сейчас) по всем
+// проектам. Активная сессия учитывается частично.
+func TodayTotal(conn *sql.DB, now time.Time) (time.Duration, error) {
+	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	return rangeTotal(conn, dayStart, dayStart.AddDate(0, 0, 1), now)
+}
+
 // WeeklyTotal возвращает суммарное время за текущую неделю (пн 00:00 локального
 // времени — сейчас) по всем проектам. Активная сессия учитывается частично.
 func WeeklyTotal(conn *sql.DB, now time.Time) (time.Duration, error) {
 	weekStart := mondayOf(now)
-	weekEnd := weekStart.AddDate(0, 0, 7)
+	return rangeTotal(conn, weekStart, weekStart.AddDate(0, 0, 7), now)
+}
 
+// rangeTotal суммирует время записей, пересекающих интервал [from, to),
+// обрезая их по границам; активная сессия считается до now.
+func rangeTotal(conn *sql.DB, from, to, now time.Time) (time.Duration, error) {
 	rows, err := conn.Query(`
 SELECT started_at, ended_at FROM time_entries
 WHERE started_at < ? AND (ended_at IS NULL OR ended_at > ?)`,
-		weekEnd.Unix(), weekStart.Unix())
+		to.Unix(), from.Unix())
 	if err != nil {
 		return 0, err
 	}
@@ -109,8 +120,8 @@ WHERE started_at < ? AND (ended_at IS NULL OR ended_at > ?)`,
 		if ended.Valid {
 			end = ended.Int64
 		}
-		start = max(start, weekStart.Unix())
-		end = min(end, weekEnd.Unix())
+		start = max(start, from.Unix())
+		end = min(end, to.Unix())
 		if end > start {
 			total += end - start
 		}

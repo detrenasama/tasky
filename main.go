@@ -81,6 +81,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		now := time.Time(msg)
 		m.tasks.now = now
 		if m.screen == screenTasks {
+			m.tasks.today, _ = db.TodayTotal(m.db, now)
 			m.tasks.weekly, _ = db.WeeklyTotal(m.db, now)
 		}
 		return m, tea.Tick(time.Second, tickCmd)

@@ -69,6 +69,12 @@ func fixedBox(style lipgloss.Style, content string, w, h int) string {
 // padLines приводит многострочный текст к холсту w×h, дополняя пробелами
 // и обрезая лишние строки.
 func padLines(content string, w, h int) string {
+	if h <= 0 {
+		return ""
+	}
+	if w < 0 {
+		w = 0
+	}
 	lines := strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n")
 	if len(lines) > h {
 		lines = lines[:h]

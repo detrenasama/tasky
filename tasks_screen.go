@@ -80,6 +80,7 @@ type tasksScreen struct {
 	list     list.Model
 	items    []list.Item
 	expanded map[int64]bool
+	today    time.Duration
 	weekly   time.Duration
 	now      time.Time
 
@@ -125,6 +126,7 @@ func (s *tasksScreen) load() {
 		s.projIdx = 0
 	}
 	s.loadData()
+	s.today, _ = db.TodayTotal(s.db, s.now)
 	s.weekly, _ = db.WeeklyTotal(s.db, s.now)
 }
 
@@ -280,6 +282,7 @@ func (s *tasksScreen) toggleTimer() {
 	}
 	s.now = now
 	s.loadData()
+	s.today, _ = db.TodayTotal(s.db, now)
 	s.weekly, _ = db.WeeklyTotal(s.db, now)
 }
 
@@ -341,7 +344,7 @@ func (s *tasksScreen) view(w, h int) string {
 		left = fixedBox(dimBox, "Задач в проекте нет.", s.listW, s.midH)
 	} else {
 		// bubbles/list не дополняет строки до ширины — паддинг вручную
-		left = focusBox.Render(padLines(s.list.View(), s.listW-4, s.midH-2))
+		left = focusBox.Render(padLines(s.list.View(), max(s.listW-4, 0), max(s.midH-2, 0)))
 	}
 
 	cols := []string{left}
@@ -495,6 +498,7 @@ func entryLine(e db.TimeEntry, now time.Time) string {
 
 func (s *tasksScreen) infoBottom() string {
 	body := []string{
+		faint("За сегодня: ") + fmtDur(s.today),
 		faint("Неделя (Пн–Вс): ") + fmtDur(s.weekly),
 		"",
 	}

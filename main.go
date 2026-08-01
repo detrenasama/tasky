@@ -56,8 +56,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-		m.tasks.resize(m.width, m.height)
-		m.proj.resize(m.width, m.height)
+		if m.height < 3 {
+			m.height = 3
+		}
+		m.tasks.resize(m.width, m.height-2)
+		m.proj.resize(m.width, m.height-2)
 		return m, nil
 	case tea.KeyMsg:
 		if m.screen == screenProjects && m.proj.mode == projInput {
@@ -86,10 +89,30 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	if m.screen == screenProjects {
-		return m.proj.view()
+	w, h := m.width, m.height
+	if h < 3 {
+		h = 3
 	}
-	return m.tasks.view()
+	midH := h - 2
+
+	var header, mid, footer string
+	var dlg string
+	var modalOpen bool
+	if m.screen == screenProjects {
+		header, footer = m.proj.header(w), m.proj.footer(w)
+		mid = m.proj.view(w, midH)
+		dlg, modalOpen = m.proj.dialog()
+	} else {
+		header, footer = m.tasks.header(w), m.tasks.footer(w)
+		mid = m.tasks.view(w, midH)
+		dlg, modalOpen = m.tasks.dialog()
+	}
+
+	full := header + "\n" + mid + "\n" + footer
+	if modalOpen {
+		full = overlay(full, dlg, w, h)
+	}
+	return full
 }
 
 func main() {

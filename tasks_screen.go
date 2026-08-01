@@ -83,6 +83,14 @@ type tasksScreen struct {
 	weekly   time.Duration
 	now      time.Time
 
+	entries []db.TimeEntry
+	run     *db.SubtaskWithTime
+
+	midH  int
+	listW int
+	descW int
+	infoW int
+
 	mode        taskMode
 	input       textinput.Model
 	inputKind   paneKind
@@ -125,11 +133,22 @@ func (s *tasksScreen) loadData() {
 		s.tasks = nil
 		s.subs = nil
 		s.buildItems()
+		s.loadInfo()
 		return
 	}
 	s.tasks, _ = db.TasksByProject(s.db, s.currentProjectID())
 	s.subs, _ = db.SubtasksByProject(s.db, s.currentProjectID())
 	s.buildItems()
+	s.loadInfo()
+}
+
+func (s *tasksScreen) loadInfo() {
+	s.run, _ = db.RunningSession(s.db)
+	s.entries = nil
+	kind, id := s.selectedKindID()
+	if kind == kindSubtask {
+		s.entries, _ = db.TimeEntriesBySubtask(s.db, id)
+	}
 }
 
 func (s *tasksScreen) currentProjectID() int64 {
@@ -282,28 +301,47 @@ func (s *tasksScreen) deleteItem(kind paneKind, id int64) {
 }
 
 func (s *tasksScreen) resize(w, h int) {
-	bodyH := h - 5
-	if bodyH < 3 {
-		bodyH = 3
+	s.midH = h
+	if s.midH < 3 {
+		s.midH = 3
 	}
-	rightW := 26
-	if w < 60 {
-		rightW = 0
+	infoW, descW := 34, 0
+	if w < 70 {
+		infoW = 0
 	}
-	leftW := w - rightW - 6
-	if leftW < 24 {
-		leftW = 24
+	if w >= 110 {
+		descW = 26
 	}
-	s.list.SetWidth(leftW)
-	s.list.SetHeight(bodyH)
+	listW := w - infoW - descW
+	if infoW > 0 {
+		listW -= 2
+	}
+	if descW > 0 {
+		listW -= 2
+	}
+	if listW < 30 {
+		infoW, descW = 0, 0
+		listW = w
+	}
+	s.listW, s.descW, s.infoW = listW, descW, infoW
+	s.list.SetWidth(listW - 2)
+	s.list.SetHeight(s.midH - 2)
 }
 
-func (s *tasksScreen) view() string {
-	header := headerStyle.Render("Tasky")
+func (s *tasksScreen) header(w int) string {
+	h := headerStyle.Render("Tasky")
 	if s.projIdx >= 0 && s.projIdx < len(s.projects) {
-		header += "  " + faint("проект: ") + s.projects[s.projIdx].Name
+		h += "  " + faint("проект: ") + s.projects[s.projIdx].Name
 	}
+	return padW(h, w)
+}
 
+func (s *tasksScreen) footer(w int) string {
+	hint := "↑/↓ выбор · Enter раскрыть · n задача · a подзадача · d удалить · Ctrl+L старт/пауза · [ / ] проект · p проекты · q выход"
+	return padW(faint(hint), w)
+}
+
+func (s *tasksScreen) view(w, h int) string {
 	var left string
 	if len(s.projects) == 0 {
 		left = dimBox.Render("Нет проектов.\nНажмите p и создайте проект.")
@@ -313,18 +351,31 @@ func (s *tasksScreen) view() string {
 		left = focusBox.Render(s.list.View())
 	}
 
-	body := lipgloss.JoinHorizontal(lipgloss.Top, left, "  ", s.weeklyBox())
+	cols := []string{left}
+	if s.descW > 0 {
+		cols = append(cols, "  ", s.descBox())
+	}
+	if s.infoW > 0 {
+		cols = append(cols, "  ", s.infoBox())
+	}
+	body := lipgloss.JoinHorizontal(lipgloss.Top, cols...)
+	return padH(body, w, h)
+}
 
+func (s *tasksScreen) dialog() (string, bool) {
 	switch s.mode {
 	case taskInput:
-		kind := "задачи"
+		kind := "задача"
 		if s.inputKind == kindSubtask {
-			kind = "подзадачи"
+			kind = "подзадача"
 		}
-		body += "\n\n" + boxStyle.Render("Название "+kind+":\n"+s.input.View())
+		body := s.input.View()
 		if s.lastErr != nil {
-			body += "\n" + errorStyle.Render("Ошибка: "+s.lastErr.Error())
+			body += "\n\n" + errorStyle.Render("Ошибка: "+s.lastErr.Error())
 		}
+		d := dialog{title: "Новая " + kind, body: body,
+			primary: "Enter — сохранить", esc: "Esc — отмена"}
+		return d.render(), true
 	case taskConfirm:
 		name := ""
 		if s.confirmKind == kindTask {
@@ -333,30 +384,136 @@ func (s *tasksScreen) view() string {
 					name = t.Title
 				}
 			}
-			body += "\n\n" + boxStyle.Render(
-				fmt.Sprintf("Удалить задачу «%s» с подзадачами и временем? (y/n)", name))
 		} else {
 			for _, st := range s.subs {
 				if st.ID == s.confirmID {
 					name = st.Title
 				}
 			}
-			body += "\n\n" + boxStyle.Render(
-				fmt.Sprintf("Удалить подзадачу «%s» и её время? (y/n)", name))
 		}
+		var d dialog
+		if s.confirmKind == kindTask {
+			d = dialog{title: "Удаление задачи",
+				body:    fmt.Sprintf("Удалить задачу «%s» с подзадачами и временем?", name),
+				primary: "y — да", esc: "n — нет"}
+		} else {
+			d = dialog{title: "Удаление подзадачи",
+				body:    fmt.Sprintf("Удалить подзадачу «%s» и её время?", name),
+				primary: "y — да", esc: "n — нет"}
+		}
+		return d.render(), true
 	}
-
-	footer := faint("↑/↓ выбор · Enter раскрыть · n задача · a подзадача · d удалить · Ctrl+L старт/пауза · [ / ] проект · p проекты · q выход")
-	return header + "\n\n" + body + "\n\n" + footer
+	return "", false
 }
 
-func (s *tasksScreen) weeklyBox() string {
-	body := headerStyle.Render("Неделя (Пн–Вс)") + "\n" +
-		faint("по всем проектам: ") + headerStyle.Render(fmtDur(s.weekly))
-	return dimBox.Render(body)
+// descBox — зарезервированная колонка под описание задачи/подзадачи.
+func (s *tasksScreen) descBox() string {
+	title := faint("Описание")
+	return dimBox.Render(title + strings.Repeat("\n", max(s.midH-3, 0)))
 }
 
-// selectByKindID выделяет элемент по (kind, id) в текущем списке.
+// infoBox — правая колонка: выбранный элемент + общая информация.
+func (s *tasksScreen) infoBox() string {
+	top := s.infoTop()
+	topH := len(strings.Split(top, "\n"))
+	botH := s.midH - topH
+	if botH < 3 {
+		botH = 3
+	}
+	return lipgloss.JoinVertical(lipgloss.Left,
+		top, "\n", s.infoBottom(botH))
+}
+
+func (s *tasksScreen) infoTop() string {
+	kind, id := s.selectedKindID()
+	var body []string
+	switch {
+	case kind == kindTask && id == 0:
+		body = append(body, faint("Выберите задачу или подзадачу."))
+	case kind == kindSubtask:
+		var st *db.SubtaskWithTime
+		for i := range s.subs {
+			if s.subs[i].ID == id {
+				st = &s.subs[i]
+			}
+		}
+		if st == nil {
+			body = append(body, faint("Подзадача не найдена."))
+			break
+		}
+		body = append(body, st.Title)
+		body = append(body, faint("Статус: ")+statusRU(st.Status))
+		total := time.Duration(st.TotalSeconds) * time.Second
+		if st.ActiveSince != nil {
+			total += s.now.Sub(time.Unix(*st.ActiveSince, 0))
+		}
+		body = append(body, faint("Время всего: ")+fmtDur(total))
+		body = append(body, "")
+		for _, e := range s.entries {
+			body = append(body, entryLine(e, s.now))
+		}
+		if len(s.entries) == 0 {
+			body = append(body, faint("Записей нет."))
+		}
+	case kind == kindTask:
+		var t *db.Task
+		for i := range s.tasks {
+			if s.tasks[i].ID == id {
+				t = &s.tasks[i]
+			}
+		}
+		if t == nil {
+			body = append(body, faint("Задача не найдена."))
+			break
+		}
+		body = append(body, t.Title)
+		body = append(body, faint("Статус: ")+statusRU(t.Status))
+		plural := "подзадач"
+		if t.SubCount == 1 {
+			plural = "подзадача"
+		}
+		var sum time.Duration
+		for _, st := range s.subs {
+			if st.TaskID != t.ID {
+				continue
+			}
+			d := time.Duration(st.TotalSeconds) * time.Second
+			if st.ActiveSince != nil {
+				d += s.now.Sub(time.Unix(*st.ActiveSince, 0))
+			}
+			sum += d
+			body = append(body, "  ├ "+st.Title+" · "+fmtDur(d))
+		}
+		body = append(body, faint(fmt.Sprintf("%d %s, всего: %s", t.SubCount, plural, fmtDur(sum))))
+	default:
+		body = append(body, faint("Выберите задачу или подзадачу."))
+	}
+	return boxStyle.Render(strings.Join(body, "\n"))
+}
+func entryLine(e db.TimeEntry, now time.Time) string {
+	start := e.StartedAt.Format("15:04")
+	if e.EndedAt == nil {
+		return start + "–… · " + faint("идет "+fmtElapsed(now.Sub(e.StartedAt)))
+	}
+	d := time.Duration(e.EndedAt.Sub(e.StartedAt))
+	return start + "–" + e.EndedAt.Format("15:04") + " · " + fmtDur(d)
+}
+
+func (s *tasksScreen) infoBottom(botH int) string {
+	body := []string{
+		faint("Неделя (Пн–Вс): ") + fmtDur(s.weekly),
+		"",
+	}
+	if s.run != nil {
+		elapsed := s.now.Sub(time.Unix(*s.run.ActiveSince, 0))
+		body = append(body, "Сейчас: "+s.run.Title)
+		body = append(body, faint("идет "+fmtElapsed(elapsed)))
+	} else {
+		body = append(body, faint("Ничего не запущено."))
+	}
+	inner := strings.Join(body, "\n")
+	return boxStyle.Render(inner + strings.Repeat("\n", max(botH-2-len(body), 0)))
+}
 
 func statusRU(s string) string {
 	switch s {
@@ -493,6 +650,11 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	var cmd tea.Cmd
+	beforeKind, beforeID := s.selectedKindID()
 	s.list, cmd = s.list.Update(msg)
+	afterKind, afterID := s.selectedKindID()
+	if beforeKind != afterKind || beforeID != afterID {
+		s.loadInfo()
+	}
 	return m, cmd
 }

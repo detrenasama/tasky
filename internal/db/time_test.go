@@ -103,6 +103,70 @@ func TestStartSessionStopsOthers(t *testing.T) {
 	}
 }
 
+func TestTimeEntriesBySubtask(t *testing.T) {
+	conn := openTestDB(t)
+	sid := seedSubtask(t, conn)
+
+	exec(t, conn, "INSERT INTO time_entries (subtask_id, started_at, ended_at) VALUES (?, ?, ?)",
+		sid, 1_700_000_000, 1_700_000_060)
+	exec(t, conn, "INSERT INTO time_entries (subtask_id, started_at, ended_at) VALUES (?, ?, ?)",
+		sid, 1_700_000_100, 1_700_000_130)
+	exec(t, conn, "INSERT INTO time_entries (subtask_id, started_at) VALUES (?, ?)",
+		sid, 1_700_000_200)
+
+	entries, err := TimeEntriesBySubtask(conn, sid)
+	if err != nil {
+		t.Fatalf("TimeEntriesBySubtask: %v", err)
+	}
+	if len(entries) != 3 {
+		t.Fatalf("записей: %d, ожидалось 3", len(entries))
+	}
+	if !entries[0].StartedAt.Equal(time.Unix(1_700_000_000, 0)) {
+		t.Errorf("первая запись должна начинаться с 1700000000")
+	}
+	if entries[0].EndedAt == nil || !entries[0].EndedAt.Equal(time.Unix(1_700_000_060, 0)) {
+		t.Error("первая запись должна быть закрыта")
+	}
+	if entries[2].EndedAt != nil {
+		t.Error("последняя запись должна быть открыта")
+	}
+}
+
+func TestRunningSession(t *testing.T) {
+	conn := openTestDB(t)
+
+	run, err := RunningSession(conn)
+	if err != nil {
+		t.Fatalf("RunningSession: %v", err)
+	}
+	if run != nil {
+		t.Error("без сессий должно вернуться nil")
+	}
+
+	sid := seedSubtask(t, conn)
+	now := time.Unix(1_700_000_000, 0)
+	if err := StartSession(conn, sid, now); err != nil {
+		t.Fatalf("StartSession: %v", err)
+	}
+	run, err = RunningSession(conn)
+	if err != nil {
+		t.Fatalf("RunningSession: %v", err)
+	}
+	if run == nil || run.ID != sid || run.ActiveSince == nil {
+		t.Fatalf("ожидалась активная сессия подзадачи %d, получено %+v", sid, run)
+	}
+	if err := StopSession(conn, sid, now.Add(time.Minute)); err != nil {
+		t.Fatalf("StopSession: %v", err)
+	}
+	run, err = RunningSession(conn)
+	if err != nil {
+		t.Fatalf("RunningSession: %v", err)
+	}
+	if run != nil {
+		t.Error("после остановки активной сессии быть не должно")
+	}
+}
+
 func taskIDOfSubtask(t *testing.T, conn *sql.DB, sid int64) int64 {
 	t.Helper()
 	var tid int64

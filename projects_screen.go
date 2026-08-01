@@ -69,28 +69,38 @@ func (s *projectsScreen) load() {
 }
 
 func (s *projectsScreen) resize(w, h int) {
-	s.list.SetWidth(w - 4)
-	s.list.SetHeight(h - 8)
+	s.list.SetWidth(w - 2)
+	s.list.SetHeight(h - 2)
 }
 
-func (s *projectsScreen) view() string {
-	header := headerStyle.Render("Проекты") + "  " +
-		faint("n — создать · d — удалить · esc — назад · q — выход")
+func (s *projectsScreen) header(w int) string {
+	return padW(headerStyle.Render("Tasky")+"  "+faint("Проекты"), w)
+}
 
+func (s *projectsScreen) footer(w int) string {
+	return padW(faint("n — создать · d — удалить · esc — назад · q — выход"), w)
+}
+
+func (s *projectsScreen) view(w, h int) string {
 	var body string
 	if len(s.projects) == 0 && s.mode == projBrowse {
 		body = dimBox.Render("Проектов нет.\nНажмите n для создания.")
 	} else {
 		body = focusBox.Render(s.list.View())
 	}
+	return padH(body, w, h)
+}
 
+func (s *projectsScreen) dialog() (string, bool) {
 	switch s.mode {
 	case projInput:
-		prompt := boxStyle.Render("Название проекта:\n" + s.input.View())
-		body += "\n\n" + prompt
+		body := s.input.View()
 		if s.lastErr != nil {
-			body += "\n" + errorStyle.Render("Ошибка: "+s.lastErr.Error())
+			body += "\n\n" + errorStyle.Render("Ошибка: "+s.lastErr.Error())
 		}
+		d := dialog{title: "Новый проект", body: body,
+			primary: "Enter — создать", esc: "Esc — отмена"}
+		return d.render(), true
 	case projConfirm:
 		name := ""
 		for _, p := range s.projects {
@@ -98,10 +108,12 @@ func (s *projectsScreen) view() string {
 				name = p.Name
 			}
 		}
-		body += "\n\n" + boxStyle.Render(
-			fmt.Sprintf("Удалить проект «%s» и всё его время? (y/n)", name))
+		d := dialog{title: "Удаление проекта",
+			body:    fmt.Sprintf("Удалить проект «%s» и всё его время?", name),
+			primary: "y — удалить", esc: "n — нет"}
+		return d.render(), true
 	}
-	return header + "\n\n" + body
+	return "", false
 }
 
 func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {

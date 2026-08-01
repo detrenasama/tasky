@@ -33,6 +33,56 @@ func StopSession(conn *sql.DB, subtaskID int64, now time.Time) error {
 	return err
 }
 
+// TimeEntriesBySubtask возвращает все записи учёта времени подзадачи
+// (по возрастанию начала).
+func TimeEntriesBySubtask(conn *sql.DB, subtaskID int64) ([]TimeEntry, error) {
+	rows, err := conn.Query(`
+SELECT id, subtask_id, started_at, ended_at, note FROM time_entries
+WHERE subtask_id = ?
+ORDER BY started_at, id`, subtaskID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []TimeEntry
+	for rows.Next() {
+		var e TimeEntry
+		var started, ended sql.NullInt64
+		if err := rows.Scan(&e.ID, &e.SubtaskID, &started, &ended, &e.Note); err != nil {
+			return nil, err
+		}
+		e.StartedAt = time.Unix(started.Int64, 0)
+		if ended.Valid {
+			t := time.Unix(ended.Int64, 0)
+			e.EndedAt = &t
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
+// RunningSession возвращает заголовок подзадачи и время старта единственной
+// активной сессии (или nil, если ничего не запущено).
+func RunningSession(conn *sql.DB) (*SubtaskWithTime, error) {
+	row := conn.QueryRow(`
+SELECT s.id, s.task_id, s.title, te.started_at
+FROM time_entries te
+JOIN subtasks s ON s.id = te.subtask_id
+WHERE te.ended_at IS NULL
+LIMIT 1`)
+	var st SubtaskWithTime
+	var started int64
+	if err := row.Scan(&st.ID, &st.TaskID, &st.Title, &started); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	st.ActiveSince = &started
+	return &st, nil
+}
+
 // WeeklyTotal возвращает суммарное время за текущую неделю (пн 00:00 локального
 // времени — сейчас) по всем проектам. Активная сессия учитывается частично.
 func WeeklyTotal(conn *sql.DB, now time.Time) (time.Duration, error) {

@@ -30,3 +30,11 @@ type SubtaskWithTime struct {
 	TotalSeconds int64
 	ActiveSince  *int64
 }
+
+type TimeEntry struct {
+	ID        int64
+	SubtaskID int64
+	StartedAt time.Time
+	EndedAt   *time.Time
+	Note      string
+}

@@ -2,26 +2,31 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 )
 
+var seedSeq int64
+
 func seedSubtask(t *testing.T, conn *sql.DB) int64 {
 	t.Helper()
+	seedSeq++
 	now := time.Now().Unix()
-	exec(t, conn, "INSERT INTO projects (name, created_at) VALUES ('p', ?)", now)
+	exec(t, conn, "INSERT INTO projects (name, created_at) VALUES (?, ?)",
+		fmt.Sprintf("p%d", seedSeq), now)
 	var pid int64
-	if err := conn.QueryRow("SELECT id FROM projects").Scan(&pid); err != nil {
+	if err := conn.QueryRow("SELECT id FROM projects ORDER BY id DESC LIMIT 1").Scan(&pid); err != nil {
 		t.Fatal(err)
 	}
 	exec(t, conn, "INSERT INTO tasks (project_id, title, created_at) VALUES (?, 't', ?)", pid, now)
 	var tid int64
-	if err := conn.QueryRow("SELECT id FROM tasks").Scan(&tid); err != nil {
+	if err := conn.QueryRow("SELECT id FROM tasks ORDER BY id DESC LIMIT 1").Scan(&tid); err != nil {
 		t.Fatal(err)
 	}
 	exec(t, conn, "INSERT INTO subtasks (task_id, title, created_at) VALUES (?, 's', ?)", tid, now)
 	var sid int64
-	if err := conn.QueryRow("SELECT id FROM subtasks").Scan(&sid); err != nil {
+	if err := conn.QueryRow("SELECT id FROM subtasks ORDER BY id DESC LIMIT 1").Scan(&sid); err != nil {
 		t.Fatal(err)
 	}
 	return sid
@@ -62,6 +67,39 @@ func TestStartStopSession(t *testing.T) {
 	}
 	if subs[0].ActiveSince != nil {
 		t.Error("ActiveSince должен быть nil после остановки")
+	}
+}
+
+func TestStartSessionStopsOthers(t *testing.T) {
+	conn := openTestDB(t)
+	sidA := seedSubtask(t, conn)
+	sidB := seedSubtask(t, conn)
+
+	now := time.Unix(1_700_000_000, 0)
+	if err := StartSession(conn, sidA, now); err != nil {
+		t.Fatalf("StartSession(A): %v", err)
+	}
+	if err := StartSession(conn, sidB, now.Add(5*time.Second)); err != nil {
+		t.Fatalf("StartSession(B): %v", err)
+	}
+
+	var open int
+	if err := conn.QueryRow(
+		"SELECT COUNT(*) FROM time_entries WHERE ended_at IS NULL").Scan(&open); err != nil {
+		t.Fatal(err)
+	}
+	if open != 1 {
+		t.Errorf("открытых сессий всего: %d, ожидалась 1", open)
+	}
+
+	var total int64
+	if err := conn.QueryRow(
+		"SELECT SUM(ended_at - started_at) FROM time_entries WHERE subtask_id = ?", sidA,
+	).Scan(&total); err != nil {
+		t.Fatal(err)
+	}
+	if total != 5 {
+		t.Errorf("время сессии A = %ds, ожидалось 5с (остановлена при старте B)", total)
 	}
 }
 

@@ -5,11 +5,25 @@ import (
 	"time"
 )
 
+// StartSession запускает сессию для подзадачи, предварительно останавливая
+// любую другую активную сессию (одновременно может идти только одна).
 func StartSession(conn *sql.DB, subtaskID int64, now time.Time) error {
-	_, err := conn.Exec(
+	tx, err := conn.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(
+		"UPDATE time_entries SET ended_at = ? WHERE ended_at IS NULL AND subtask_id != ?",
+		now.Unix(), subtaskID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(
 		"INSERT INTO time_entries (subtask_id, started_at) VALUES (?, ?)",
-		subtaskID, now.Unix())
-	return err
+		subtaskID, now.Unix()); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func StopSession(conn *sql.DB, subtaskID int64, now time.Time) error {

@@ -377,13 +377,14 @@ func fmtDur(d time.Duration) string {
 	}
 	h := int(d / time.Hour)
 	m := int(d%time.Hour) / int(time.Minute)
+	sec := int(d%time.Minute) / int(time.Second)
 	if h > 0 {
 		return fmt.Sprintf("%dч %dм", h, m)
 	}
 	if m > 0 {
-		return fmt.Sprintf("%dм", m)
+		return fmt.Sprintf("%dм %dс", m, sec)
 	}
-	return "0м"
+	return fmt.Sprintf("%dс", sec)
 }
 
 func fmtElapsed(d time.Duration) string {

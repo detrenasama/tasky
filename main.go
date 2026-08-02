@@ -101,6 +101,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.screen == screenTasks && m.tasks.mode == taskInput {
 			return m.updateTasks(msg)
 		}
+		if m.screen == screenProjects &&
+			(m.proj.mode == projDescEdit || m.proj.mode == projLinkInput || m.proj.mode == projLinks || m.proj.mode == projLinkConfirm) {
+			return m.updateProjects(msg)
+		}
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return m, tea.Quit

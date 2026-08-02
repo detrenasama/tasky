@@ -39,6 +39,18 @@ func truncateW(line string, width int) string {
 	return b.String()
 }
 
+// truncateWEnd обрезает строку до видимой ширины width, сохраняя ANSI-коды;
+// если строка не влезла, хвост заменяется многоточием.
+func truncateWEnd(line string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	if lipgloss.Width(line) <= width {
+		return line
+	}
+	return truncateW(line, width-1) + "…"
+}
+
 // padH приводит body к холсту w×h: обрезает лишние строки, дополняет
 // недостающие пробелами.
 func padH(body string, w, h int) string {

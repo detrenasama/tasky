@@ -38,3 +38,11 @@ type TimeEntry struct {
 	EndedAt   *time.Time
 	Note      string
 }
+
+type ProjectLink struct {
+	ID        int64
+	ProjectID int64
+	Name      string
+	URL       string
+	CreatedAt time.Time
+}

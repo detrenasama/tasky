@@ -48,9 +48,49 @@ CREATE INDEX IF NOT EXISTS idx_time_entries_subtask ON time_entries(subtask_id);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_time_entries_open
     ON time_entries(subtask_id) WHERE ended_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS project_links (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    name       TEXT    NOT NULL DEFAULT '',
+    url        TEXT    NOT NULL,
+    created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_project_links_project ON project_links(project_id);
 `
 
 func CreateSchema(conn *sql.DB) error {
-	_, err := conn.Exec(schema)
+	if _, err := conn.Exec(schema); err != nil {
+		return err
+	}
+	return migrate(conn)
+}
+
+// migrate приводит существующие БД к актуальной схеме.
+func migrate(conn *sql.DB) error {
+	rows, err := conn.Query("PRAGMA table_info(project_links)")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	hasName := false
+	for rows.Next() {
+		var cid, notnull, pk int
+		var name, ctype string
+		var dflt any
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			return err
+		}
+		if name == "name" {
+			hasName = true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if !hasName {
+		_, err = conn.Exec("ALTER TABLE project_links ADD COLUMN name TEXT NOT NULL DEFAULT ''")
+	}
 	return err
 }

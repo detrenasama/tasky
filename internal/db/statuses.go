@@ -177,6 +177,19 @@ SELECT name FROM statuses WHERE type = 'new' ORDER BY sort_order, id LIMIT 1`).
 // SetStatus меняет статус задачи или подзадачи: обновляет status (и
 // completed_at при входе/выходе из завершённого типа) и записывает переход
 // в status_history (и для задач, и для подзадач).
+// statusMergeWindow — окно в секундах: переход в течение этого времени от
+// последней записи истории заменяет её вместо добавления новой.
+const statusMergeWindow = 60
+
+// SetStatus меняет статус задачи/подзадачи и пишет переход в status_history.
+// Если с последней записи владельца прошло не больше statusMergeWindow
+// секунд — запись заменяется (обновляются to_status, note, created_at,
+// from_status остаётся первым статусом группы); возврат к from_status этой
+// записи (в окне слияния) удаляет её (чтобы не было «X → X»); иначе
+// добавляется новая запись. Смена статуса на тот же с другим комментарием
+// (статусы с note_prompt) тоже пишется: в окне слияния заменяет запись,
+// после окна добавляет «X → X (комментарий)»; повторный ввод того же
+// комментария запись не создаёт.
 func SetStatus(conn *sql.DB, owner StatusOwner, id int64, to, note string, now time.Time) error {
 	table := "tasks"
 	ownerCol := "task_id"
@@ -211,7 +224,21 @@ func SetStatus(conn *sql.DB, owner StatusOwner, id int64, to, note string, now t
 		Scan(&from); err != nil {
 		return err
 	}
-	if from == to {
+
+	nowUnix := now.Unix()
+	var lastID int64
+	var lastFrom, lastNote string
+	lastTS := int64(-1)
+	err = tx.QueryRow(`
+SELECT id, from_status, note, created_at FROM status_history
+WHERE `+ownerCol+` = ?
+ORDER BY created_at DESC, id DESC LIMIT 1`, id).Scan(&lastID, &lastFrom, &lastNote, &lastTS)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+
+	// тот же статус и тот же комментарий — запись не нужна
+	if from == to && lastNote == note {
 		return nil
 	}
 
@@ -225,9 +252,19 @@ func SetStatus(conn *sql.DB, owner StatusOwner, id int64, to, note string, now t
 		return err
 	}
 
-	_, err = tx.Exec(`
+	if lastTS >= 0 && nowUnix-lastTS <= statusMergeWindow {
+		if to == lastFrom && to != from {
+			_, err = tx.Exec("DELETE FROM status_history WHERE id = ?", lastID)
+		} else {
+			_, err = tx.Exec(`
+UPDATE status_history SET to_status = ?, note = ?, created_at = ?
+WHERE id = ?`, to, note, nowUnix, lastID)
+		}
+	} else {
+		_, err = tx.Exec(`
 INSERT INTO status_history (`+ownerCol+`, from_status, to_status, note, created_at)
-VALUES (?, ?, ?, ?, ?)`, id, from, to, note, now.Unix())
+VALUES (?, ?, ?, ?, ?)`, id, from, to, note, nowUnix)
+	}
 	if err != nil {
 		return err
 	}

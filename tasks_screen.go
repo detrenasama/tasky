@@ -490,6 +490,7 @@ func (s *tasksScreen) applyStatus(kind paneKind, id int64, st db.StatusDef) {
 	} else {
 		s.lastErr = err
 	}
+	s.mode = taskBrowse
 }
 
 func dbOwner(kind paneKind) db.StatusOwner {
@@ -993,6 +994,9 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					}
 					s.loadData()
 					s.selectByKindID(s.inputKind, created)
+					s.loadInfo()
+					s.loadDesc()
+					s.descV.GotoTop()
 				}
 			}
 			s.input.SetValue("")

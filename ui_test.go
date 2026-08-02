@@ -1655,6 +1655,13 @@ func TestTaskStatusQuickCycle(t *testing.T) {
 	if !strings.Contains(plain, "Новая · ") {
 		t.Errorf("в списке нет статуса: %q", plain)
 	}
+
+	// быстрый возврат к исходному статусу очищает историю («Новая → Новая»
+	// не пишется)
+	hist, _ := db.StatusHistory(conn, db.OwnerTask, task.ID)
+	if len(hist) != 0 {
+		t.Errorf("возврат к «Новой» оставил записи истории: %+v", hist)
+	}
 }
 
 // TestTaskStatusPickAndNote — c открывает модалку выбора, «Делегирована»
@@ -1728,6 +1735,30 @@ func TestTaskStatusPickAndNote(t *testing.T) {
 	if len(entries) != 0 {
 		t.Errorf("журнал не должен содержать переход статуса: %+v", entries)
 	}
+
+	// повторный выбор того же статуса с другим именем — замена записи
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEnter}) // преселект на «Делегирована»
+	if s.mode != taskStatusNote {
+		t.Fatalf("повторная Делегирована не открыла заметку (mode=%d)", s.mode)
+	}
+	s.statusNote.SetValue("Мария Сидорова")
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyCtrlS})
+	hist, _ = db.StatusHistory(conn, db.OwnerSubtask, st.ID)
+	if len(hist) != 1 || hist[0].Note != "Мария Сидорова" ||
+		hist[0].From != "Новая" || hist[0].To != "Делегирована" {
+		t.Errorf("запись после замены имени: %+v", hist)
+	}
+
+	// повторный ввод того же имени — запись не создаётся
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEnter})
+	s.statusNote.SetValue("Мария Сидорова")
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyCtrlS})
+	hist, _ = db.StatusHistory(conn, db.OwnerSubtask, st.ID)
+	if len(hist) != 1 {
+		t.Errorf("повторный ввод имени создал запись: %+v", hist)
+	}
 }
 
 // TestTaskStatusSubtaskHistory — быстрый переход подзадачи пишется в
@@ -1759,20 +1790,91 @@ func TestTaskStatusSubtaskHistory(t *testing.T) {
 	}
 }
 
-// TestTaskStatusHistoryInfo — переходы задачи видны в info-панели.
+// TestTaskStatusHistoryInfo — переходы задачи видны в info-панели; быстрые
+// переходы (в пределах минуты) сливаются в одну запись.
 func TestTaskStatusHistoryInfo(t *testing.T) {
 	conn, s, task, _ := tasksSeedProject(t)
 	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
 	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
 	hist, _ := db.StatusHistory(conn, db.OwnerTask, task.ID)
-	if len(hist) != 2 {
-		t.Fatalf("история: %d записей", len(hist))
+	if len(hist) != 1 {
+		t.Fatalf("история: %d записей, ожидалась 1 (слияние быстрых переходов)", len(hist))
+	}
+	if hist[0].From != "Новая" || hist[0].To != "На проверке" {
+		t.Errorf("слитая запись: %+v", hist[0])
 	}
 	plain := stripANSI(s.infoTop(20))
-	for _, want := range []string{"История статусов:", "Новая → В работе", "В работе → На проверке"} {
+	for _, want := range []string{"История статусов:", "Новая → На проверке"} {
 		if !strings.Contains(plain, want) {
 			t.Errorf("в info нет %q", want)
 		}
+	}
+	if strings.Contains(plain, "В работе") {
+		t.Error("в info остался промежуточный переход")
+	}
+}
+
+// TestTaskStatusPickCloses — выбор статуса без обязательной заметки в
+// модалке применяет статус и закрывает модалку.
+func TestTaskStatusPickCloses(t *testing.T) {
+	conn, s, task, _ := tasksSeedProject(t)
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+	if s.mode != taskStatusPick {
+		t.Fatalf("c не открыл выбор статуса (mode=%d)", s.mode)
+	}
+	// ↓ до «В работе» (без note_prompt) и Enter
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyDown})
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyDown})
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEnter})
+	if s.mode != taskBrowse {
+		t.Fatalf("Enter не закрыл модалку (mode=%d)", s.mode)
+	}
+	var status string
+	if err := conn.QueryRow("SELECT status FROM tasks WHERE id = ?", task.ID).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != "В работе" {
+		t.Errorf("статус после выбора: %q", status)
+	}
+}
+
+// TestTaskCreateRefreshesInfo — после создания задачи/подзадачи info-панель
+// показывает историю нового элемента, а не старого.
+func TestTaskCreateRefreshesInfo(t *testing.T) {
+	conn, s, task, _ := tasksSeedProject(t)
+	// у первой задачи есть история статусов
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	if plain := stripANSI(s.infoTop(20)); !strings.Contains(plain, "Новая → В работе") {
+		t.Fatalf("нет истории у первой задачи: %q", plain)
+	}
+
+	// создаём новую задачу — курсор переходит на неё
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	s.input.SetValue("Новая задача")
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEnter})
+	kind, id := s.selectedKindID()
+	if kind != kindTask || id == task.ID {
+		t.Fatalf("не выбрана новая задача: kind=%d id=%d", kind, id)
+	}
+	plain := stripANSI(s.infoTop(20))
+	if strings.Contains(plain, "Новая → В работе") {
+		t.Errorf("info-панель показывает историю старой задачи: %q", plain)
+	}
+	hist, _ := db.StatusHistory(conn, db.OwnerTask, id)
+	if len(hist) != 0 {
+		t.Errorf("история новой задачи: %+v", hist)
+	}
+
+	// создаём подзадачу под задачей с историей
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	s.input.SetValue("Новая подзадача")
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEnter})
+	kind, id = s.selectedKindID()
+	if kind != kindSubtask {
+		t.Fatalf("не выбрана новая подзадача: kind=%d id=%d", kind, id)
+	}
+	if plain = stripANSI(s.infoTop(20)); strings.Contains(plain, "Новая → В работе") {
+		t.Errorf("info-панель подзадачи показывает историю задачи: %q", plain)
 	}
 }
 

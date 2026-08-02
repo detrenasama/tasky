@@ -234,7 +234,7 @@ CREATE TABLE journal_entries (
 	}
 	if _, err := conn.Exec(
 		"INSERT INTO status_history (task_id, from_status, to_status, created_at) VALUES (1, 'x', 'y', ?)",
-		now); err != nil {
+		now-3600); err != nil { // старое время, чтобы SetStatus добавил новую запись
 		t.Fatal(err)
 	}
 	if _, err := conn.Exec(
@@ -405,11 +405,11 @@ func TestSetStatusSubtaskHistory(t *testing.T) {
 	if len(entries) != 0 {
 		t.Errorf("в журнале %d записей", len(entries))
 	}
-	// история задач не затрагивается
-	if err := SetStatus(conn, OwnerTask, task.ID, "Выполнена", "", now); err != nil {
+	// история задач не затрагивается (переходы с промежутком > минуты)
+	if err := SetStatus(conn, OwnerTask, task.ID, "Выполнена", "", now.Add(time.Hour)); err != nil {
 		t.Fatal(err)
 	}
-	if err := SetStatus(conn, OwnerTask, task.ID, "В работе", "", now); err != nil {
+	if err := SetStatus(conn, OwnerTask, task.ID, "В работе", "", now.Add(2*time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 	if hist, _ = StatusHistory(conn, OwnerTask, task.ID); len(hist) != 2 {
@@ -417,6 +417,241 @@ func TestSetStatusSubtaskHistory(t *testing.T) {
 	}
 	if hist, _ = StatusHistory(conn, OwnerSubtask, st.ID); len(hist) != 1 {
 		t.Errorf("история подзадачи затронута: %d", len(hist))
+	}
+}
+
+// TestSetStatusMerge — частые переходы (≤ минуты) заменяют последнюю запись
+// истории, редкие (> минуты) добавляют новую.
+func TestSetStatusMerge(t *testing.T) {
+	conn := openTestDB(t)
+	defer conn.Close()
+	pid := mustProject(t, conn, "p")
+	task, _ := CreateTask(conn, pid, "t")
+	now := time.Date(2026, 8, 2, 12, 0, 0, 0, time.Local)
+
+	set := func(to, note string, at time.Time) {
+		t.Helper()
+		if err := SetStatus(conn, OwnerTask, task.ID, to, note, at); err != nil {
+			t.Fatal(err)
+		}
+	}
+	hist := func() []StatusHistoryEntry {
+		t.Helper()
+		h, err := StatusHistory(conn, OwnerTask, task.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return h
+	}
+
+	// быстрая цепочка: все переходы заменяют первую запись
+	set("В работе", "", now)
+	set("На проверке", "", now.Add(30*time.Second))
+	set("Выполнена", "", now.Add(90*time.Second)) // ровно 60с от последней — замена
+	h := hist()
+	if len(h) != 1 {
+		t.Fatalf("быстрая цепочка: %d записей, ожидалась 1", len(h))
+	}
+	if h[0].From != "Новая" || h[0].To != "Выполнена" {
+		t.Errorf("слитая запись: %+v", h[0])
+	}
+	if !h[0].CreatedAt.Equal(now.Add(90 * time.Second)) {
+		t.Errorf("время слитой записи: %v", h[0].CreatedAt)
+	}
+
+	// больше минуты после последней — новая запись
+	set("В работе", "", now.Add(151*time.Second)) // 61с от последней
+	h = hist()
+	if len(h) != 2 {
+		t.Fatalf("редкий переход: %d записей, ожидалось 2", len(h))
+	}
+	if h[1].From != "Выполнена" || h[1].To != "В работе" {
+		t.Errorf("вторая запись: %+v", h[1])
+	}
+
+	// заметка перезаписывается при слиянии
+	if err := SetStatus(conn, OwnerTask, task.ID, "Делегирована", "Иван", now.Add(200*time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if err := SetStatus(conn, OwnerTask, task.ID, "Отменена", "причина", now.Add(230*time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	h = hist()
+	if len(h) != 2 {
+		t.Fatalf("слияние с заметкой: %d записей, ожидалось 2", len(h))
+	}
+	if h[1].From != "Выполнена" || h[1].To != "Отменена" || h[1].Note != "причина" {
+		t.Errorf("слитая запись с заметкой: %+v", h[1])
+	}
+
+	// подзадача сливается независимо от задачи
+	st, _ := CreateSubtask(conn, task.ID, "s")
+	if err := SetStatus(conn, OwnerSubtask, st.ID, "В работе", "", now); err != nil {
+		t.Fatal(err)
+	}
+	if err := SetStatus(conn, OwnerSubtask, st.ID, "Выполнена", "", now.Add(40*time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	sh, err := StatusHistory(conn, OwnerSubtask, st.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sh) != 1 || sh[0].To != "Выполнена" {
+		t.Errorf("история подзадачи: %+v", sh)
+	}
+	if th, _ := StatusHistory(conn, OwnerTask, task.ID); len(th) != 2 {
+		t.Errorf("история задачи затронута слиянием подзадачи: %d", len(th))
+	}
+}
+
+// TestSetStatusMergeReturn — возврат к статусу начала группы в окне слияния
+// удаляет запись истории, возврат вне окна добавляет новую.
+func TestSetStatusMergeReturn(t *testing.T) {
+	conn := openTestDB(t)
+	defer conn.Close()
+	pid := mustProject(t, conn, "p")
+	task, _ := CreateTask(conn, pid, "t")
+	now := time.Date(2026, 8, 2, 12, 0, 0, 0, time.Local)
+
+	set := func(to, note string, at time.Time) {
+		t.Helper()
+		if err := SetStatus(conn, OwnerTask, task.ID, to, note, at); err != nil {
+			t.Fatal(err)
+		}
+	}
+	hist := func() []StatusHistoryEntry {
+		t.Helper()
+		h, err := StatusHistory(conn, OwnerTask, task.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return h
+	}
+
+	// быстрый возврат к исходному статусу удаляет запись (нет «Новая → Новая»)
+	set("В работе", "", now)
+	set("Новая", "", now.Add(30*time.Second))
+	if h := hist(); len(h) != 0 {
+		t.Fatalf("возврат в окне: %d записей, ожидалось 0: %+v", len(h), h)
+	}
+
+	// цепочка с возвратом к статусу начала группы тоже очищается
+	set("В работе", "", now.Add(50*time.Second))
+	set("На проверке", "", now.Add(70*time.Second))
+	set("Новая", "", now.Add(90*time.Second))
+	if h := hist(); len(h) != 0 {
+		t.Fatalf("цепочка с возвратом: %d записей, ожидалось 0: %+v", len(h), h)
+	}
+
+	// возврат вне окна слияния — честная запись «X → Y» остаётся
+	set("В работе", "", now.Add(150*time.Second))
+	set("Новая", "", now.Add(270*time.Second)) // 120с от последней
+	h := hist()
+	if len(h) != 2 || h[0].From != "Новая" || h[0].To != "В работе" ||
+		h[1].From != "В работе" || h[1].To != "Новая" {
+		t.Fatalf("возврат вне окна: %+v", h)
+	}
+
+	// возврат с заметкой также удаляет запись целиком
+	set("Делегирована", "Иван", now.Add(300*time.Second))
+	set("В работе", "", now.Add(330*time.Second)) // to == from последней записи
+	if h := hist(); len(h) != 1 {
+		t.Fatalf("возврат с заметкой: %d записей, ожидалось 1: %+v", len(h), h)
+	}
+	if h[0].From != "Новая" || h[0].To != "В работе" || h[0].Note != "" {
+		t.Errorf("оставшаяся запись: %+v", h[0])
+	}
+}
+
+// TestSetStatusSameStatusNote — смена статуса на тот же с другим комментарием
+// пишется в историю: в окне слияния заменяет запись, после окна добавляет
+// «X → X (комментарий)»; повторный ввод того же комментария — без записи.
+func TestSetStatusSameStatusNote(t *testing.T) {
+	conn := openTestDB(t)
+	defer conn.Close()
+	pid := mustProject(t, conn, "p")
+	task, _ := CreateTask(conn, pid, "t")
+	now := time.Date(2026, 8, 2, 12, 0, 0, 0, time.Local)
+
+	set := func(to, note string, at time.Time) {
+		t.Helper()
+		if err := SetStatus(conn, OwnerTask, task.ID, to, note, at); err != nil {
+			t.Fatal(err)
+		}
+	}
+	hist := func() []StatusHistoryEntry {
+		t.Helper()
+		h, err := StatusHistory(conn, OwnerTask, task.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return h
+	}
+
+	// первый переход с комментарием
+	set("Делегирована", "Иван", now)
+	h := hist()
+	if len(h) != 1 || h[0].From != "Новая" || h[0].To != "Делегирована" ||
+		h[0].Note != "Иван" {
+		t.Fatalf("первый переход: %+v", h)
+	}
+
+	// тот же статус, другой комментарий в окне слияния — замена записи
+	set("Делегирована", "Пётр", now.Add(30*time.Second))
+	h = hist()
+	if len(h) != 1 {
+		t.Fatalf("замена в окне: %d записей, ожидалась 1", len(h))
+	}
+	if h[0].From != "Новая" || h[0].To != "Делегирована" || h[0].Note != "Пётр" {
+		t.Errorf("заменённая запись: %+v", h[0])
+	}
+	if !h[0].CreatedAt.Equal(now.Add(30 * time.Second)) {
+		t.Errorf("время замены: %v", h[0].CreatedAt)
+	}
+
+	// тот же статус, тот же комментарий — записи нет
+	set("Делегирована", "Пётр", now.Add(45*time.Second))
+	if h := hist(); len(h) != 1 {
+		t.Fatalf("повторный комментарий создал запись: %+v", h)
+	}
+
+	// тот же статус, другой комментарий после минуты — новая запись «X → X»
+	set("Делегирована", "Мария", now.Add(120*time.Second))
+	h = hist()
+	if len(h) != 2 {
+		t.Fatalf("новая запись: %d, ожидалось 2", len(h))
+	}
+	if h[1].From != "Делегирована" || h[1].To != "Делегирована" ||
+		h[1].Note != "Мария" {
+		t.Errorf("запись после окна: %+v", h[1])
+	}
+
+	// очистка комментария — тоже изменение
+	set("Делегирована", "", now.Add(150*time.Second))
+	h = hist()
+	if len(h) != 2 || h[1].Note != "" {
+		t.Fatalf("очистка комментария: %+v", h)
+	}
+	// повторная «пустая» смена — без записи
+	set("Делегирована", "", now.Add(170*time.Second))
+	if h := hist(); len(h) != 2 {
+		t.Fatalf("повторная пустая смена создала запись: %+v", h)
+	}
+
+	// подзадача: замена комментария в окне работает независимо
+	st, _ := CreateSubtask(conn, task.ID, "s")
+	if err := SetStatus(conn, OwnerSubtask, st.ID, "Делегирована", "Иван", now); err != nil {
+		t.Fatal(err)
+	}
+	if err := SetStatus(conn, OwnerSubtask, st.ID, "Делегирована", "Пётр", now.Add(20*time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	sh, err := StatusHistory(conn, OwnerSubtask, st.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sh) != 1 || sh[0].Note != "Пётр" {
+		t.Errorf("история подзадачи: %+v", sh)
 	}
 }
 

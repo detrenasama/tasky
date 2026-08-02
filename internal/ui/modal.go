@@ -1,9 +1,11 @@
-package main
+package ui
 
 import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/kalpamer/tasky/internal/ui/theme"
 )
 
 type dialog struct {
@@ -14,18 +16,10 @@ type dialog struct {
 }
 
 func (d dialog) render() string {
-	title := headerStyle.Render(d.title)
-	buttons := faint("[") + " " + accentBtn(d.primary) + "  " + faint("]  [") + " " +
-		escBtn(d.esc) + " " + faint("]")
-	return boxStyle.Render(title + "\n\n" + d.body + "\n\n" + buttons)
-}
-
-func accentBtn(label string) string {
-	return lipgloss.NewStyle().Bold(true).Foreground(accent).Render(label)
-}
-
-func escBtn(label string) string {
-	return faintStyle.Render(label)
+	title := theme.HeaderStyle.Render(d.title)
+	buttons := theme.Faint("[") + " " + theme.AccentBtn(d.primary) + "  " + theme.Faint("]  [") + " " +
+		theme.EscBtn(d.esc) + " " + theme.Faint("]")
+	return theme.BoxStyle.Render(title + "\n\n" + d.body + "\n\n" + buttons)
 }
 
 // overlay кладёт dialog поверх base, центрируя его по середине холста
@@ -69,11 +63,11 @@ func overlay(base, dialog string, w, h int) string {
 		runes := []rune(plain)
 		left := string(runes[:min(col0, len(runes))])
 		right := string(runes[min(col0+dw, len(runes)):])
-		baseLines[row0+r] = faintStyle.Render(left) + dialogLines[r] + faintStyle.Render(right)
+		baseLines[row0+r] = theme.FaintStyle.Render(left) + dialogLines[r] + theme.FaintStyle.Render(right)
 	}
 	for i := 0; i < len(baseLines); i++ {
 		if i < row0 || i >= row0+dh {
-			baseLines[i] = faintStyle.Render(baseLines[i])
+			baseLines[i] = theme.FaintStyle.Render(baseLines[i])
 		}
 	}
 	return strings.Join(baseLines, "\n")

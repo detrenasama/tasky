@@ -1,0 +1,163 @@
+package ui
+
+import (
+	"database/sql"
+	"testing"
+	"time"
+
+	"github.com/charmbracelet/bubbletea"
+	"github.com/kalpamer/tasky/internal/db"
+)
+
+func newTestTasksScreen(t *testing.T) *tasksScreen {
+	t.Helper()
+	conn, err := db.Open(t.TempDir() + "/test.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { conn.Close() })
+	s := newTasksScreen(conn)
+	s.load()
+	return s
+}
+
+// updateTasksMsg прогоняет клавишу через updateTasks тестового экрана.
+
+func (s *tasksScreen) updateTasksMsg(msg tea.KeyMsg) {
+	(&model{tasks: s}).updateTasks(msg)
+}
+
+func indexRune(runes []rune, r rune) int {
+	for i, rr := range runes {
+		if rr == r {
+			return i
+		}
+	}
+	return -1
+}
+
+func tasksSeedProject(t *testing.T) (*sql.DB, *tasksScreen, db.Task, db.SubtaskWithTime) {
+	t.Helper()
+	conn, err := db.Open(t.TempDir() + "/test.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { conn.Close() })
+	p, err := db.CreateProject(conn, "P")
+	if err != nil {
+		t.Fatal(err)
+	}
+	task, err := db.CreateTask(conn, p.ID, "T")
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := db.CreateSubtask(conn, task.ID, "S")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := newTasksScreen(conn)
+	s.load()
+	s.resize(150, 26)
+	return conn, s, task, st
+}
+
+// selectFirstSubtask раскрывает первую задачу и переводит курсор на первую
+// подзадачу.
+
+func selectFirstSubtask(m *model) {
+	m.updateTasks(tea.KeyMsg{Type: tea.KeyEnter})
+	m.updateTasks(tea.KeyMsg{Type: tea.KeyDown})
+}
+
+func searchTitles(s *tasksScreen) []string {
+	var out []string
+	for _, item := range s.items {
+		switch it := item.(type) {
+		case taskItem:
+			out = append(out, it.t.Title)
+		case subItem:
+			out = append(out, it.st.Title)
+		}
+	}
+	return out
+}
+
+// projectTitles собирает названия элементов списка проектов.
+
+func projectTitles(s *projectsScreen) []string {
+	var out []string
+	for _, item := range s.items {
+		if it, ok := item.(projectItem); ok {
+			out = append(out, it.p.Name)
+		}
+	}
+	return out
+}
+
+func equalStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// TestProjectSearch — / открывает модалку поиска проектов, живой фильтр по
+// названию/описанию/ссылкам, Enter применяет, Esc отменяет, esc в браузе
+// (через main.go) сбрасывает и не уводит на экран задач.
+
+func reportsSeedProject(t *testing.T) (*sql.DB, db.Task, db.SubtaskWithTime) {
+	t.Helper()
+	conn, err := db.Open(t.TempDir() + "/test.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { conn.Close() })
+	p, err := db.CreateProject(conn, "P")
+	if err != nil {
+		t.Fatal(err)
+	}
+	task, err := db.CreateTask(conn, p.ID, "T")
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := db.CreateSubtask(conn, task.ID, "S")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	if err := db.StartSession(conn, st.ID, now.Add(-2*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.StopSession(conn, st.ID, now.Add(-1*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	return conn, task, st
+}
+
+// newReportsModel собирает полную модель с отчётами и настройками для
+// тестов клавиатуры.
+
+func newReportsModel(conn *sql.DB) model {
+	m := model{db: conn, screen: screenTasks}
+	m.tasks = newTasksScreen(conn)
+	m.proj = newProjectsScreen(conn)
+	repCfg := &reportConfig{period: periodToday, saveDir: "reports"}
+	m.reports = newReportsScreen(conn, repCfg)
+	m.settings = newSettingsScreen(conn, repCfg)
+	m.tasks.load()
+	m.proj.load()
+	m.reports.load()
+	m.tasks.resize(150, 27)
+	m.proj.resize(150, 27)
+	m.reports.resize(150, 27)
+	m.width, m.height = 150, 30
+	return m
+}
+
+// TestReportsScreenRender — отчёт за сегодня: переход по r, заголовок
+// периода, задачи с подзадачами и общее время.

@@ -1,4 +1,4 @@
-package main
+package ui
 
 import (
 	"database/sql"
@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/viewport"
-	"github.com/charmbracelet/lipgloss"
 
 	"github.com/kalpamer/tasky/internal/db"
+	"github.com/kalpamer/tasky/internal/ui/theme"
 )
 
 // reportPeriod — тип периода отчёта.
@@ -41,8 +41,6 @@ var monthNames = []string{
 	"январь", "февраль", "март", "апрель", "май", "июнь",
 	"июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь",
 }
-
-var saveOKStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
 
 // reportsScreen — страница «Отчеты»: общее время за период, задачи и
 // подзадачи с учтённым временем (только завершённые записи).
@@ -165,7 +163,7 @@ func (s *reportsScreen) saveFileName() string {
 func (s *reportsScreen) refresh() {
 	var body []string
 	if s.total == 0 {
-		body = append(body, faint("Времени за период ещё не учтено."))
+		body = append(body, theme.Faint("Времени за период ещё не учтено."))
 	} else {
 		for _, t := range s.rep {
 			body = append(body, fmt.Sprintf("%s · %s", t.TaskTitle,
@@ -173,7 +171,7 @@ func (s *reportsScreen) refresh() {
 			for _, st := range t.Subs {
 				body = append(body, "  ├ "+st.Title+" · "+fmtDur(time.Duration(st.Seconds)*time.Second))
 				for _, e := range s.journal[st.ID] {
-					body = append(body, faint("      ["+e.CreatedAt.Format("02.01 15:04")+"] "+e.Text))
+					body = append(body, theme.Faint("      ["+e.CreatedAt.Format("02.01 15:04")+"] "+e.Text))
 				}
 			}
 			body = append(body, "")
@@ -228,11 +226,11 @@ func (s *reportsScreen) resize(w, h int) {
 }
 
 func (s *reportsScreen) header(w int) string {
-	return padW(headerStyle.Render("Tasky")+"  "+faint("Отчеты"), w)
+	return padW(theme.HeaderStyle.Render("Tasky")+"  "+theme.Faint("Отчеты"), w)
 }
 
 func (s *reportsScreen) footer(w int) string {
-	return padW(faint("↑/↓ скролл · ctrl+s — сохранить · esc — назад · q — выход"), w)
+	return padW(theme.Faint("↑/↓ скролл · ctrl+s — сохранить · esc — назад · q — выход"), w)
 }
 
 // view — фикс-шапка с периодом и общим временем + статус + скроллируемый
@@ -248,24 +246,24 @@ func (s *reportsScreen) view(w, h int) string {
 	if status != "" {
 		parts = append(parts, "", status)
 	}
-	parts = append(parts, "", boxStyle.Render(s.repV.View()))
+	parts = append(parts, "", theme.BoxStyle.Render(s.repV.View()))
 	return padH(strings.Join(parts, "\n"), w, h)
 }
 
 // statusLine — строка результата последнего сохранения (или пустая).
 func (s *reportsScreen) statusLine(w int) string {
 	if s.lastSave != "" {
-		return padW(saveOKStyle.Render("Отчёт сохранён: "+s.lastSave), w)
+		return padW(theme.SaveOKStyle.Render("Отчёт сохранён: "+s.lastSave), w)
 	}
 	if s.lastErr != nil {
-		return padW(errorStyle.Render("Не удалось сохранить: "+s.lastErr.Error()), w)
+		return padW(theme.ErrorStyle.Render("Не удалось сохранить: "+s.lastErr.Error()), w)
 	}
 	return ""
 }
 
 func (s *reportsScreen) topBox(w int) string {
-	inner := s.periodLabel() + "  " + faint("Общее время: ") + fmtDur(s.total)
-	return boxStyle.Render(padLines(inner, max(w-4, 1), 1))
+	inner := s.periodLabel() + "  " + theme.Faint("Общее время: ") + fmtDur(s.total)
+	return theme.BoxStyle.Render(padLines(inner, max(w-4, 1), 1))
 }
 
 func (s *reportsScreen) dialog() (string, bool) { return "", false }

@@ -1,4 +1,4 @@
-package main
+package ui
 
 import (
 	"strings"
@@ -69,7 +69,7 @@ func padH(body string, w, h int) string {
 
 // fixedBox рендерит content в рамке style ровно w×h (контент дополняется
 // пробелами по ширине и высоте, лишние строки обрезаются). Хром рамки
-// boxStyle = 4 (бордер 2 + паддинг 2), поэтому контент паддится до w-4.
+// theme.BoxStyle = 4 (бордер 2 + паддинг 2), поэтому контент паддится до w-4.
 func fixedBox(style lipgloss.Style, content string, w, h int) string {
 	if h < 2 {
 		h = 2

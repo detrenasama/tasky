@@ -1,4 +1,4 @@
-package main
+package ui
 
 import (
 	"database/sql"
@@ -8,9 +8,9 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 
 	"github.com/kalpamer/tasky/internal/db"
+	"github.com/kalpamer/tasky/internal/ui/theme"
 )
 
 type settingsMode int
@@ -26,18 +26,6 @@ const (
 	settingsColorPick
 	settingsStatusConfirm
 )
-
-// statusPalette — палитра цветов статусов (приглушённые, видны на тёмном
-// фоне). Хранится индексом в pickList.
-var statusPalette = []string{
-	"#6a9955", "#4f7942", "#569cd6", "#c586c0", "#d7ba7d",
-	"#ce9178", "#8a8a8a", "#8f3e3e", "#4ec9b0", "#d47a9e",
-}
-
-var paletteNames = []string{
-	"зелёный", "тёмно-зелёный", "синий", "фиолетовый", "жёлтый",
-	"оранжевый", "серый", "тёмно-красный", "голубой", "розовый",
-}
 
 var statusTypeNames = []string{"Новый", "В работе", "Завершённый"}
 var statusTypeCodes = []string{"new", "in_progress", "done"}
@@ -72,72 +60,6 @@ type settingsScreen struct {
 	midH int
 }
 
-// pickItem — элемент списка выбора в модалках настроек (value — id проекта
-// или код периода).
-type pickItem struct {
-	value int64
-	label string
-}
-
-// pickList — простой скроллируемый список: курсор ▸, при выходе за видимую
-// область содержимое плавно прокручивается (без постраничных прыжков).
-type pickList struct {
-	items   []pickItem
-	sel     int
-	scroll  int
-	visible int
-}
-
-func (p *pickList) setVisible(n int) {
-	p.visible = max(n, 1)
-	if len(p.items) > 0 && p.sel >= len(p.items) {
-		p.sel = len(p.items) - 1
-	}
-	p.clampScroll()
-}
-
-func (p *pickList) clampScroll() {
-	if p.sel < p.scroll {
-		p.scroll = p.sel
-	}
-	if p.sel >= p.scroll+p.visible {
-		p.scroll = p.sel - p.visible + 1
-	}
-	if p.scroll < 0 {
-		p.scroll = 0
-	}
-}
-
-// move сдвигает курсор по кругу и прокручивает список при необходимости.
-func (p *pickList) move(d int) {
-	n := len(p.items)
-	if n == 0 {
-		return
-	}
-	p.sel = (p.sel + d + n) % n
-	p.clampScroll()
-}
-
-func (p *pickList) view() string {
-	var lines []string
-	end := min(len(p.items), p.scroll+p.visible)
-	for i := p.scroll; i < end; i++ {
-		label := "  " + p.items[i].label
-		if i == p.sel {
-			label = "▸ " + p.items[i].label
-		}
-		lines = append(lines, label)
-	}
-	return strings.Join(lines, "\n")
-}
-
-func (p *pickList) selected() (pickItem, bool) {
-	if p.sel < 0 || p.sel >= len(p.items) {
-		return pickItem{}, false
-	}
-	return p.items[p.sel], true
-}
-
 func newSettingsScreen(conn *sql.DB, cfg *reportConfig) *settingsScreen {
 	ti := textinput.New()
 	ti.Placeholder = "reports"
@@ -163,19 +85,14 @@ func newSettingsScreen(conn *sql.DB, cfg *reportConfig) *settingsScreen {
 	s.editNote.Placeholder = "пусто — без заметки"
 	s.editNote.Prompt = "> "
 	s.editNote.Width = 30
-	for i, c := range statusPalette {
+	for i, c := range theme.StatusPalette {
 		s.colorPick.items = append(s.colorPick.items, pickItem{
 			value: int64(i),
-			label: colorPreview(c) + " " + paletteNames[i],
+			label: colorPreview(c) + " " + theme.PaletteNames[i],
 		})
 	}
 	s.load()
 	return s
-}
-
-// colorPreview — цветной квадрат-превью для палитры.
-func colorPreview(color string) string {
-	return lipgloss.NewStyle().Background(lipgloss.Color(color)).Render("  ")
 }
 
 func (s *settingsScreen) load() {
@@ -215,11 +132,11 @@ func (s *settingsScreen) resize(w, h int) {
 }
 
 func (s *settingsScreen) header(w int) string {
-	return padW(headerStyle.Render("Tasky")+"  "+faint("Настройки"), w)
+	return padW(theme.HeaderStyle.Render("Tasky")+"  "+theme.Faint("Настройки"), w)
 }
 
 func (s *settingsScreen) footer(w int) string {
-	return padW(faint("↑/↓ — выбор · Enter — изменить · esc — назад"), w)
+	return padW(theme.Faint("↑/↓ — выбор · Enter — изменить · esc — назад"), w)
 }
 
 // projectName — название проекта фильтра или «все проекты».
@@ -268,16 +185,16 @@ func (s *settingsScreen) view(w, h int) string {
 	var lines []string
 	for i, r := range rows {
 		if i == s.sel {
-			lines = append(lines, headerStyle.Render("▸ "+r))
+			lines = append(lines, theme.HeaderStyle.Render("▸ "+r))
 		} else {
 			lines = append(lines, "  "+r)
 		}
 	}
-	inner := headerStyle.Render("Настройки отчёта") + "\n\n" +
+	inner := theme.HeaderStyle.Render("Настройки отчёта") + "\n\n" +
 		strings.Join(lines, "\n") + "\n\n" +
-		faint("Enter — выбор из списка (журнал — вкл/выкл,")
-	inner += "\n" + faint("каталог — ввод пути, статусы — каталог статусов)")
-	return boxStyle.Render(padLines(inner, max(w-4, 1), max(h-4, 1)))
+		theme.Faint("Enter — выбор из списка (журнал — вкл/выкл,")
+	inner += "\n" + theme.Faint("каталог — ввод пути, статусы — каталог статусов)")
+	return theme.BoxStyle.Render(padLines(inner, max(w-4, 1), max(h-4, 1)))
 }
 
 func (s *settingsScreen) dialog() (string, bool) {
@@ -300,7 +217,7 @@ func (s *settingsScreen) dialog() (string, bool) {
 	case settingsPeriodInput:
 		body := s.periodInput.View()
 		if s.lastErr != nil {
-			body += "\n\n" + errorStyle.Render("Ошибка: "+s.lastErr.Error())
+			body += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
 		}
 		d := dialog{title: "Свой период",
 			body:    body,
@@ -309,7 +226,7 @@ func (s *settingsScreen) dialog() (string, bool) {
 	case settingsStatusList:
 		body := s.statusPick.view()
 		if s.lastErr != nil {
-			body += "\n\n" + errorStyle.Render("Ошибка: "+s.lastErr.Error())
+			body += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
 		}
 		d := dialog{title: "Статусы",
 			body:    body,
@@ -323,22 +240,22 @@ func (s *settingsScreen) dialog() (string, bool) {
 		lines := []string{
 			"Имя:       " + s.editName.View(),
 			"Тип:       " + statusTypeNames[s.editType],
-			"Цвет:      " + colorPreview(statusPalette[s.editColor]) + " " + paletteNames[s.editColor],
+			"Цвет:      " + colorPreview(theme.StatusPalette[s.editColor]) + " " + theme.PaletteNames[s.editColor],
 			"Быстрая цепочка: " + boolWord(s.editQuick),
 			"Подсказка: " + s.editNote.View(),
 		}
 		var body []string
 		for i, l := range lines {
 			if i == s.editFocus {
-				body = append(body, headerStyle.Render("▸ "+l))
+				body = append(body, theme.HeaderStyle.Render("▸ "+l))
 			} else {
 				body = append(body, "  "+l)
 			}
 		}
-		body = append(body, "", faint("Тип — Enter, цвет — Enter, цепочка — Enter, Ctrl+S — сохранить"))
+		body = append(body, "", theme.Faint("Тип — Enter, цвет — Enter, цепочка — Enter, Ctrl+S — сохранить"))
 		inner := strings.Join(body, "\n")
 		if s.lastErr != nil {
-			inner += "\n\n" + errorStyle.Render("Ошибка: "+s.lastErr.Error())
+			inner += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
 		}
 		d := dialog{title: title, body: inner,
 			primary: "Ctrl+S — сохранить", esc: "Esc — отмена"}
@@ -670,7 +587,7 @@ func (s *settingsScreen) openStatusEdit(id int64) {
 				s.editType = i
 			}
 		}
-		for i, c := range statusPalette {
+		for i, c := range theme.StatusPalette {
 			if c == st.Color {
 				s.editColor = i
 			}
@@ -692,10 +609,10 @@ func (s *settingsScreen) saveStatusEdit() {
 	var err error
 	if s.statusEditID == 0 {
 		_, err = db.CreateStatus(s.db, name, statusTypeCodes[s.editType],
-			statusPalette[s.editColor], strings.TrimSpace(s.editNote.Value()), s.editQuick)
+			theme.StatusPalette[s.editColor], strings.TrimSpace(s.editNote.Value()), s.editQuick)
 	} else {
 		err = db.UpdateStatus(s.db, s.statusEditID, name, statusTypeCodes[s.editType],
-			statusPalette[s.editColor], strings.TrimSpace(s.editNote.Value()), s.editQuick)
+			theme.StatusPalette[s.editColor], strings.TrimSpace(s.editNote.Value()), s.editQuick)
 	}
 	if err != nil {
 		s.lastErr = err

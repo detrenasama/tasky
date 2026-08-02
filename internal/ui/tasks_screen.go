@@ -1,4 +1,4 @@
-package main
+package ui
 
 import (
 	"database/sql"
@@ -14,6 +14,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/kalpamer/tasky/internal/db"
+	"github.com/kalpamer/tasky/internal/ui/theme"
 )
 
 type taskMode int
@@ -301,14 +302,14 @@ func (s *tasksScreen) refreshDesc() {
 	var body string
 	switch {
 	case id == 0:
-		body = strings.Join([]string{faint("Выберите задачу или подзадачу.")}, "\n")
+		body = strings.Join([]string{theme.Faint("Выберите задачу или подзадачу.")}, "\n")
 	case kind == kindTask:
-		body = strings.Join(append([]string{faint("Описание")}, s.descBody(w)...), "\n")
+		body = strings.Join(append([]string{theme.Faint("Описание")}, s.descBody(w)...), "\n")
 	case kind == kindSubtask:
 		h1, h2 := s.descSplit()
-		descBlock := padLines(strings.Join(append([]string{faint("Описание")}, s.descBody(w)...), "\n"), w, h1)
-		journalBlock := padLines(strings.Join(append([]string{faint("Журнал")}, s.journalBody(w)...), "\n"), w, h2)
-		divider := faint(strings.Repeat("─", w))
+		descBlock := padLines(strings.Join(append([]string{theme.Faint("Описание")}, s.descBody(w)...), "\n"), w, h1)
+		journalBlock := padLines(strings.Join(append([]string{theme.Faint("Журнал")}, s.journalBody(w)...), "\n"), w, h2)
+		divider := theme.Faint(strings.Repeat("─", w))
 		body = descBlock + "\n" + divider + "\n" + journalBlock
 	}
 	s.descV.SetContent(body)
@@ -333,12 +334,12 @@ func (s *tasksScreen) descBody(w int) []string {
 	var body []string
 	desc := strings.TrimSpace(s.desc)
 	if desc == "" {
-		body = append(body, faint("Описание пустое. Нажмите e (в колонке описания), чтобы добавить."))
+		body = append(body, theme.Faint("Описание пустое. Нажмите e (в колонке описания), чтобы добавить."))
 	} else {
 		body = append(body, wrapText(desc, w))
 	}
 	if len(s.links) > 0 {
-		body = append(body, "", faint("Ссылки:"))
+		body = append(body, "", theme.Faint("Ссылки:"))
 		for _, l := range s.links {
 			label := l.Name
 			if label == "" {
@@ -354,11 +355,11 @@ func (s *tasksScreen) descBody(w int) []string {
 // даты/времени и текст записи.
 func (s *tasksScreen) journalBody(w int) []string {
 	if len(s.journal) == 0 {
-		return []string{faint("Записей нет. Ctrl+J — добавить.")}
+		return []string{theme.Faint("Записей нет. Ctrl+J — добавить.")}
 	}
 	var body []string
 	for _, e := range s.journal {
-		body = append(body, faint(e.CreatedAt.Format("02.01.2006 15:04")))
+		body = append(body, theme.Faint(e.CreatedAt.Format("02.01.2006 15:04")))
 		body = append(body, wrapText(e.Text, w))
 		body = append(body, "")
 	}
@@ -710,42 +711,42 @@ func (s *tasksScreen) resize(w, h int) {
 }
 
 func (s *tasksScreen) header(w int) string {
-	h := headerStyle.Render("Tasky")
+	h := theme.HeaderStyle.Render("Tasky")
 	if s.projIdx >= 0 && s.projIdx < len(s.projects) {
-		h += "  " + faint("проект: ") + s.projects[s.projIdx].Name
+		h += "  " + theme.Faint("проект: ") + s.projects[s.projIdx].Name
 	}
 	if s.searchQuery != "" {
-		h += "  " + faint("поиск: ") + s.searchQuery
+		h += "  " + theme.Faint("поиск: ") + s.searchQuery
 	}
 	return padW(h, w)
 }
 
 func (s *tasksScreen) footer(w int) string {
 	if s.mode == taskDescEdit {
-		return padW(faint("Ctrl+S — сохранить · Esc — отмена"), w)
+		return padW(theme.Faint("Ctrl+S — сохранить · Esc — отмена"), w)
 	}
 	if s.focus == taskFocusDesc {
-		return padW(faint("↑/↓ скролл · e — описание · l — ссылка · o — ссылки · Ctrl+J — запись · j — изменить запись · / — поиск · Tab — список"), w)
+		return padW(theme.Faint("↑/↓ скролл · e — описание · l — ссылка · o — ссылки · Ctrl+J — запись · j — изменить запись · / — поиск · Tab — список"), w)
 	}
 	hint := "↑/↓ выбор · Enter раскрыть · n задача · a подзадача · d удалить · Ctrl+L старт/пауза · x/z статус · c — все статусы · / — поиск · [ / ] проект · Tab — описание · q выход"
 	if s.searchQuery != "" {
 		hint = "Поиск: «" + s.searchQuery + "» — / — изменить · Esc — сбросить"
 	}
-	return padW(faint(hint), w)
+	return padW(theme.Faint(hint), w)
 }
 
 func (s *tasksScreen) view(w, h int) string {
-	leftStyle := dimBox
+	leftStyle := theme.DimBox
 	if s.focus == taskFocusList {
-		leftStyle = focusBox
+		leftStyle = theme.FocusBox
 	}
 	var left string
 	if len(s.projects) == 0 {
-		left = fixedBox(dimBox, "Нет проектов.\nНажмите p и создайте проект.", s.listW, s.midH)
+		left = fixedBox(theme.DimBox, "Нет проектов.\nНажмите p и создайте проект.", s.listW, s.midH)
 	} else if s.searchQuery != "" && len(s.items) == 0 {
-		left = fixedBox(dimBox, "Ничего не найдено по запросу\n«"+s.searchQuery+"».", s.listW, s.midH)
+		left = fixedBox(theme.DimBox, "Ничего не найдено по запросу\n«"+s.searchQuery+"».", s.listW, s.midH)
 	} else if len(s.tasks) == 0 {
-		left = fixedBox(dimBox, "Задач в проекте нет.", s.listW, s.midH)
+		left = fixedBox(theme.DimBox, "Задач в проекте нет.", s.listW, s.midH)
 	} else {
 		// bubbles/list не дополняет строки до ширины — паддинг вручную
 		left = leftStyle.Render(padLines(s.list.View(), max(s.listW-4, 0), max(s.midH-2, 0)))
@@ -771,7 +772,7 @@ func (s *tasksScreen) dialog() (string, bool) {
 		}
 		body := s.input.View()
 		if s.lastErr != nil {
-			body += "\n\n" + errorStyle.Render("Ошибка: "+s.lastErr.Error())
+			body += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
 		}
 		d := dialog{title: "Новая " + kind, body: body,
 			primary: "Enter — сохранить", esc: "Esc — отмена"}
@@ -807,7 +808,7 @@ func (s *tasksScreen) dialog() (string, bool) {
 	case taskLinkInput:
 		body := s.linkName.View() + "\n" + s.linkInput.View()
 		if s.lastErr != nil {
-			body += "\n\n" + errorStyle.Render("Ошибка: "+s.lastErr.Error())
+			body += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
 		}
 		d := dialog{title: "Добавить ссылку", body: body,
 			primary: "Enter — добавить · Tab — поле", esc: "Esc — отмена"}
@@ -815,7 +816,7 @@ func (s *tasksScreen) dialog() (string, bool) {
 	case taskLinks:
 		body := s.linkList.View()
 		if s.lastErr != nil {
-			body += "\n\n" + errorStyle.Render("Не удалось открыть: "+s.lastErr.Error())
+			body += "\n\n" + theme.ErrorStyle.Render("Не удалось открыть: "+s.lastErr.Error())
 		}
 		d := dialog{title: "Ссылки",
 			body:    body,
@@ -842,7 +843,7 @@ func (s *tasksScreen) dialog() (string, bool) {
 		}
 		body := s.journalText.View()
 		if s.lastErr != nil {
-			body += "\n\n" + errorStyle.Render("Ошибка: "+s.lastErr.Error())
+			body += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
 		}
 		d := dialog{title: title, body: body,
 			primary: "Ctrl+S — сохранить", esc: "Esc — отмена"}
@@ -859,7 +860,7 @@ func (s *tasksScreen) dialog() (string, bool) {
 		}
 		body := s.statusNote.View()
 		if s.lastErr != nil {
-			body += "\n\n" + errorStyle.Render("Ошибка: "+s.lastErr.Error())
+			body += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
 		}
 		d := dialog{title: title, body: body,
 			primary: "Ctrl+S — применить", esc: "Esc — отмена"}
@@ -867,7 +868,7 @@ func (s *tasksScreen) dialog() (string, bool) {
 	case taskSearch:
 		body := s.searchInput.View()
 		if s.searchQuery != "" {
-			body += "\n\n" + faint("Найдено: "+fmt.Sprint(len(s.items))+" элементов")
+			body += "\n\n" + theme.Faint("Найдено: "+fmt.Sprint(len(s.items))+" элементов")
 		}
 		d := dialog{title: "Поиск", body: body,
 			primary: "Enter — применить", esc: "Esc — отмена"}
@@ -881,11 +882,11 @@ func (s *tasksScreen) dialog() (string, bool) {
 // textarea.
 func (s *tasksScreen) descBox() string {
 	if s.mode == taskDescEdit {
-		return focusBox.Render(padLines(s.descText.View(), max(s.descW-4, 0), max(s.midH-2, 0)))
+		return theme.FocusBox.Render(padLines(s.descText.View(), max(s.descW-4, 0), max(s.midH-2, 0)))
 	}
-	style := dimBox
+	style := theme.DimBox
 	if s.focus == taskFocusDesc {
-		style = focusBox
+		style = theme.FocusBox
 	}
 	return style.Render(s.descV.View())
 }
@@ -907,7 +908,7 @@ func (s *tasksScreen) infoTop(topH int) string {
 	var body []string
 	switch {
 	case kind == kindTask && id == 0:
-		body = append(body, faint("Выберите задачу или подзадачу."))
+		body = append(body, theme.Faint("Выберите задачу или подзадачу."))
 	case kind == kindSubtask:
 		var st *db.SubtaskWithTime
 		for i := range s.subs {
@@ -916,22 +917,22 @@ func (s *tasksScreen) infoTop(topH int) string {
 			}
 		}
 		if st == nil {
-			body = append(body, faint("Подзадача не найдена."))
+			body = append(body, theme.Faint("Подзадача не найдена."))
 			break
 		}
 		body = append(body, st.Title)
-		body = append(body, faint("Статус: ")+s.statusText(st.Status))
+		body = append(body, theme.Faint("Статус: ")+s.statusText(st.Status))
 		total := time.Duration(st.TotalSeconds) * time.Second
 		if st.ActiveSince != nil {
 			total += s.now.Sub(time.Unix(*st.ActiveSince, 0))
 		}
-		body = append(body, faint("Время всего: ")+fmtDur(total))
+		body = append(body, theme.Faint("Время всего: ")+fmtDur(total))
 		body = append(body, "")
 		for _, e := range s.entries {
 			body = append(body, entryLine(e, s.now))
 		}
 		if len(s.entries) == 0 {
-			body = append(body, faint("Записей нет."))
+			body = append(body, theme.Faint("Записей нет."))
 		}
 		body = append(body, s.historyLines()...)
 	case kind == kindTask:
@@ -942,11 +943,11 @@ func (s *tasksScreen) infoTop(topH int) string {
 			}
 		}
 		if t == nil {
-			body = append(body, faint("Задача не найдена."))
+			body = append(body, theme.Faint("Задача не найдена."))
 			break
 		}
 		body = append(body, t.Title)
-		body = append(body, faint("Статус: ")+s.statusText(t.Status))
+		body = append(body, theme.Faint("Статус: ")+s.statusText(t.Status))
 		plural := "подзадач"
 		if t.SubCount == 1 {
 			plural = "подзадача"
@@ -963,14 +964,14 @@ func (s *tasksScreen) infoTop(topH int) string {
 			sum += d
 			body = append(body, "  ├ "+st.Title+" · "+fmtDur(d))
 		}
-		body = append(body, faint(fmt.Sprintf("%d %s, всего: %s", t.SubCount, plural, fmtDur(sum))))
+		body = append(body, theme.Faint(fmt.Sprintf("%d %s, всего: %s", t.SubCount, plural, fmtDur(sum))))
 		body = append(body, s.historyLines()...)
 	default:
-		body = append(body, faint("Выберите задачу или подзадачу."))
+		body = append(body, theme.Faint("Выберите задачу или подзадачу."))
 	}
 	inner := strings.Join(body, "\n")
 	inner = padLines(inner, max(s.infoW-4, 1), topH-2)
-	return boxStyle.Render(inner)
+	return theme.BoxStyle.Render(inner)
 }
 
 // historyLines — последние 6 переходов статусов выбранного элемента: штамп
@@ -980,14 +981,14 @@ func (s *tasksScreen) historyLines() []string {
 	if len(s.history) == 0 {
 		return body
 	}
-	body = append(body, "", faint("История статусов:"))
+	body = append(body, "", theme.Faint("История статусов:"))
 	start := 0
 	if len(s.history) > 6 {
 		start = len(s.history) - 6
 	}
 	w := max(s.infoW-4, 1)
 	for _, h := range s.history[start:] {
-		body = append(body, faint(h.CreatedAt.Format("2006-01-02 15:04")))
+		body = append(body, theme.Faint(h.CreatedAt.Format("2006-01-02 15:04")))
 		body = append(body, wrapText(h.From+" → "+h.To, w))
 		if h.Note != "" {
 			body = append(body, wrapText("      "+h.Note, w))
@@ -998,7 +999,7 @@ func (s *tasksScreen) historyLines() []string {
 func entryLine(e db.TimeEntry, now time.Time) string {
 	start := e.StartedAt.Format("15:04")
 	if e.EndedAt == nil {
-		return start + "–… · " + faint("идет "+fmtElapsed(now.Sub(e.StartedAt)))
+		return start + "–… · " + theme.Faint("идет "+fmtElapsed(now.Sub(e.StartedAt)))
 	}
 	d := time.Duration(e.EndedAt.Sub(e.StartedAt))
 	return start + "–" + e.EndedAt.Format("15:04") + " · " + fmtDur(d)
@@ -1006,51 +1007,21 @@ func entryLine(e db.TimeEntry, now time.Time) string {
 
 func (s *tasksScreen) infoBottom() string {
 	body := []string{
-		faint("За сегодня: ") + fmtDur(s.today),
-		faint("Неделя (Пн–Вс): ") + fmtDur(s.weekly),
+		theme.Faint("За сегодня: ") + fmtDur(s.today),
+		theme.Faint("Неделя (Пн–Вс): ") + fmtDur(s.weekly),
 		"",
 	}
 	if s.run != nil {
 		elapsed := s.now.Sub(time.Unix(*s.run.ActiveSince, 0))
 		body = append(body, "Сейчас: "+s.run.Title)
-		body = append(body, faint("идет "+fmtElapsed(elapsed)))
+		body = append(body, theme.Faint("идет "+fmtElapsed(elapsed)))
 	} else {
-		body = append(body, faint("Ничего не запущено."))
+		body = append(body, theme.Faint("Ничего не запущено."))
 	}
 	for i := range body {
 		body[i] = padW(body[i], max(s.infoW-4, 1))
 	}
-	return boxStyle.Render(strings.Join(body, "\n"))
-}
-
-func fmtDur(d time.Duration) string {
-	d = d.Round(time.Second)
-	if d < 0 {
-		d = 0
-	}
-	h := int(d / time.Hour)
-	m := int(d%time.Hour) / int(time.Minute)
-	sec := int(d%time.Minute) / int(time.Second)
-	if h > 0 {
-		return fmt.Sprintf("%dч %dм", h, m)
-	}
-	if m > 0 {
-		return fmt.Sprintf("%dм %dс", m, sec)
-	}
-	return fmt.Sprintf("%dс", sec)
-}
-
-func fmtElapsed(d time.Duration) string {
-	d = d.Round(time.Second)
-	if d < 0 {
-		d = 0
-	}
-	m := int(d / time.Minute)
-	sec := int(d%time.Minute) / int(time.Second)
-	if m > 0 {
-		return fmt.Sprintf("%dм %dс", m, sec)
-	}
-	return fmt.Sprintf("%dс", sec)
+	return theme.BoxStyle.Render(strings.Join(body, "\n"))
 }
 
 func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {

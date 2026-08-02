@@ -1,10 +1,8 @@
-package main
+package ui
 
 import (
 	"database/sql"
 	"fmt"
-	"os/exec"
-	"runtime"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -13,9 +11,9 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/mattn/go-runewidth"
 
 	"github.com/kalpamer/tasky/internal/db"
+	"github.com/kalpamer/tasky/internal/ui/theme"
 )
 
 type projMode int
@@ -47,31 +45,6 @@ func (i projectItem) Title() string { return i.p.Name }
 func (i projectItem) Description() string {
 	return "создан " + i.p.CreatedAt.Format("02.01.2006")
 }
-
-type linkItem struct{ l db.Link }
-
-func (i linkItem) FilterValue() string {
-	if i.l.Name != "" {
-		return i.l.Name + " " + i.l.URL
-	}
-	return i.l.URL
-}
-
-func (i linkItem) Title() string {
-	if i.l.Name != "" {
-		return i.l.Name
-	}
-	return i.l.URL
-}
-
-func (i linkItem) Description() string {
-	if i.l.Name == "" {
-		return ""
-	}
-	return i.l.URL
-}
-
-var linkStyle = lipgloss.NewStyle().Underline(true).Foreground(accent)
 
 type projectsScreen struct {
 	db            *sql.DB
@@ -235,16 +208,16 @@ func (s *projectsScreen) refreshDesc() {
 	w := max(s.descV.Width, 1)
 	var body []string
 	if s.selectedProjectID() == 0 {
-		body = append(body, faint("Выберите проект."))
+		body = append(body, theme.Faint("Выберите проект."))
 	} else {
 		desc := strings.TrimSpace(s.desc)
 		if desc == "" {
-			body = append(body, faint("Описание пустое. Нажмите e (в колонке описания), чтобы добавить."))
+			body = append(body, theme.Faint("Описание пустое. Нажмите e (в колонке описания), чтобы добавить."))
 		} else {
 			body = append(body, wrapText(desc, w))
 		}
 		if len(s.links) > 0 {
-			body = append(body, "", faint("Ссылки:"))
+			body = append(body, "", theme.Faint("Ссылки:"))
 			for _, l := range s.links {
 				label := l.Name
 				if label == "" {
@@ -283,36 +256,36 @@ func (s *projectsScreen) resize(w, h int) {
 }
 
 func (s *projectsScreen) header(w int) string {
-	h := headerStyle.Render("Tasky") + "  " + faint("Проекты")
+	h := theme.HeaderStyle.Render("Tasky") + "  " + theme.Faint("Проекты")
 	if s.searchQuery != "" {
-		h += "  " + faint("поиск: ") + s.searchQuery
+		h += "  " + theme.Faint("поиск: ") + s.searchQuery
 	}
 	return padW(h, w)
 }
 
 func (s *projectsScreen) footer(w int) string {
 	if s.mode == projDescEdit {
-		return padW(faint("Ctrl+S — сохранить · Esc — отмена"), w)
+		return padW(theme.Faint("Ctrl+S — сохранить · Esc — отмена"), w)
 	}
 	if s.focus == projFocusDesc {
-		return padW(faint("↑/↓ скролл · e — редактировать · l — ссылка · o — ссылки · / — поиск · Tab — список"), w)
+		return padW(theme.Faint("↑/↓ скролл · e — редактировать · l — ссылка · o — ссылки · / — поиск · Tab — список"), w)
 	}
 	if s.searchQuery != "" {
-		return padW(faint("Поиск: «"+s.searchQuery+"» — / — изменить · Esc — сбросить"), w)
+		return padW(theme.Faint("Поиск: «"+s.searchQuery+"» — / — изменить · Esc — сбросить"), w)
 	}
-	return padW(faint("↑/↓ выбор · n — создать · d — удалить · / — поиск · Tab — описание · esc — назад · q — выход"), w)
+	return padW(theme.Faint("↑/↓ выбор · n — создать · d — удалить · / — поиск · Tab — описание · esc — назад · q — выход"), w)
 }
 
 func (s *projectsScreen) view(w, h int) string {
-	leftStyle := dimBox
+	leftStyle := theme.DimBox
 	if s.focus == projFocusList {
-		leftStyle = focusBox
+		leftStyle = theme.FocusBox
 	}
 	var left string
 	if len(s.projects) == 0 && s.mode == projBrowse {
-		left = fixedBox(dimBox, "Проектов нет.\nНажмите n для создания.", s.listW, s.midH)
+		left = fixedBox(theme.DimBox, "Проектов нет.\nНажмите n для создания.", s.listW, s.midH)
 	} else if s.searchQuery != "" && len(s.items) == 0 {
-		left = fixedBox(dimBox, "Ничего не найдено по запросу\n«"+s.searchQuery+"».", s.listW, s.midH)
+		left = fixedBox(theme.DimBox, "Ничего не найдено по запросу\n«"+s.searchQuery+"».", s.listW, s.midH)
 	} else {
 		// bubbles/list не дополняет строки до ширины — паддинг вручную
 		left = leftStyle.Render(padLines(s.list.View(), max(s.listW-4, 0), max(s.midH-2, 0)))
@@ -333,11 +306,11 @@ func (s *projectsScreen) view(w, h int) string {
 // и блок «Ссылки»; при редактировании вместо контента — textarea.
 func (s *projectsScreen) descBox() string {
 	if s.mode == projDescEdit {
-		return focusBox.Render(padLines(s.descText.View(), max(s.descW-4, 0), max(s.midH-2, 0)))
+		return theme.FocusBox.Render(padLines(s.descText.View(), max(s.descW-4, 0), max(s.midH-2, 0)))
 	}
-	style := dimBox
+	style := theme.DimBox
 	if s.focus == projFocusDesc {
-		style = focusBox
+		style = theme.FocusBox
 	}
 	return style.Render(s.descV.View())
 }
@@ -345,7 +318,7 @@ func (s *projectsScreen) descBox() string {
 // infoBox — правая колонка: сводка и настройки проекта (коэффициент времени
 // и т.п.) — dim-заглушка.
 func (s *projectsScreen) infoBox() string {
-	return fixedBox(dimBox, "Сводка и настройки\n\nКоэффициент времени:\n1.0", s.infoW, s.midH)
+	return fixedBox(theme.DimBox, "Сводка и настройки\n\nКоэффициент времени:\n1.0", s.infoW, s.midH)
 }
 
 func (s *projectsScreen) dialog() (string, bool) {
@@ -353,7 +326,7 @@ func (s *projectsScreen) dialog() (string, bool) {
 	case projInput:
 		body := s.input.View()
 		if s.lastErr != nil {
-			body += "\n\n" + errorStyle.Render("Ошибка: "+s.lastErr.Error())
+			body += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
 		}
 		d := dialog{title: "Новый проект", body: body,
 			primary: "Enter — создать", esc: "Esc — отмена"}
@@ -374,7 +347,7 @@ func (s *projectsScreen) dialog() (string, bool) {
 	case projLinkInput:
 		body := s.linkName.View() + "\n" + s.linkInput.View()
 		if s.lastErr != nil {
-			body += "\n\n" + errorStyle.Render("Ошибка: "+s.lastErr.Error())
+			body += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
 		}
 		d := dialog{title: "Добавить ссылку", body: body,
 			primary: "Enter — добавить · Tab — поле", esc: "Esc — отмена"}
@@ -382,7 +355,7 @@ func (s *projectsScreen) dialog() (string, bool) {
 	case projLinks:
 		body := s.linkList.View()
 		if s.lastErr != nil {
-			body += "\n\n" + errorStyle.Render("Не удалось открыть: "+s.lastErr.Error())
+			body += "\n\n" + theme.ErrorStyle.Render("Не удалось открыть: "+s.lastErr.Error())
 		}
 		d := dialog{title: "Ссылки проекта",
 			body:    body,
@@ -405,7 +378,7 @@ func (s *projectsScreen) dialog() (string, bool) {
 	case projSearch:
 		body := s.searchInput.View()
 		if s.searchQuery != "" {
-			body += "\n\n" + faint(fmt.Sprintf("Найдено: %d элементов", len(s.items)))
+			body += "\n\n" + theme.Faint(fmt.Sprintf("Найдено: %d элементов", len(s.items)))
 		}
 		d := dialog{title: "Поиск", body: body,
 			primary: "Enter — применить", esc: "Esc — отмена"}
@@ -638,74 +611,4 @@ func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		s.descV.GotoTop()
 	}
 	return m, cmd
-}
-
-// openURL открывает ссылку в браузере по умолчанию.
-func openURL(url string) error {
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "darwin":
-		cmd = exec.Command("open", url)
-	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
-	default:
-		cmd = exec.Command("xdg-open", url)
-	}
-	return cmd.Start()
-}
-
-// wrapText переносит текст по словам на видимую ширину w, разрывая
-// длинные слова.
-func wrapText(s string, w int) string {
-	if w <= 0 {
-		return ""
-	}
-	var out []string
-	for _, line := range strings.Split(s, "\n") {
-		words := strings.Fields(line)
-		if len(words) == 0 {
-			out = append(out, "")
-			continue
-		}
-		var cur []rune
-		curW := 0
-		for _, word := range words {
-			wordRunes := []rune(word)
-			wordW := runewidth.StringWidth(word)
-			if wordW > w {
-				if len(cur) > 0 {
-					out = append(out, string(cur))
-					cur, curW = nil, 0
-				}
-				for len(wordRunes) > 0 {
-					n, aw := 0, 0
-					for _, r := range wordRunes {
-						rw := runewidth.RuneWidth(r)
-						if aw+rw > w {
-							break
-						}
-						aw += rw
-						n++
-					}
-					out = append(out, string(wordRunes[:n]))
-					wordRunes = wordRunes[n:]
-				}
-				continue
-			}
-			if curW > 0 && curW+1+wordW > w {
-				out = append(out, string(cur))
-				cur, curW = nil, 0
-			}
-			if curW > 0 {
-				cur = append(cur, ' ')
-				curW++
-			}
-			cur = append(cur, wordRunes...)
-			curW += wordW
-		}
-		if len(cur) > 0 {
-			out = append(out, string(cur))
-		}
-	}
-	return strings.Join(out, "\n")
 }

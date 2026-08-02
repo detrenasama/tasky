@@ -47,7 +47,7 @@ func (i projectItem) Description() string {
 	return "создан " + i.p.CreatedAt.Format("02.01.2006")
 }
 
-type linkItem struct{ l db.ProjectLink }
+type linkItem struct{ l db.Link }
 
 func (i linkItem) FilterValue() string {
 	if i.l.Name != "" {
@@ -88,7 +88,7 @@ type projectsScreen struct {
 	lastErr       error
 
 	desc  string
-	links []db.ProjectLink
+	links []db.Link
 	descV viewport.Model
 
 	midH  int

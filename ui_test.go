@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"strings"
 	"testing"
 	"time"
@@ -22,6 +23,11 @@ func newTestTasksScreen(t *testing.T) *tasksScreen {
 	s := newTasksScreen(conn)
 	s.load()
 	return s
+}
+
+// updateTasksMsg прогоняет клавишу через updateTasks тестового экрана.
+func (s *tasksScreen) updateTasksMsg(msg tea.KeyMsg) {
+	(&model{tasks: s}).updateTasks(msg)
 }
 
 func TestResizeColumns(t *testing.T) {
@@ -608,5 +614,381 @@ func TestInfoBottomBorderVisible(t *testing.T) {
 	last := stripANSI(rows[25])
 	if n := strings.Count(last, "╰"); n != 3 {
 		t.Errorf("на последней строке %d нижних бордеров, ожидалось 3 (list/desc/info)", n)
+	}
+}
+
+// tasksSeedProject создаёт проект с задачей и подзадачей и возвращает
+// инициализированный tasksScreen.
+func tasksSeedProject(t *testing.T) (*sql.DB, *tasksScreen, db.Task, db.SubtaskWithTime) {
+	t.Helper()
+	conn, err := db.Open(t.TempDir() + "/test.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { conn.Close() })
+	p, err := db.CreateProject(conn, "P")
+	if err != nil {
+		t.Fatal(err)
+	}
+	task, err := db.CreateTask(conn, p.ID, "T")
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := db.CreateSubtask(conn, task.ID, "S")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := newTasksScreen(conn)
+	s.load()
+	s.resize(150, 26)
+	return conn, s, task, st
+}
+
+// selectFirstSubtask раскрывает первую задачу и переводит курсор на первую
+// подзадачу.
+func selectFirstSubtask(m *model) {
+	m.updateTasks(tea.KeyMsg{Type: tea.KeyEnter})
+	m.updateTasks(tea.KeyMsg{Type: tea.KeyDown})
+}
+
+func TestTasksFocusTab(t *testing.T) {
+	_, s, _, _ := tasksSeedProject(t)
+	if s.focus != taskFocusList {
+		t.Fatalf("начальный фокус %d, ожидался список", s.focus)
+	}
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyTab})
+	if s.focus != taskFocusDesc {
+		t.Fatal("Tab не переключил фокус на описание")
+	}
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyTab})
+	if s.focus != taskFocusList {
+		t.Fatal("Tab не вернул фокус на список")
+	}
+}
+
+// TestTasksDescBox — колонка описания: для задачи описание и ссылки, для
+// подзадачи — блоки «Описание» и «Журнал» с записью.
+func TestTasksDescBox(t *testing.T) {
+	conn, s, task, st := tasksSeedProject(t)
+	if err := db.UpdateTaskDescription(conn, task.ID, "описание задачи"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.CreateTaskLink(conn, task.ID, "Доки", "https://example.com"); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.UpdateSubtaskDescription(conn, st.ID, "описание подзадачи"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.CreateSubtaskLink(conn, st.ID, "", "https://example.org"); err != nil {
+		t.Fatal(err)
+	}
+	entry, err := db.CreateJournalEntry(conn, st.ID, "первая запись")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.load()
+
+	// задача: описание + ссылка
+	plain := stripANSI(s.descBox())
+	if !strings.Contains(plain, "описание задачи") || !strings.Contains(plain, "Доки") {
+		t.Errorf("в колонке задачи нет описания/ссылки: %q", plain)
+	}
+	if strings.Contains(plain, "Журнал") {
+		t.Error("у задачи не должно быть журнала")
+	}
+
+	// подзадача: описание + ссылка + журнал
+	m := &model{tasks: s}
+	m.updateTasks(tea.KeyMsg{Type: tea.KeyEnter}) // раскрыть задачу
+	m.updateTasks(tea.KeyMsg{Type: tea.KeyDown})  // на подзадачу
+	plain = stripANSI(s.descBox())
+	for _, want := range []string{"описание подзадачи", "https://example.org",
+		"Журнал", entry.CreatedAt.Format("02.01.2006 15:04"), "первая запись"} {
+		if !strings.Contains(plain, want) {
+			t.Errorf("в колонке подзадачи нет %q: %q", want, plain)
+		}
+	}
+	for i, r := range strings.Split(s.descBox(), "\n") {
+		if lipgloss.Width(r) != s.descW {
+			t.Errorf("строка %d колонки шириной %d, ожидалось %d", i, lipgloss.Width(r), s.descW)
+		}
+	}
+}
+
+// TestTasksDescKeysOnlyInDescFocus — e/ctrl+j/l/o работают только в фокусе
+// описания; инлайн-редактирование сохраняется по Ctrl+S, отменяется по Esc.
+func TestTasksDescKeysOnlyInDescFocus(t *testing.T) {
+	conn, s, task, _ := tasksSeedProject(t)
+	m := &model{tasks: s, proj: newProjectsScreen(conn)}
+	runes := func(r rune) tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}} }
+
+	// e в фокусе списка — ничего не открывает
+	m.updateTasks(runes('e'))
+	if s.mode != taskBrowse {
+		t.Fatal("e в фокусе списка открыл редактирование")
+	}
+	// ctrl+j в фокусе списка — ничего не открывает
+	before := s.mode
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlJ})
+	if cmd != nil || s.mode != before {
+		t.Error("ctrl+j в фокусе списка открыл модалку или вернул команду")
+	}
+
+	// e в фокусе описания открывает инлайн-редактирование
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyTab})
+	s.updateTasksMsg(runes('e'))
+	if s.mode != taskDescEdit {
+		t.Fatal("e в фокусе описания не открыл редактирование")
+	}
+	s.descText.SetValue("новое описание")
+	if !strings.Contains(s.descBox(), "новое описание") {
+		t.Error("при редактировании в колонке не виден textarea")
+	}
+	if _, open := s.dialog(); open {
+		t.Error("редактирование описания не должно открывать модалку")
+	}
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyCtrlS})
+	if s.mode != taskBrowse {
+		t.Fatal("Ctrl+S не закрыл редактирование")
+	}
+	if got, _ := db.TaskDescription(conn, task.ID); got != "новое описание" {
+		t.Errorf("описание в БД = %q", got)
+	}
+
+	// Esc отменяет
+	s.updateTasksMsg(runes('e'))
+	s.descText.SetValue("не сохранять")
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
+	if got, _ := db.TaskDescription(conn, task.ID); got != "новое описание" {
+		t.Errorf("Esc сохранил изменения: %q", got)
+	}
+
+	// скролл viewport в фокусе описания
+	s.updateTasksMsg(runes('e'))
+	s.descText.SetValue(strings.Repeat("строка длинного описания ", 100))
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyCtrlS})
+	y0 := s.descV.YOffset
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyDown})
+	if s.descV.YOffset != y0+1 {
+		t.Errorf("down не проскроллил описание: %d → %d", y0, s.descV.YOffset)
+	}
+}
+
+// TestTasksLinkAddFlow — добавление ссылки задачи: одна модалка с двумя
+// инпутами (название → адрес), Tab/Enter, Esc — отмена.
+func TestTasksLinkAddFlow(t *testing.T) {
+	conn, s, task, _ := tasksSeedProject(t)
+	runes := func(r rune) tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}} }
+
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyTab})
+	s.updateTasksMsg(runes('l'))
+	if s.mode != taskLinkInput {
+		t.Fatalf("l не открыл модалку ссылки (mode=%d)", s.mode)
+	}
+	if !s.linkName.Focused() || s.linkInput.Focused() {
+		t.Error("фокус должен быть на названии")
+	}
+
+	s.linkName.SetValue("Доки")
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEnter})
+	if !s.linkInput.Focused() || s.linkName.Focused() {
+		t.Error("Enter не перевёл фокус на адрес")
+	}
+	if links, _ := db.TaskLinks(conn, task.ID); len(links) != 0 {
+		t.Fatalf("Enter на названии сохранил ссылку: %d", len(links))
+	}
+
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyTab})
+	if !s.linkName.Focused() {
+		t.Error("Tab не вернул фокус на название")
+	}
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyTab})
+	if !s.linkInput.Focused() {
+		t.Error("Tab не перевёл фокус на адрес")
+	}
+
+	s.linkInput.SetValue("https://example.com")
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEnter})
+	if s.mode != taskBrowse {
+		t.Fatalf("Enter не сохранил ссылку (mode=%d)", s.mode)
+	}
+	links, _ := db.TaskLinks(conn, task.ID)
+	if len(links) != 1 || links[0].Name != "Доки" || links[0].URL != "https://example.com" {
+		t.Errorf("сохранённая ссылка = %+v", links)
+	}
+	if !strings.Contains(stripANSI(s.descBox()), "Доки") {
+		t.Error("ссылка не отобразилась в колонке описания")
+	}
+
+	// Esc отменяет
+	s.updateTasksMsg(runes('l'))
+	s.linkInput.SetValue("https://example.org")
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
+	if s.mode != taskBrowse {
+		t.Fatalf("Esc не отменил ввод (mode=%d)", s.mode)
+	}
+	if links, _ := db.TaskLinks(conn, task.ID); len(links) != 1 {
+		t.Errorf("отменённый ввод создал ссылку: %d", len(links))
+	}
+
+	// пустой URL закрывает модалку без создания
+	s.updateTasksMsg(runes('l'))
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyTab})
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEnter})
+	if s.mode != taskBrowse {
+		t.Fatalf("Enter с пустым URL не закрыл модалку (mode=%d)", s.mode)
+	}
+	if links, _ := db.TaskLinks(conn, task.ID); len(links) != 1 {
+		t.Errorf("пустой URL создал ссылку: %d", len(links))
+	}
+}
+
+// TestTasksLinkDeleteConfirm — удаление ссылки задачи с подтверждением.
+func TestTasksLinkDeleteConfirm(t *testing.T) {
+	conn, s, task, _ := tasksSeedProject(t)
+	if _, err := db.CreateTaskLink(conn, task.ID, "Доки", "https://example.com"); err != nil {
+		t.Fatal(err)
+	}
+	s.loadDesc()
+	runes := func(r rune) tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}} }
+
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyTab})
+	s.updateTasksMsg(runes('o'))
+	if s.mode != taskLinks {
+		t.Fatalf("o не открыл список ссылок (mode=%d)", s.mode)
+	}
+	s.updateTasksMsg(runes('d'))
+	if s.mode != taskLinkConfirm {
+		t.Fatalf("d не открыл подтверждение (mode=%d)", s.mode)
+	}
+	if _, open := s.dialog(); !open {
+		t.Error("подтверждение не рендерится как модалка")
+	}
+
+	s.updateTasksMsg(runes('n'))
+	if s.mode != taskLinks {
+		t.Fatalf("n не вернул в список ссылок (mode=%d)", s.mode)
+	}
+	s.updateTasksMsg(runes('d'))
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
+	if s.mode != taskLinks {
+		t.Fatalf("esc не вернул в список ссылок (mode=%d)", s.mode)
+	}
+	if links, _ := db.TaskLinks(conn, task.ID); len(links) != 1 {
+		t.Errorf("отменённое удаление удалило ссылку: %d", len(links))
+	}
+
+	s.updateTasksMsg(runes('d'))
+	s.updateTasksMsg(runes('y'))
+	if s.mode != taskLinks {
+		t.Fatalf("y не вернул в список ссылок (mode=%d)", s.mode)
+	}
+	if links, _ := db.TaskLinks(conn, task.ID); len(links) != 0 {
+		t.Errorf("y не удалил ссылку: %d", len(links))
+	}
+}
+
+// TestTaskJournalAddAndEdit — Ctrl+J добавляет запись (Ctrl+S сохраняет,
+// Esc отменяет), j редактирует самую свежую запись текущего дня.
+func TestTaskJournalAddAndEdit(t *testing.T) {
+	conn, s, _, st := tasksSeedProject(t)
+	m := &model{tasks: s}
+	selectFirstSubtask(m)
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyTab})
+
+	// Ctrl+J в фокусе описания на подзадаче открывает модалку записи
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyCtrlJ})
+	if s.mode != taskJournal {
+		t.Fatalf("ctrl+j не открыл журнал (mode=%d)", s.mode)
+	}
+	if _, open := s.dialog(); !open {
+		t.Error("запись журнала не рендерится как модалка")
+	}
+
+	// Esc отменяет
+	s.journalText.SetValue("не сохранять")
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
+	if s.mode != taskBrowse {
+		t.Fatalf("Esc не отменил запись (mode=%d)", s.mode)
+	}
+	if entries, _ := db.JournalEntries(conn, st.ID); len(entries) != 0 {
+		t.Errorf("отменённая запись создалась: %d", len(entries))
+	}
+
+	// Ctrl+J → Ctrl+S сохраняет
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyCtrlJ})
+	s.journalText.SetValue("работал над задачей")
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyCtrlS})
+	if s.mode != taskBrowse {
+		t.Fatalf("Ctrl+S не сохранил запись (mode=%d)", s.mode)
+	}
+	entries, _ := db.JournalEntries(conn, st.ID)
+	if len(entries) != 1 || entries[0].Text != "работал над задачей" {
+		t.Fatalf("записи = %+v", entries)
+	}
+	plain := stripANSI(s.descBox())
+	if !strings.Contains(plain, "работал над задачей") {
+		t.Error("запись не отобразилась в колонке описания")
+	}
+	if !strings.Contains(plain, entries[0].CreatedAt.Format("02.01.2006 15:04")) {
+		t.Error("в колонке нет даты/времени записи")
+	}
+
+	// j — редактирование свежей записи текущего дня
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	if s.mode != taskJournal || s.journalEditID != entries[0].ID {
+		t.Fatalf("j не открыл редактирование записи (mode=%d, id=%d)", s.mode, s.journalEditID)
+	}
+	if s.journalText.Value() != "работал над задачей" {
+		t.Errorf("textarea не заполнен текстом записи: %q", s.journalText.Value())
+	}
+	s.journalText.SetValue("доработал")
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyCtrlS})
+	entries, _ = db.JournalEntries(conn, st.ID)
+	if len(entries) != 1 || entries[0].Text != "доработал" {
+		t.Errorf("запись не обновилась: %+v", entries)
+	}
+}
+
+// TestTaskJournalEditOnlyToday — редактировать можно только записи текущего
+// дня: для вчерашней записи j показывает ошибку.
+func TestTaskJournalEditOnlyToday(t *testing.T) {
+	conn, s, _, st := tasksSeedProject(t)
+	m := &model{tasks: s}
+	if _, err := conn.Exec(
+		"INSERT INTO journal_entries (subtask_id, created_at, text) VALUES (?, ?, 'вчера')",
+		st.ID, time.Now().Add(-24*time.Hour).Unix()); err != nil {
+		t.Fatal(err)
+	}
+	s.loadDesc()
+	selectFirstSubtask(m)
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyTab})
+
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	if s.mode != taskBrowse {
+		t.Fatalf("j открыл редактирование вчерашней записи (mode=%d)", s.mode)
+	}
+	if s.lastErr == nil {
+		t.Error("для вчерашней записи не выставлена ошибка")
+	}
+}
+
+// TestTasksJournalEscDoesNotQuit — регрессия: Esc из модалки журнала/ссылок
+// закрывает модалку, а не выходит из приложения.
+func TestTasksJournalEscDoesNotQuit(t *testing.T) {
+	_, s, _, _ := tasksSeedProject(t)
+	m := &model{tasks: s, screen: screenTasks}
+	selectFirstSubtask(m)
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyTab})
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyCtrlJ})
+	if s.mode != taskJournal {
+		t.Fatalf("ctrl+j не открыл журнал (mode=%d)", s.mode)
+	}
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if cmd != nil {
+		t.Error("Esc из модалки журнала вернул команду (выход из приложения)")
+	}
+	if s.mode != taskBrowse {
+		t.Error("Esc не закрыл модалку журнала")
 	}
 }

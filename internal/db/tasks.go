@@ -52,6 +52,100 @@ func DeleteSubtask(conn *sql.DB, id int64) error {
 	return err
 }
 
+// TaskDescription возвращает описание задачи.
+func TaskDescription(conn *sql.DB, id int64) (string, error) {
+	var desc string
+	err := conn.QueryRow("SELECT description FROM tasks WHERE id = ?", id).Scan(&desc)
+	return desc, err
+}
+
+func UpdateTaskDescription(conn *sql.DB, id int64, text string) error {
+	_, err := conn.Exec("UPDATE tasks SET description = ? WHERE id = ?", text, id)
+	return err
+}
+
+// SubtaskDescription возвращает описание подзадачи.
+func SubtaskDescription(conn *sql.DB, id int64) (string, error) {
+	var desc string
+	err := conn.QueryRow("SELECT description FROM subtasks WHERE id = ?", id).Scan(&desc)
+	return desc, err
+}
+
+func UpdateSubtaskDescription(conn *sql.DB, id int64, text string) error {
+	_, err := conn.Exec("UPDATE subtasks SET description = ? WHERE id = ?", text, id)
+	return err
+}
+
+func TaskLinks(conn *sql.DB, taskID int64) ([]Link, error) {
+	return linksFor(conn, "task_links", "task_id", taskID)
+}
+
+func CreateTaskLink(conn *sql.DB, taskID int64, name, url string) (Link, error) {
+	return createLink(conn, "task_links", "task_id", taskID, name, url)
+}
+
+func DeleteTaskLink(conn *sql.DB, id int64) error {
+	return deleteLink(conn, "task_links", id)
+}
+
+func SubtaskLinks(conn *sql.DB, subtaskID int64) ([]Link, error) {
+	return linksFor(conn, "subtask_links", "subtask_id", subtaskID)
+}
+
+func CreateSubtaskLink(conn *sql.DB, subtaskID int64, name, url string) (Link, error) {
+	return createLink(conn, "subtask_links", "subtask_id", subtaskID, name, url)
+}
+
+func DeleteSubtaskLink(conn *sql.DB, id int64) error {
+	return deleteLink(conn, "subtask_links", id)
+}
+
+// JournalEntries возвращает записи журнала подзадачи в хронологическом порядке.
+func JournalEntries(conn *sql.DB, subtaskID int64) ([]JournalEntry, error) {
+	rows, err := conn.Query(`
+SELECT id, subtask_id, created_at, text FROM journal_entries
+WHERE subtask_id = ?
+ORDER BY created_at, id`, subtaskID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []JournalEntry
+	for rows.Next() {
+		var e JournalEntry
+		var created int64
+		if err := rows.Scan(&e.ID, &e.SubtaskID, &created, &e.Text); err != nil {
+			return nil, err
+		}
+		e.CreatedAt = time.Unix(created, 0)
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
+func CreateJournalEntry(conn *sql.DB, subtaskID int64, text string) (JournalEntry, error) {
+	var e JournalEntry
+	now := time.Now().Unix()
+	res, err := conn.Exec(
+		"INSERT INTO journal_entries (subtask_id, created_at, text) VALUES (?, ?, ?)",
+		subtaskID, now, text)
+	if err != nil {
+		return e, err
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return e, err
+	}
+	e = JournalEntry{ID: id, SubtaskID: subtaskID, CreatedAt: time.Unix(now, 0), Text: text}
+	return e, nil
+}
+
+func UpdateJournalEntry(conn *sql.DB, id int64, text string) error {
+	_, err := conn.Exec("UPDATE journal_entries SET text = ? WHERE id = ?", text, id)
+	return err
+}
+
 func TasksByProject(conn *sql.DB, projectID int64) ([]Task, error) {
 	rows, err := conn.Query(`
 SELECT t.id, t.project_id, t.title, t.status, t.created_at, t.completed_at,

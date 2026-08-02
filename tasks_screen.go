@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -20,6 +22,18 @@ const (
 	taskBrowse taskMode = iota
 	taskInput
 	taskConfirm
+	taskDescEdit
+	taskLinkInput
+	taskLinks
+	taskLinkConfirm
+	taskJournal
+)
+
+type taskFocus int
+
+const (
+	taskFocusList taskFocus = iota
+	taskFocusDesc
 )
 
 type paneKind int
@@ -98,10 +112,24 @@ type tasksScreen struct {
 	confirmKind paneKind
 	confirmID   int64
 	lastErr     error
+
+	focus taskFocus
+
+	desc          string
+	links         []db.Link
+	journal       []db.JournalEntry
+	descText      textarea.Model
+	descV         viewport.Model
+	linkName      textinput.Model
+	linkInput     textinput.Model
+	linkList      list.Model
+	journalText   textarea.Model
+	confirmLinkID int64
+	journalEditID int64
 }
 
 func newTasksScreen(conn *sql.DB) *tasksScreen {
-	s := &tasksScreen{db: conn, expanded: map[int64]bool{}}
+	s := &tasksScreen{db: conn, expanded: map[int64]bool{}, now: time.Now()}
 
 	d := list.NewDefaultDelegate()
 	d.ShowDescription = true
@@ -110,6 +138,7 @@ func newTasksScreen(conn *sql.DB) *tasksScreen {
 	s.list.SetShowHelp(false)
 	s.list.SetShowPagination(false)
 	s.list.SetShowStatusBar(false)
+	s.list.DisableQuitKeybindings()
 
 	s.input = textinput.New()
 	s.input.Placeholder = "Название"
@@ -117,6 +146,40 @@ func newTasksScreen(conn *sql.DB) *tasksScreen {
 	s.input.CharLimit = 64
 	s.input.Width = 40
 
+	s.linkName = textinput.New()
+	s.linkName.Placeholder = "Название (необязательно)"
+	s.linkName.Prompt = "> "
+	s.linkName.CharLimit = 64
+	s.linkName.Width = 60
+
+	s.linkInput = textinput.New()
+	s.linkInput.Placeholder = "https://…"
+	s.linkInput.Prompt = "> "
+	s.linkInput.CharLimit = 512
+	s.linkInput.Width = 60
+
+	s.descText = textarea.New()
+	s.descText.Placeholder = "Описание задачи или подзадачи"
+	s.descText.ShowLineNumbers = false
+	s.descText.SetWidth(60)
+	s.descText.SetHeight(10)
+
+	s.journalText = textarea.New()
+	s.journalText.Placeholder = "Что делаю или сделал…"
+	s.journalText.ShowLineNumbers = false
+	s.journalText.SetWidth(60)
+	s.journalText.SetHeight(10)
+
+	ld := list.NewDefaultDelegate()
+	ld.ShowDescription = true
+	s.linkList = list.New(nil, ld, 50, 8)
+	s.linkList.Title = "Ссылки"
+	s.linkList.SetShowHelp(false)
+	s.linkList.SetShowPagination(false)
+	s.linkList.SetShowStatusBar(false)
+	s.linkList.DisableQuitKeybindings()
+
+	s.descV = viewport.New(1, 1)
 	return s
 }
 
@@ -136,12 +199,14 @@ func (s *tasksScreen) loadData() {
 		s.subs = nil
 		s.buildItems()
 		s.loadInfo()
+		s.loadDesc()
 		return
 	}
 	s.tasks, _ = db.TasksByProject(s.db, s.currentProjectID())
 	s.subs, _ = db.SubtasksByProject(s.db, s.currentProjectID())
 	s.buildItems()
 	s.loadInfo()
+	s.loadDesc()
 }
 
 func (s *tasksScreen) loadInfo() {
@@ -151,6 +216,107 @@ func (s *tasksScreen) loadInfo() {
 	if kind == kindSubtask {
 		s.entries, _ = db.TimeEntriesBySubtask(s.db, id)
 	}
+}
+
+// loadDesc подгружает описание, ссылки и (для подзадачи) записи журнала
+// выбранного элемента и пересобирает колонку описания.
+func (s *tasksScreen) loadDesc() {
+	kind, id := s.selectedKindID()
+	s.desc = ""
+	s.links = nil
+	s.journal = nil
+	switch kind {
+	case kindTask:
+		if id != 0 {
+			s.desc, _ = db.TaskDescription(s.db, id)
+			s.links, _ = db.TaskLinks(s.db, id)
+		}
+	case kindSubtask:
+		if id != 0 {
+			s.desc, _ = db.SubtaskDescription(s.db, id)
+			s.links, _ = db.SubtaskLinks(s.db, id)
+			s.journal, _ = db.JournalEntries(s.db, id)
+		}
+	}
+	items := make([]list.Item, len(s.links))
+	for i, l := range s.links {
+		items[i] = linkItem{l}
+	}
+	s.linkList.SetItems(items)
+	s.refreshDesc()
+}
+
+// refreshDesc собирает контент viewport колонки описания: для задачи —
+// описание и ссылки; для подзадачи — блок «Описание» (1/3) и блок «Журнал»
+// (2/3), разделённые линией.
+func (s *tasksScreen) refreshDesc() {
+	w := max(s.descV.Width, 1)
+	kind, id := s.selectedKindID()
+	var body string
+	switch {
+	case id == 0:
+		body = strings.Join([]string{faint("Выберите задачу или подзадачу.")}, "\n")
+	case kind == kindTask:
+		body = strings.Join(append([]string{faint("Описание")}, s.descBody(w)...), "\n")
+	case kind == kindSubtask:
+		h1, h2 := s.descSplit()
+		descBlock := padLines(strings.Join(append([]string{faint("Описание")}, s.descBody(w)...), "\n"), w, h1)
+		journalBlock := padLines(strings.Join(append([]string{faint("Журнал")}, s.journalBody(w)...), "\n"), w, h2)
+		divider := faint(strings.Repeat("─", w))
+		body = descBlock + "\n" + divider + "\n" + journalBlock
+	}
+	s.descV.SetContent(body)
+}
+
+// descSplit делит высоту колонки описания на блок описания и блок журнала
+// в пропорции 1:2 (минус строка-разделитель).
+func (s *tasksScreen) descSplit() (int, int) {
+	H := max(s.descV.Height, 3)
+	h1 := max((H-1)/3, 2)
+	if H-h1-1 < 3 {
+		h1 = H - 4
+		if h1 < 2 {
+			h1 = 2
+		}
+	}
+	return h1, max(H-h1-1, 0)
+}
+
+// descBody — строки описания и ссылок выбранного элемента.
+func (s *tasksScreen) descBody(w int) []string {
+	var body []string
+	desc := strings.TrimSpace(s.desc)
+	if desc == "" {
+		body = append(body, faint("Описание пустое. Нажмите e (в колонке описания), чтобы добавить."))
+	} else {
+		body = append(body, wrapText(desc, w))
+	}
+	if len(s.links) > 0 {
+		body = append(body, "", faint("Ссылки:"))
+		for _, l := range s.links {
+			label := l.Name
+			if label == "" {
+				label = l.URL
+			}
+			body = append(body, truncateWEnd(linkStyle.Render("• "+label), w))
+		}
+	}
+	return body
+}
+
+// journalBody — строки записей журнала в хронологическом порядке: штамп
+// даты/времени и текст записи.
+func (s *tasksScreen) journalBody(w int) []string {
+	if len(s.journal) == 0 {
+		return []string{faint("Записей нет. Ctrl+J — добавить.")}
+	}
+	var body []string
+	for _, e := range s.journal {
+		body = append(body, faint(e.CreatedAt.Format("02.01.2006 15:04")))
+		body = append(body, wrapText(e.Text, w))
+		body = append(body, "")
+	}
+	return body
 }
 
 func (s *tasksScreen) currentProjectID() int64 {
@@ -321,6 +487,13 @@ func (s *tasksScreen) resize(w, h int) {
 	s.listW, s.descW, s.infoW = listW, descW, infoW
 	s.list.SetWidth(listW - 2)
 	s.list.SetHeight(s.midH - 2)
+	s.descV.Width = max(descW-4, 1)
+	s.descV.Height = max(s.midH-2, 1)
+	s.descText.SetWidth(max(descW-4, 1))
+	s.descText.SetHeight(max(s.midH-2, 1))
+	s.journalText.SetWidth(max(descW-4, 1))
+	s.journalText.SetHeight(10)
+	s.refreshDesc()
 }
 
 func (s *tasksScreen) header(w int) string {
@@ -332,11 +505,21 @@ func (s *tasksScreen) header(w int) string {
 }
 
 func (s *tasksScreen) footer(w int) string {
-	hint := "↑/↓ выбор · Enter раскрыть · n задача · a подзадача · d удалить · Ctrl+L старт/пауза · [ / ] проект · q выход"
+	if s.mode == taskDescEdit {
+		return padW(faint("Ctrl+S — сохранить · Esc — отмена"), w)
+	}
+	if s.focus == taskFocusDesc {
+		return padW(faint("↑/↓ скролл · e — описание · l — ссылка · o — ссылки · Ctrl+J — запись · j — изменить запись · Tab — список"), w)
+	}
+	hint := "↑/↓ выбор · Enter раскрыть · n задача · a подзадача · d удалить · Ctrl+L старт/пауза · [ / ] проект · Tab — описание · q выход"
 	return padW(faint(hint), w)
 }
 
 func (s *tasksScreen) view(w, h int) string {
+	leftStyle := dimBox
+	if s.focus == taskFocusList {
+		leftStyle = focusBox
+	}
 	var left string
 	if len(s.projects) == 0 {
 		left = fixedBox(dimBox, "Нет проектов.\nНажмите p и создайте проект.", s.listW, s.midH)
@@ -344,7 +527,7 @@ func (s *tasksScreen) view(w, h int) string {
 		left = fixedBox(dimBox, "Задач в проекте нет.", s.listW, s.midH)
 	} else {
 		// bubbles/list не дополняет строки до ширины — паддинг вручную
-		left = focusBox.Render(padLines(s.list.View(), max(s.listW-4, 0), max(s.midH-2, 0)))
+		left = leftStyle.Render(padLines(s.list.View(), max(s.listW-4, 0), max(s.midH-2, 0)))
 	}
 
 	cols := []string{left}
@@ -398,13 +581,67 @@ func (s *tasksScreen) dialog() (string, bool) {
 				primary: "y — да", esc: "n — нет"}
 		}
 		return d.render(), true
+	case taskDescEdit:
+		return "", false
+	case taskLinkInput:
+		body := s.linkName.View() + "\n" + s.linkInput.View()
+		if s.lastErr != nil {
+			body += "\n\n" + errorStyle.Render("Ошибка: "+s.lastErr.Error())
+		}
+		d := dialog{title: "Добавить ссылку", body: body,
+			primary: "Enter — добавить · Tab — поле", esc: "Esc — отмена"}
+		return d.render(), true
+	case taskLinks:
+		body := s.linkList.View()
+		if s.lastErr != nil {
+			body += "\n\n" + errorStyle.Render("Не удалось открыть: "+s.lastErr.Error())
+		}
+		d := dialog{title: "Ссылки",
+			body:    body,
+			primary: "Enter — открыть · d — удалить", esc: "Esc — закрыть"}
+		return d.render(), true
+	case taskLinkConfirm:
+		label := ""
+		for _, l := range s.links {
+			if l.ID == s.confirmLinkID {
+				label = l.Name
+				if label == "" {
+					label = l.URL
+				}
+			}
+		}
+		d := dialog{title: "Удаление ссылки",
+			body:    fmt.Sprintf("Удалить ссылку «%s»?", label),
+			primary: "y — удалить", esc: "n — нет"}
+		return d.render(), true
+	case taskJournal:
+		title := "Запись в журнал"
+		if s.journalEditID != 0 {
+			title = "Изменение записи"
+		}
+		body := s.journalText.View()
+		if s.lastErr != nil {
+			body += "\n\n" + errorStyle.Render("Ошибка: "+s.lastErr.Error())
+		}
+		d := dialog{title: title, body: body,
+			primary: "Ctrl+S — сохранить", esc: "Esc — отмена"}
+		return d.render(), true
 	}
 	return "", false
 }
 
-// descBox — зарезервированная колонка под описание задачи/подзадачи.
+// descBox — средняя колонка: описание, ссылки и журнал выбранного элемента
+// (прокручиваемый viewport); при редактировании описания вместо контента —
+// textarea.
 func (s *tasksScreen) descBox() string {
-	return fixedBox(dimBox, faint("Описание"), s.descW, s.midH)
+	if s.mode == taskDescEdit {
+		return focusBox.Render(padLines(s.descText.View(), max(s.descW-4, 0), max(s.midH-2, 0)))
+	}
+	style := dimBox
+	if s.focus == taskFocusDesc {
+		style = focusBox
+	}
+	return style.Render(s.descV.View())
 }
 
 // infoBox — правая колонка: выбранный элемент (на всю высоту) + общая
@@ -597,6 +834,217 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			s.mode = taskBrowse
 		}
 		return m, nil
+	case taskDescEdit:
+		var cmd tea.Cmd
+		s.descText, cmd = s.descText.Update(msg)
+		switch msg.String() {
+		case "ctrl+s":
+			kind, id := s.selectedKindID()
+			if kind == kindTask {
+				db.UpdateTaskDescription(s.db, id, s.descText.Value())
+			} else {
+				db.UpdateSubtaskDescription(s.db, id, s.descText.Value())
+			}
+			s.descText.Blur()
+			s.mode = taskBrowse
+			s.loadDesc()
+		case "esc":
+			s.descText.Blur()
+			s.mode = taskBrowse
+		}
+		return m, cmd
+	case taskLinkInput:
+		var cmd tea.Cmd
+		if s.linkName.Focused() {
+			s.linkName, cmd = s.linkName.Update(msg)
+		} else {
+			s.linkInput, cmd = s.linkInput.Update(msg)
+		}
+		switch msg.String() {
+		case "tab":
+			if s.linkName.Focused() {
+				s.linkName.Blur()
+				s.linkInput.Focus()
+			} else {
+				s.linkInput.Blur()
+				s.linkName.Focus()
+			}
+		case "enter":
+			if s.linkInput.Focused() {
+				url := strings.TrimSpace(s.linkInput.Value())
+				if url != "" {
+					kind, id := s.selectedKindID()
+					var err error
+					if kind == kindTask {
+						_, err = db.CreateTaskLink(s.db, id, strings.TrimSpace(s.linkName.Value()), url)
+					} else {
+						_, err = db.CreateSubtaskLink(s.db, id, strings.TrimSpace(s.linkName.Value()), url)
+					}
+					s.lastErr = err
+					if err == nil {
+						s.loadDesc()
+					}
+				}
+				s.linkName.SetValue("")
+				s.linkName.Blur()
+				s.linkInput.SetValue("")
+				s.linkInput.Blur()
+				s.mode = taskBrowse
+			} else {
+				// Enter на названии — перейти к адресу
+				s.linkName.Blur()
+				s.linkInput.Focus()
+			}
+		case "esc":
+			s.linkName.SetValue("")
+			s.linkName.Blur()
+			s.linkInput.SetValue("")
+			s.linkInput.Blur()
+			s.mode = taskBrowse
+		}
+		return m, cmd
+	case taskLinks:
+		var cmd tea.Cmd
+		s.linkList, cmd = s.linkList.Update(msg)
+		switch msg.String() {
+		case "enter":
+			if item, ok := s.linkList.SelectedItem().(linkItem); ok {
+				if err := openURL(item.l.URL); err != nil {
+					s.lastErr = err
+				}
+			}
+			return m, nil
+		case "d":
+			if item, ok := s.linkList.SelectedItem().(linkItem); ok {
+				s.confirmLinkID = item.l.ID
+				s.mode = taskLinkConfirm
+			}
+			return m, nil
+		case "esc":
+			s.mode = taskBrowse
+			s.lastErr = nil
+		}
+		return m, cmd
+	case taskLinkConfirm:
+		switch msg.String() {
+		case "y", "enter":
+			kind, _ := s.selectedKindID()
+			if kind == kindTask {
+				db.DeleteTaskLink(s.db, s.confirmLinkID)
+			} else {
+				db.DeleteSubtaskLink(s.db, s.confirmLinkID)
+			}
+			s.mode = taskLinks
+			s.loadDesc()
+		case "n", "esc":
+			s.mode = taskLinks
+		}
+		return m, nil
+	case taskJournal:
+		var cmd tea.Cmd
+		s.journalText, cmd = s.journalText.Update(msg)
+		switch msg.String() {
+		case "ctrl+s":
+			text := strings.TrimSpace(s.journalText.Value())
+			kind, id := s.selectedKindID()
+			if kind == kindSubtask && id != 0 && text != "" {
+				if s.journalEditID != 0 {
+					db.UpdateJournalEntry(s.db, s.journalEditID, text)
+				} else {
+					db.CreateJournalEntry(s.db, id, text)
+				}
+			}
+			s.journalText.Blur()
+			s.mode = taskBrowse
+			s.loadDesc()
+			s.descV.GotoBottom()
+		case "esc":
+			s.journalText.Blur()
+			s.mode = taskBrowse
+		}
+		return m, cmd
+	}
+
+	switch msg.String() {
+	case "tab":
+		if s.descW > 0 {
+			if s.focus == taskFocusList {
+				s.focus = taskFocusDesc
+			} else {
+				s.focus = taskFocusList
+			}
+		}
+		return m, nil
+	case "e":
+		if s.focus == taskFocusDesc {
+			s.lastErr = nil
+			s.descText.SetValue(s.desc)
+			s.mode = taskDescEdit
+			s.descText.Focus()
+			return m, nil
+		}
+	case "l":
+		if s.focus == taskFocusDesc {
+			s.lastErr = nil
+			s.linkName.SetValue("")
+			s.linkInput.SetValue("")
+			s.mode = taskLinkInput
+			s.linkName.Focus()
+			s.linkInput.Blur()
+			return m, nil
+		}
+	case "o":
+		if s.focus == taskFocusDesc {
+			s.lastErr = nil
+			s.mode = taskLinks
+			return m, nil
+		}
+	case "ctrl+j":
+		if s.focus == taskFocusDesc {
+			kind, id := s.selectedKindID()
+			if kind == kindSubtask && id != 0 {
+				s.lastErr = nil
+				s.journalText.SetValue("")
+				s.journalEditID = 0
+				s.mode = taskJournal
+				s.journalText.Focus()
+			}
+			return m, nil
+		}
+	case "j":
+		if s.focus == taskFocusDesc {
+			kind, id := s.selectedKindID()
+			if kind == kindSubtask && id != 0 {
+				// редактировать можно самую свежую запись текущего дня
+				var target *db.JournalEntry
+				for i := range s.journal {
+					e := &s.journal[i]
+					if sameDay(e.CreatedAt, s.now) {
+						target = e
+					}
+				}
+				if target == nil {
+					s.lastErr = fmt.Errorf("редактировать можно только записи текущего дня")
+					return m, nil
+				}
+				s.lastErr = nil
+				s.journalEditID = target.ID
+				s.journalText.SetValue(target.Text)
+				s.journalText.CursorEnd()
+				s.mode = taskJournal
+				s.journalText.Focus()
+			}
+			return m, nil
+		}
+	}
+
+	if s.focus == taskFocusDesc {
+		switch msg.String() {
+		case "up", "down", "pgup", "pgdown", "home", "end":
+			s.descV, _ = s.descV.Update(msg)
+			return m, nil
+		}
+		return m, nil
 	}
 
 	switch msg.String() {
@@ -651,6 +1099,16 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	afterKind, afterID := s.selectedKindID()
 	if beforeKind != afterKind || beforeID != afterID {
 		s.loadInfo()
+		s.loadDesc()
+		s.descV.GotoTop()
 	}
 	return m, cmd
+}
+
+// sameDay проверяет, что два момента времени приходятся на один календарный
+// день (локальное время).
+func sameDay(a, b time.Time) bool {
+	ay, am, ad := a.Date()
+	by, bm, bd := b.Date()
+	return ay == by && am == bm && ad == bd
 }

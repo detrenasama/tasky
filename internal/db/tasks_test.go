@@ -145,3 +145,156 @@ func seedProject(t *testing.T, conn *sql.DB) int64 {
 	}
 	return pid
 }
+
+func TestTaskSubtaskDescription(t *testing.T) {
+	conn := openTestDB(t)
+	pid := seedProject(t, conn)
+	task, err := CreateTask(conn, pid, "t")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sub, err := CreateSubtask(conn, task.ID, "s")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := UpdateTaskDescription(conn, task.ID, "описание задачи"); err != nil {
+		t.Fatalf("UpdateTaskDescription: %v", err)
+	}
+	got, err := TaskDescription(conn, task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "описание задачи" {
+		t.Errorf("TaskDescription = %q", got)
+	}
+
+	if err := UpdateSubtaskDescription(conn, sub.ID, "описание подзадачи"); err != nil {
+		t.Fatalf("UpdateSubtaskDescription: %v", err)
+	}
+	got, err = SubtaskDescription(conn, sub.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "описание подзадачи" {
+		t.Errorf("SubtaskDescription = %q", got)
+	}
+
+	// по умолчанию описания пустые
+	t2, err := CreateTask(conn, pid, "t2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d, _ := TaskDescription(conn, t2.ID); d != "" {
+		t.Errorf("новое описание задачи = %q, ожидалось пустое", d)
+	}
+}
+
+func TestTaskLinks(t *testing.T) {
+	conn := openTestDB(t)
+	pid := seedProject(t, conn)
+	task, err := CreateTask(conn, pid, "t")
+	if err != nil {
+		t.Fatal(err)
+	}
+	l1, err := CreateTaskLink(conn, task.ID, "Доки", "https://example.com")
+	if err != nil {
+		t.Fatalf("CreateTaskLink: %v", err)
+	}
+	if l1.OwnerID != task.ID || l1.Name != "Доки" || l1.ID == 0 {
+		t.Errorf("ссылка = %+v", l1)
+	}
+	if _, err := CreateTaskLink(conn, task.ID, "", "https://example.org"); err != nil {
+		t.Fatal(err)
+	}
+	links, err := TaskLinks(conn, task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(links) != 2 || links[1].URL != "https://example.org" {
+		t.Errorf("ссылки задачи = %+v", links)
+	}
+	if err := DeleteTaskLink(conn, l1.ID); err != nil {
+		t.Fatalf("DeleteTaskLink: %v", err)
+	}
+	links, _ = TaskLinks(conn, task.ID)
+	if len(links) != 1 || links[0].ID != l1.ID+1 {
+		t.Errorf("после удаления ссылки = %+v", links)
+	}
+}
+
+func TestSubtaskLinks(t *testing.T) {
+	conn := openTestDB(t)
+	pid := seedProject(t, conn)
+	task, err := CreateTask(conn, pid, "t")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sub, err := CreateSubtask(conn, task.ID, "s")
+	if err != nil {
+		t.Fatal(err)
+	}
+	l, err := CreateSubtaskLink(conn, sub.ID, "Доки", "https://example.com")
+	if err != nil {
+		t.Fatalf("CreateSubtaskLink: %v", err)
+	}
+	if l.OwnerID != sub.ID {
+		t.Errorf("владелец ссылки = %d, ожидался %d", l.OwnerID, sub.ID)
+	}
+	links, err := SubtaskLinks(conn, sub.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(links) != 1 || links[0].URL != "https://example.com" {
+		t.Errorf("ссылки подзадачи = %+v", links)
+	}
+}
+
+func TestJournalEntries(t *testing.T) {
+	conn := openTestDB(t)
+	pid := seedProject(t, conn)
+	task, err := CreateTask(conn, pid, "t")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sub, err := CreateSubtask(conn, task.ID, "s")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := CreateJournalEntry(conn, sub.ID, "первая"); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(2 * time.Millisecond)
+	e2, err := CreateJournalEntry(conn, sub.ID, "вторая")
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries, err := JournalEntries(conn, sub.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("записей: %d, ожидалось 2", len(entries))
+	}
+	// хронологический порядок: первая сверху
+	if entries[0].Text != "первая" || entries[1].Text != "вторая" {
+		t.Errorf("порядок записей = %+v", entries)
+	}
+
+	if err := UpdateJournalEntry(conn, e2.ID, "вторая (изм.)"); err != nil {
+		t.Fatalf("UpdateJournalEntry: %v", err)
+	}
+	entries, _ = JournalEntries(conn, sub.ID)
+	if entries[1].Text != "вторая (изм.)" {
+		t.Errorf("после обновления = %+v", entries[1])
+	}
+
+	// удаление подзадачи каскадно убирает записи
+	if err := DeleteSubtask(conn, sub.ID); err != nil {
+		t.Fatal(err)
+	}
+	entries, _ = JournalEntries(conn, sub.ID)
+	if len(entries) != 0 {
+		t.Errorf("записей после удаления подзадачи: %d", len(entries))
+	}
+}

@@ -39,10 +39,18 @@ type TimeEntry struct {
 	Note      string
 }
 
-type ProjectLink struct {
+// Link — ссылка проекта/задачи/подзадачи (поле OwnerID — id владельца).
+type Link struct {
 	ID        int64
-	ProjectID int64
+	OwnerID   int64
 	Name      string
 	URL       string
 	CreatedAt time.Time
+}
+
+type JournalEntry struct {
+	ID        int64
+	SubtaskID int64
+	CreatedAt time.Time
+	Text      string
 }

@@ -49,7 +49,7 @@ func TestProjectLinks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateProjectLink: %v", err)
 	}
-	if l1.URL != "https://example.com" || l1.Name != "Доки" || l1.ProjectID != pid || l1.ID == 0 {
+	if l1.URL != "https://example.com" || l1.Name != "Доки" || l1.OwnerID != pid || l1.ID == 0 {
 		t.Errorf("ссылка l1 = %+v", l1)
 	}
 

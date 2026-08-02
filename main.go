@@ -140,13 +140,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateTasks(msg)
 		}
 		if m.screen == screenProjects &&
-			(m.proj.mode == projDescEdit || m.proj.mode == projLinkInput || m.proj.mode == projLinks || m.proj.mode == projLinkConfirm) {
+			(m.proj.mode == projDescEdit || m.proj.mode == projLinkInput || m.proj.mode == projLinks || m.proj.mode == projLinkConfirm ||
+				m.proj.mode == projSearch) {
 			return m.updateProjects(msg)
 		}
 		if m.screen == screenTasks &&
 			(m.tasks.mode == taskDescEdit || m.tasks.mode == taskLinkInput || m.tasks.mode == taskLinks ||
 				m.tasks.mode == taskLinkConfirm || m.tasks.mode == taskJournal ||
-				m.tasks.mode == taskStatusPick || m.tasks.mode == taskStatusNote) {
+				m.tasks.mode == taskStatusPick || m.tasks.mode == taskStatusNote ||
+				m.tasks.mode == taskSearch) {
 			return m.updateTasks(msg)
 		}
 		if m.screen == screenSettings && m.settings.mode != settingsBrowse {
@@ -165,6 +167,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			return m, tea.Quit
+		}
+		// на экране проектов esc при активном поиске сбрасывает его (иначе
+		// глобальный esc увёл бы на экран задач)
+		if m.screen == screenProjects && m.proj.searchQuery != "" && msg.String() == "esc" {
+			m.proj.clearSearch()
+			return m, nil
 		}
 		if !m.modalOpen() {
 			switch msg.String() {

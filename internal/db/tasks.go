@@ -150,7 +150,7 @@ func UpdateJournalEntry(conn *sql.DB, id int64, text string) error {
 
 func TasksByProject(conn *sql.DB, projectID int64) ([]Task, error) {
 	rows, err := conn.Query(`
-SELECT t.id, t.project_id, t.title, t.status, t.created_at, t.completed_at,
+SELECT t.id, t.project_id, t.title, t.description, t.status, t.created_at, t.completed_at,
        (SELECT COUNT(*) FROM subtasks s WHERE s.task_id = t.id)
 FROM tasks t
 WHERE t.project_id = ?
@@ -165,8 +165,8 @@ ORDER BY t.created_at, t.id`, projectID)
 		var t Task
 		var created int64
 		var completed sql.NullInt64
-		if err := rows.Scan(&t.ID, &t.ProjectID, &t.Title, &t.Status, &created,
-			&completed, &t.SubCount); err != nil {
+		if err := rows.Scan(&t.ID, &t.ProjectID, &t.Title, &t.Description, &t.Status,
+			&created, &completed, &t.SubCount); err != nil {
 			return nil, err
 		}
 		t.CreatedAt = time.Unix(created, 0)
@@ -181,7 +181,7 @@ ORDER BY t.created_at, t.id`, projectID)
 
 func SubtasksByProject(conn *sql.DB, projectID int64) ([]SubtaskWithTime, error) {
 	rows, err := conn.Query(`
-SELECT s.id, s.task_id, s.title, s.status, s.sort_order, s.created_at, s.completed_at,
+SELECT s.id, s.task_id, s.title, s.description, s.status, s.sort_order, s.created_at, s.completed_at,
        COALESCE((SELECT SUM(te.ended_at - te.started_at) FROM time_entries te
                  WHERE te.subtask_id = s.id AND te.ended_at IS NOT NULL), 0),
        (SELECT te.started_at FROM time_entries te
@@ -200,8 +200,8 @@ ORDER BY s.task_id, s.sort_order, s.id`, projectID)
 		var s SubtaskWithTime
 		var created, total int64
 		var completed, active sql.NullInt64
-		if err := rows.Scan(&s.ID, &s.TaskID, &s.Title, &s.Status, &s.SortOrder,
-			&created, &completed, &total, &active); err != nil {
+		if err := rows.Scan(&s.ID, &s.TaskID, &s.Title, &s.Description, &s.Status,
+			&s.SortOrder, &created, &completed, &total, &active); err != nil {
 			return nil, err
 		}
 		s.CreatedAt = time.Unix(created, 0)
@@ -218,9 +218,36 @@ ORDER BY s.task_id, s.sort_order, s.id`, projectID)
 	return out, rows.Err()
 }
 
+// JournalTexts возвращает карту id подзадачи → объединённый текст записей её
+// журнала (для полнотекстового поиска по проекту).
+func JournalTexts(conn *sql.DB, projectID int64) (map[int64]string, error) {
+	rows, err := conn.Query(`
+SELECT s.id, GROUP_CONCAT(je.text, '\n')
+FROM journal_entries je
+JOIN subtasks s ON s.id = je.subtask_id
+JOIN tasks t ON t.id = s.task_id
+WHERE t.project_id = ?
+GROUP BY s.id`, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := map[int64]string{}
+	for rows.Next() {
+		var id int64
+		var text string
+		if err := rows.Scan(&id, &text); err != nil {
+			return nil, err
+		}
+		out[id] = text
+	}
+	return out, rows.Err()
+}
+
 func SubtasksWithTime(conn *sql.DB, taskID int64) ([]SubtaskWithTime, error) {
 	rows, err := conn.Query(`
-SELECT s.id, s.task_id, s.title, s.status, s.sort_order, s.created_at, s.completed_at,
+SELECT s.id, s.task_id, s.title, s.description, s.status, s.sort_order, s.created_at, s.completed_at,
        COALESCE((SELECT SUM(te.ended_at - te.started_at) FROM time_entries te
                  WHERE te.subtask_id = s.id AND te.ended_at IS NOT NULL), 0),
        (SELECT te.started_at FROM time_entries te
@@ -238,8 +265,8 @@ ORDER BY s.sort_order, s.id`, taskID)
 		var s SubtaskWithTime
 		var created, total int64
 		var completed, active sql.NullInt64
-		if err := rows.Scan(&s.ID, &s.TaskID, &s.Title, &s.Status, &s.SortOrder,
-			&created, &completed, &total, &active); err != nil {
+		if err := rows.Scan(&s.ID, &s.TaskID, &s.Title, &s.Description, &s.Status,
+			&s.SortOrder, &created, &completed, &total, &active); err != nil {
 			return nil, err
 		}
 		s.CreatedAt = time.Unix(created, 0)

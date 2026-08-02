@@ -28,6 +28,7 @@ const (
 	projLinkInput
 	projLinks
 	projLinkConfirm
+	projSearch
 )
 
 type projFocus int
@@ -91,6 +92,11 @@ type projectsScreen struct {
 	links []db.Link
 	descV viewport.Model
 
+	searchInput textinput.Model
+	searchQuery string
+	linkTexts   map[int64]string
+	items       []list.Item
+
 	midH  int
 	listW int
 	descW int
@@ -106,12 +112,20 @@ func newProjectsScreen(conn *sql.DB) *projectsScreen {
 	s.list.SetShowHelp(false)
 	s.list.SetShowPagination(false)
 	s.list.SetShowStatusBar(false)
+	// встроенный фильтр списка не используется — свой projSearch
+	s.list.SetFilteringEnabled(false)
 
 	s.input = textinput.New()
 	s.input.Placeholder = "Имя проекта"
 	s.input.Prompt = "> "
 	s.input.CharLimit = 64
 	s.input.Width = 40
+
+	s.searchInput = textinput.New()
+	s.searchInput.Placeholder = "название, описание, ссылки…"
+	s.searchInput.Prompt = "> "
+	s.searchInput.CharLimit = 64
+	s.searchInput.Width = 40
 
 	s.linkName = textinput.New()
 	s.linkName.Placeholder = "Название (необязательно)"
@@ -148,13 +162,44 @@ func newProjectsScreen(conn *sql.DB) *projectsScreen {
 
 func (s *projectsScreen) load() {
 	s.projects, _ = db.Projects(s.db)
-	items := make([]list.Item, len(s.projects))
-	for i, p := range s.projects {
-		items[i] = projectItem{p}
-	}
-	s.list.SetItems(items)
+	s.linkTexts, _ = db.ProjectLinksTexts(s.db)
+	s.buildItems()
 	s.lastErr = nil
 	s.loadDesc()
+}
+
+// buildItems собирает список: при активном searchQuery — только совпавшие
+// по названию, описанию или ссылкам проекты.
+func (s *projectsScreen) buildItems() {
+	selID := s.selectedProjectID()
+	s.items = nil
+	if q := strings.ToLower(strings.TrimSpace(s.searchQuery)); q != "" {
+		for _, p := range s.projects {
+			if strings.Contains(strings.ToLower(p.Name), q) ||
+				strings.Contains(strings.ToLower(p.Desc), q) ||
+				strings.Contains(strings.ToLower(s.linkTexts[p.ID]), q) {
+				s.items = append(s.items, projectItem{p})
+			}
+		}
+	} else {
+		for _, p := range s.projects {
+			s.items = append(s.items, projectItem{p})
+		}
+	}
+	s.list.SetItems(s.items)
+	if len(s.items) > 0 {
+		idx := -1
+		for i, item := range s.items {
+			if it, ok := item.(projectItem); ok && it.p.ID == selID {
+				idx = i
+				break
+			}
+		}
+		if idx < 0 {
+			idx = 0
+		}
+		s.list.Select(idx)
+	}
 }
 
 // loadDesc подгружает описание и ссылки выбранного проекта и пересобирает
@@ -171,9 +216,16 @@ func (s *projectsScreen) loadDesc() {
 	s.refreshDesc()
 }
 
+// clearSearch сбрасывает активный поиск (используется из main.go при esc).
+func (s *projectsScreen) clearSearch() {
+	s.searchQuery = ""
+	s.buildItems()
+	s.loadDesc()
+}
+
 func (s *projectsScreen) selectedProjectID() int64 {
-	if s.list.Index() >= 0 && s.list.Index() < len(s.projects) {
-		return s.projects[s.list.Index()].ID
+	if item, ok := s.list.SelectedItem().(projectItem); ok {
+		return item.p.ID
 	}
 	return 0
 }
@@ -231,7 +283,11 @@ func (s *projectsScreen) resize(w, h int) {
 }
 
 func (s *projectsScreen) header(w int) string {
-	return padW(headerStyle.Render("Tasky")+"  "+faint("Проекты"), w)
+	h := headerStyle.Render("Tasky") + "  " + faint("Проекты")
+	if s.searchQuery != "" {
+		h += "  " + faint("поиск: ") + s.searchQuery
+	}
+	return padW(h, w)
 }
 
 func (s *projectsScreen) footer(w int) string {
@@ -239,9 +295,12 @@ func (s *projectsScreen) footer(w int) string {
 		return padW(faint("Ctrl+S — сохранить · Esc — отмена"), w)
 	}
 	if s.focus == projFocusDesc {
-		return padW(faint("↑/↓ скролл · e — редактировать · l — ссылка · o — ссылки · Tab — список"), w)
+		return padW(faint("↑/↓ скролл · e — редактировать · l — ссылка · o — ссылки · / — поиск · Tab — список"), w)
 	}
-	return padW(faint("↑/↓ выбор · n — создать · d — удалить · Tab — описание · esc — назад · q — выход"), w)
+	if s.searchQuery != "" {
+		return padW(faint("Поиск: «"+s.searchQuery+"» — / — изменить · Esc — сбросить"), w)
+	}
+	return padW(faint("↑/↓ выбор · n — создать · d — удалить · / — поиск · Tab — описание · esc — назад · q — выход"), w)
 }
 
 func (s *projectsScreen) view(w, h int) string {
@@ -252,6 +311,8 @@ func (s *projectsScreen) view(w, h int) string {
 	var left string
 	if len(s.projects) == 0 && s.mode == projBrowse {
 		left = fixedBox(dimBox, "Проектов нет.\nНажмите n для создания.", s.listW, s.midH)
+	} else if s.searchQuery != "" && len(s.items) == 0 {
+		left = fixedBox(dimBox, "Ничего не найдено по запросу\n«"+s.searchQuery+"».", s.listW, s.midH)
 	} else {
 		// bubbles/list не дополняет строки до ширины — паддинг вручную
 		left = leftStyle.Render(padLines(s.list.View(), max(s.listW-4, 0), max(s.midH-2, 0)))
@@ -340,6 +401,14 @@ func (s *projectsScreen) dialog() (string, bool) {
 		d := dialog{title: "Удаление ссылки",
 			body:    fmt.Sprintf("Удалить ссылку «%s»?", label),
 			primary: "y — удалить", esc: "n — нет"}
+		return d.render(), true
+	case projSearch:
+		body := s.searchInput.View()
+		if s.searchQuery != "" {
+			body += "\n\n" + faint(fmt.Sprintf("Найдено: %d элементов", len(s.items)))
+		}
+		d := dialog{title: "Поиск", body: body,
+			primary: "Enter — применить", esc: "Esc — отмена"}
 		return d.render(), true
 	}
 	return "", false
@@ -471,6 +540,29 @@ func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			s.mode = projLinks
 		}
 		return m, nil
+	case projSearch:
+		var cmd tea.Cmd
+		s.searchInput, cmd = s.searchInput.Update(msg)
+		switch msg.String() {
+		case "enter":
+			s.searchQuery = strings.TrimSpace(s.searchInput.Value())
+			s.searchInput.Blur()
+			s.mode = projBrowse
+			s.buildItems()
+			s.loadDesc()
+		case "esc":
+			s.searchQuery = ""
+			s.searchInput.Blur()
+			s.mode = projBrowse
+			s.buildItems()
+			s.loadDesc()
+		default:
+			// живой фильтр по мере ввода
+			s.searchQuery = strings.TrimSpace(s.searchInput.Value())
+			s.buildItems()
+			s.loadDesc()
+		}
+		return m, cmd
 	}
 
 	switch msg.String() {
@@ -506,6 +598,12 @@ func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			s.mode = projLinks
 			return m, nil
 		}
+	case "/":
+		s.lastErr = nil
+		s.searchInput.SetValue(s.searchQuery)
+		s.searchInput.Focus()
+		s.mode = projSearch
+		return m, nil
 	case "n":
 		if s.focus == projFocusList {
 			s.mode = projInput

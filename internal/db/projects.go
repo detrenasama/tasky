@@ -72,6 +72,30 @@ func DeleteProjectLink(conn *sql.DB, id int64) error {
 	return deleteLink(conn, "project_links", id)
 }
 
+// ProjectLinksTexts возвращает карту id проекта → объединённые названия и
+// адреса его ссылок (для полнотекстового поиска по проектам).
+func ProjectLinksTexts(conn *sql.DB) (map[int64]string, error) {
+	rows, err := conn.Query(`
+SELECT project_id, GROUP_CONCAT(name || ' ' || url, '\n')
+FROM project_links
+GROUP BY project_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := map[int64]string{}
+	for rows.Next() {
+		var id int64
+		var text string
+		if err := rows.Scan(&id, &text); err != nil {
+			return nil, err
+		}
+		out[id] = text
+	}
+	return out, rows.Err()
+}
+
 // linksFor возвращает ссылки владельца (проекта/задачи/подзадачи) по порядку
 // добавления.
 func linksFor(conn *sql.DB, table, ownerCol string, ownerID int64) ([]Link, error) {

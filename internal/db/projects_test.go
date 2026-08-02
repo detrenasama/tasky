@@ -1,8 +1,45 @@
 package db
 
 import (
+	"strings"
 	"testing"
+	"time"
 )
+
+// TestProjectLinksTexts — карта id проекта → названия и адреса ссылок.
+func TestProjectLinksTexts(t *testing.T) {
+	conn := openTestDB(t)
+	pid := seedProject(t, conn)
+	now := time.Now().Unix()
+	exec(t, conn, "INSERT INTO projects (name, created_at) VALUES ('other', ?)", now)
+	var other int64
+	if err := conn.QueryRow("SELECT id FROM projects WHERE name = 'other'").Scan(&other); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := CreateProjectLink(conn, pid, "Доки", "https://example.com"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := CreateProjectLink(conn, pid, "", "https://example.org"); err != nil {
+		t.Fatal(err)
+	}
+
+	texts, err := ProjectLinksTexts(conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(texts) != 1 {
+		t.Fatalf("проектов со ссылками: %d, ожидался 1", len(texts))
+	}
+	joined := texts[pid]
+	if !strings.Contains(joined, "Доки") || !strings.Contains(joined, "https://example.com") ||
+		!strings.Contains(joined, "https://example.org") {
+		t.Errorf("текст ссылок = %q", joined)
+	}
+	if _, ok := texts[other]; ok {
+		t.Error("у проекта other не должно быть ссылок")
+	}
+}
 
 func TestProjectDescription(t *testing.T) {
 	conn := openTestDB(t)

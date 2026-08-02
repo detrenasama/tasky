@@ -671,6 +671,256 @@ func TestTasksFocusTab(t *testing.T) {
 
 // TestTasksDescBox — колонка описания: для задачи описание и ссылки, для
 // подзадачи — блоки «Описание» и «Журнал» с записью.
+// TestTaskSearch — / открывает модалку поиска, фильтр по журналу/описанию/
+// названию применяется по мере ввода, Enter оставляет фильтр, Esc сбрасывает.
+func TestTaskSearch(t *testing.T) {
+	conn, err := db.Open(t.TempDir() + "/test.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	p, err := db.CreateProject(conn, "P")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t1, err := db.CreateTask(conn, p.ID, "SEO страницы")
+	if err != nil {
+		t.Fatal(err)
+	}
+	st1, err := db.CreateSubtask(conn, t1.ID, "Мета-теги")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.CreateSubtask(conn, t1.ID, "Картинки"); err != nil {
+		t.Fatal(err)
+	}
+	t2, err := db.CreateTask(conn, p.ID, "Отчёт")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.CreateSubtask(conn, t2.ID, "Сборка"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.CreateJournalEntry(conn, st1.ID, "работал над мета-тегами"); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.UpdateTaskDescription(conn, t1.ID, "оптимизация скорости"); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.UpdateTaskDescription(conn, t2.ID, "ежемесячная сводка"); err != nil {
+		t.Fatal(err)
+	}
+	s := newTasksScreen(conn)
+	s.load()
+	runes := func(r rune) tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}} }
+
+	// / открывает модалку поиска
+	s.updateTasksMsg(runes('/'))
+	if s.mode != taskSearch {
+		t.Fatalf("/ не открыл поиск (mode=%d)", s.mode)
+	}
+	if _, open := s.dialog(); !open {
+		t.Error("поиск не рендерится как модалка")
+	}
+
+	// поиск по журналу: «мета» — подзадача «Мета-теги» из журнала st1
+	for _, r := range "мета" {
+		s.updateTasksMsg(runes(r))
+	}
+	if s.searchQuery != "мета" {
+		t.Fatalf("запрос = %q", s.searchQuery)
+	}
+	if got := searchTitles(s); !equalStrings(got, []string{"SEO страницы", "Мета-теги"}) {
+		t.Errorf("после «мета»: %v", got)
+	}
+
+	// Enter применяет запрос и закрывает модалку
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEnter})
+	if s.mode != taskBrowse {
+		t.Fatalf("Enter не закрыл поиск (mode=%d)", s.mode)
+	}
+	if s.searchQuery != "мета" {
+		t.Errorf("Enter стёр запрос: %q", s.searchQuery)
+	}
+	if got := searchTitles(s); !equalStrings(got, []string{"SEO страницы", "Мета-теги"}) {
+		t.Errorf("фильтр после Enter: %v", got)
+	}
+
+	// Esc в браузе сбрасывает поиск
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
+	if s.searchQuery != "" {
+		t.Errorf("Esc не сбросил запрос: %q", s.searchQuery)
+	}
+	if got := searchTitles(s); !equalStrings(got, []string{"SEO страницы", "Отчёт"}) {
+		t.Errorf("после сброса: %v", got)
+	}
+
+	// поиск по описанию задачи: совпала задача — видны все её подзадачи
+	s.updateTasksMsg(runes('/'))
+	for _, r := range "оптимиз" {
+		s.updateTasksMsg(runes(r))
+	}
+	if got := searchTitles(s); !equalStrings(got, []string{"SEO страницы", "Мета-теги", "Картинки"}) {
+		t.Errorf("по описанию: %v", got)
+	}
+
+	// поиск по названию подзадачи: видна только совпавшая подзадача
+	s.searchInput.SetValue("")
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEnter})
+	s.updateTasksMsg(runes('/'))
+	s.searchInput.SetValue("сборка")
+	s.updateTasksMsg(runes(' '))
+	if got := searchTitles(s); !equalStrings(got, []string{"Отчёт", "Сборка"}) {
+		t.Errorf("по названию подзадачи: %v", got)
+	}
+
+	// Esc внутри модалки отменяет поиск целиком
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
+	if s.mode != taskBrowse || s.searchQuery != "" {
+		t.Fatalf("Esc в модалке: mode=%d query=%q", s.mode, s.searchQuery)
+	}
+	if got := searchTitles(s); !equalStrings(got, []string{"SEO страницы", "Отчёт"}) {
+		t.Errorf("после отмены: %v", got)
+	}
+}
+
+// searchTitles собирает названия элементов дерева списка задач.
+func searchTitles(s *tasksScreen) []string {
+	var out []string
+	for _, item := range s.items {
+		switch it := item.(type) {
+		case taskItem:
+			out = append(out, it.t.Title)
+		case subItem:
+			out = append(out, it.st.Title)
+		}
+	}
+	return out
+}
+
+// projectTitles собирает названия элементов списка проектов.
+func projectTitles(s *projectsScreen) []string {
+	var out []string
+	for _, item := range s.items {
+		if it, ok := item.(projectItem); ok {
+			out = append(out, it.p.Name)
+		}
+	}
+	return out
+}
+
+func equalStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// TestProjectSearch — / открывает модалку поиска проектов, живой фильтр по
+// названию/описанию/ссылкам, Enter применяет, Esc отменяет, esc в браузе
+// (через main.go) сбрасывает и не уводит на экран задач.
+func TestProjectSearch(t *testing.T) {
+	conn, err := db.Open(t.TempDir() + "/test.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	p1, err := db.CreateProject(conn, "GetJet")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.CreateProject(conn, "Верстка"); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.UpdateProjectDescription(conn, p1.ID, "адаптивные страницы"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.CreateProjectLink(conn, p1.ID, "Доки", "https://example.com"); err != nil {
+		t.Fatal(err)
+	}
+	s := newProjectsScreen(conn)
+	s.load()
+	m := &model{proj: s}
+	runes := func(r rune) tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}} }
+
+	// / открывает модалку поиска
+	m.updateProjects(runes('/'))
+	if s.mode != projSearch {
+		t.Fatalf("/ не открыл поиск (mode=%d)", s.mode)
+	}
+	if _, open := s.dialog(); !open {
+		t.Error("поиск не рендерится как модалка")
+	}
+
+	// поиск по названию: «верст» — только «Верстка»
+	for _, r := range "верст" {
+		m.updateProjects(runes(r))
+	}
+	if s.searchQuery != "верст" {
+		t.Fatalf("запрос = %q", s.searchQuery)
+	}
+	if got := projectTitles(s); !equalStrings(got, []string{"Верстка"}) {
+		t.Errorf("после «верст»: %v", got)
+	}
+
+	// Enter применяет и закрывает модалку, фильтр остаётся
+	m.updateProjects(tea.KeyMsg{Type: tea.KeyEnter})
+	if s.mode != projBrowse || s.searchQuery != "верст" {
+		t.Fatalf("Enter: mode=%d query=%q", s.mode, s.searchQuery)
+	}
+	if got := projectTitles(s); !equalStrings(got, []string{"Верстка"}) {
+		t.Errorf("фильтр после Enter: %v", got)
+	}
+
+	// поиск по описанию (модалка открывается с прошлым запросом — очищаем)
+	m.updateProjects(runes('/'))
+	s.searchInput.SetValue("")
+	for _, r := range "адаптив" {
+		m.updateProjects(runes(r))
+	}
+	if got := projectTitles(s); !equalStrings(got, []string{"GetJet"}) {
+		t.Errorf("по описанию: %v", got)
+	}
+
+	// поиск по ссылке
+	s.searchInput.SetValue("")
+	m.updateProjects(tea.KeyMsg{Type: tea.KeyEnter})
+	m.updateProjects(runes('/'))
+	s.searchInput.SetValue("example")
+	m.updateProjects(runes(' '))
+	if got := projectTitles(s); !equalStrings(got, []string{"GetJet"}) {
+		t.Errorf("по ссылке: %v", got)
+	}
+
+	// Esc в модалке отменяет поиск целиком
+	m.updateProjects(tea.KeyMsg{Type: tea.KeyEsc})
+	if s.mode != projBrowse || s.searchQuery != "" {
+		t.Fatalf("Esc в модалке: mode=%d query=%q", s.mode, s.searchQuery)
+	}
+	if got := projectTitles(s); !equalStrings(got, []string{"GetJet", "Верстка"}) {
+		t.Errorf("после отмены: %v", got)
+	}
+
+	// esc в браузе при активном поиске: сброс через main.go, экран не меняется
+	s.searchQuery = "верст"
+	s.buildItems()
+	m2 := model{db: conn, tasks: newTasksScreen(conn), proj: s, screen: screenProjects}
+	m2.tasks.load()
+	mm, _ := m2.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m2 = mm.(model)
+	if s.searchQuery != "" || m2.screen != screenProjects {
+		t.Errorf("esc при поиске: query=%q screen=%d", s.searchQuery, m2.screen)
+	}
+	if got := projectTitles(s); !equalStrings(got, []string{"GetJet", "Верстка"}) {
+		t.Errorf("после esc: %v", got)
+	}
+}
+
 func TestTasksDescBox(t *testing.T) {
 	conn, s, task, st := tasksSeedProject(t)
 	if err := db.UpdateTaskDescription(conn, task.ID, "описание задачи"); err != nil {

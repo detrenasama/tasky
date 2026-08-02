@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"strings"
 	"testing"
 	"time"
 )
@@ -187,6 +188,102 @@ func TestTaskSubtaskDescription(t *testing.T) {
 	}
 	if d, _ := TaskDescription(conn, t2.ID); d != "" {
 		t.Errorf("новое описание задачи = %q, ожидалось пустое", d)
+	}
+}
+
+// TestProjectQueriesIncludeDescription — описания задач и подзадач приходят
+// из запросов по проекту (нужно для поиска).
+func TestProjectQueriesIncludeDescription(t *testing.T) {
+	conn := openTestDB(t)
+	pid := seedProject(t, conn)
+	task, err := CreateTask(conn, pid, "t")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sub, err := CreateSubtask(conn, task.ID, "s")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := UpdateTaskDescription(conn, task.ID, "desc-t"); err != nil {
+		t.Fatal(err)
+	}
+	if err := UpdateSubtaskDescription(conn, sub.ID, "desc-s"); err != nil {
+		t.Fatal(err)
+	}
+
+	tasks, err := TasksByProject(conn, pid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tasks) != 1 || tasks[0].Description != "desc-t" {
+		t.Errorf("TasksByProject: %+v", tasks)
+	}
+	subs, err := SubtasksByProject(conn, pid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(subs) != 1 || subs[0].Description != "desc-s" {
+		t.Errorf("SubtasksByProject: %+v", subs)
+	}
+	byTask, err := SubtasksWithTime(conn, task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(byTask) != 1 || byTask[0].Description != "desc-s" {
+		t.Errorf("SubtasksWithTime: %+v", byTask)
+	}
+}
+
+// TestJournalTexts — карта подзадача → объединённый текст записей журнала.
+func TestJournalTexts(t *testing.T) {
+	conn := openTestDB(t)
+	pid := seedProject(t, conn)
+	t1, err := CreateTask(conn, pid, "t1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t2, err := CreateTask(conn, pid, "t2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	st1, err := CreateSubtask(conn, t1.ID, "s1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	st2, err := CreateSubtask(conn, t1.ID, "s2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	st3, err := CreateSubtask(conn, t2.ID, "s3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := CreateJournalEntry(conn, st1.ID, "первая"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := CreateJournalEntry(conn, st1.ID, "вторая"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := CreateJournalEntry(conn, st3.ID, "третья"); err != nil {
+		t.Fatal(err)
+	}
+
+	texts, err := JournalTexts(conn, pid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(texts) != 2 {
+		t.Fatalf("подзадач с журналом: %d, ожидалось 2", len(texts))
+	}
+	joined := texts[st1.ID]
+	if !strings.Contains(joined, "первая") || !strings.Contains(joined, "вторая") {
+		t.Errorf("журнал s1 = %q", joined)
+	}
+	if texts[st2.ID] != "" {
+		t.Errorf("у s2 не должно быть журнала: %q", texts[st2.ID])
+	}
+	if texts[st3.ID] != "третья" {
+		t.Errorf("журнал s3 = %q", texts[st3.ID])
 	}
 }
 

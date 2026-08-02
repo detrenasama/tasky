@@ -13,6 +13,7 @@ type Task struct {
 	ID          int64
 	ProjectID   int64
 	Title       string
+	Description string
 	Status      string
 	CreatedAt   time.Time
 	CompletedAt *time.Time
@@ -23,6 +24,7 @@ type SubtaskWithTime struct {
 	ID           int64
 	TaskID       int64
 	Title        string
+	Description  string
 	Status       string
 	SortOrder    int64
 	CreatedAt    time.Time

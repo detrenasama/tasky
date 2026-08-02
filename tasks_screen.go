@@ -29,6 +29,7 @@ const (
 	taskJournal
 	taskStatusPick
 	taskStatusNote
+	taskSearch
 )
 
 type taskFocus int
@@ -139,6 +140,10 @@ type tasksScreen struct {
 	statusKind   paneKind
 	statusID     int64
 	statusTarget *db.StatusDef
+
+	searchInput  textinput.Model
+	searchQuery  string
+	journalTexts map[int64]string
 }
 
 func newTasksScreen(conn *sql.DB) *tasksScreen {
@@ -152,6 +157,9 @@ func newTasksScreen(conn *sql.DB) *tasksScreen {
 	s.list.SetShowPagination(false)
 	s.list.SetShowStatusBar(false)
 	s.list.DisableQuitKeybindings()
+	// встроенный фильтр списка (/ + перехват букв экраном) не работает —
+	// полнотекстовый поиск реализован своим режимом taskSearch
+	s.list.SetFilteringEnabled(false)
 
 	s.input = textinput.New()
 	s.input.Placeholder = "Название"
@@ -189,6 +197,12 @@ func newTasksScreen(conn *sql.DB) *tasksScreen {
 	s.statusNote.SetWidth(60)
 	s.statusNote.SetHeight(3)
 	s.statusPick.setVisible(12)
+
+	s.searchInput = textinput.New()
+	s.searchInput.Placeholder = "название, описание, журнал…"
+	s.searchInput.Prompt = "> "
+	s.searchInput.CharLimit = 64
+	s.searchInput.Width = 40
 
 	ld := list.NewDefaultDelegate()
 	ld.ShowDescription = true
@@ -230,6 +244,7 @@ func (s *tasksScreen) loadData() {
 	}
 	s.tasks, _ = db.TasksByProject(s.db, s.currentProjectID())
 	s.subs, _ = db.SubtasksByProject(s.db, s.currentProjectID())
+	s.journalTexts, _ = db.JournalTexts(s.db, s.currentProjectID())
 	s.buildItems()
 	s.loadInfo()
 	s.loadDesc()
@@ -358,6 +373,10 @@ func (s *tasksScreen) currentProjectID() int64 {
 }
 
 func (s *tasksScreen) buildItems() {
+	if q := strings.ToLower(strings.TrimSpace(s.searchQuery)); q != "" {
+		s.buildSearchItems(q)
+		return
+	}
 	s.items = []list.Item{}
 	for _, t := range s.tasks {
 		s.items = append(s.items, taskItem{t: t, expanded: s.expanded[t.ID], scr: s})
@@ -369,6 +388,49 @@ func (s *tasksScreen) buildItems() {
 			}
 		}
 	}
+	s.finishBuildItems()
+}
+
+// buildSearchItems собирает дерево по запросу q (регистронезависимо):
+// задача попадает, если совпадает её название или описание (тогда видны все
+// её подзадачи); подзадача — если совпадает название, описание или текст
+// записей журнала (тогда видна только она).
+func (s *tasksScreen) buildSearchItems(q string) {
+	s.items = []list.Item{}
+	for _, t := range s.tasks {
+		taskMatch := strings.Contains(strings.ToLower(t.Title), q) ||
+			strings.Contains(strings.ToLower(t.Description), q)
+		var subs []db.SubtaskWithTime
+		if taskMatch {
+			for _, st := range s.subs {
+				if st.TaskID == t.ID {
+					subs = append(subs, st)
+				}
+			}
+		} else {
+			for _, st := range s.subs {
+				if st.TaskID == t.ID && s.subMatches(st, q) {
+					subs = append(subs, st)
+				}
+			}
+		}
+		if taskMatch || len(subs) > 0 {
+			s.items = append(s.items, taskItem{t: t, expanded: true, scr: s})
+			for _, st := range subs {
+				s.items = append(s.items, subItem{st: st, scr: s})
+			}
+		}
+	}
+	s.finishBuildItems()
+}
+
+func (s *tasksScreen) subMatches(st db.SubtaskWithTime, q string) bool {
+	return strings.Contains(strings.ToLower(st.Title), q) ||
+		strings.Contains(strings.ToLower(st.Description), q) ||
+		strings.Contains(strings.ToLower(s.journalTexts[st.ID]), q)
+}
+
+func (s *tasksScreen) finishBuildItems() {
 	selKind, selID := s.selectedKindID()
 	s.list.SetItems(s.items)
 	if len(s.items) > 0 {
@@ -652,6 +714,9 @@ func (s *tasksScreen) header(w int) string {
 	if s.projIdx >= 0 && s.projIdx < len(s.projects) {
 		h += "  " + faint("проект: ") + s.projects[s.projIdx].Name
 	}
+	if s.searchQuery != "" {
+		h += "  " + faint("поиск: ") + s.searchQuery
+	}
 	return padW(h, w)
 }
 
@@ -660,9 +725,12 @@ func (s *tasksScreen) footer(w int) string {
 		return padW(faint("Ctrl+S — сохранить · Esc — отмена"), w)
 	}
 	if s.focus == taskFocusDesc {
-		return padW(faint("↑/↓ скролл · e — описание · l — ссылка · o — ссылки · Ctrl+J — запись · j — изменить запись · Tab — список"), w)
+		return padW(faint("↑/↓ скролл · e — описание · l — ссылка · o — ссылки · Ctrl+J — запись · j — изменить запись · / — поиск · Tab — список"), w)
 	}
-	hint := "↑/↓ выбор · Enter раскрыть · n задача · a подзадача · d удалить · Ctrl+L старт/пауза · x/z статус · c — все статусы · [ / ] проект · Tab — описание · q выход"
+	hint := "↑/↓ выбор · Enter раскрыть · n задача · a подзадача · d удалить · Ctrl+L старт/пауза · x/z статус · c — все статусы · / — поиск · [ / ] проект · Tab — описание · q выход"
+	if s.searchQuery != "" {
+		hint = "Поиск: «" + s.searchQuery + "» — / — изменить · Esc — сбросить"
+	}
 	return padW(faint(hint), w)
 }
 
@@ -674,6 +742,8 @@ func (s *tasksScreen) view(w, h int) string {
 	var left string
 	if len(s.projects) == 0 {
 		left = fixedBox(dimBox, "Нет проектов.\nНажмите p и создайте проект.", s.listW, s.midH)
+	} else if s.searchQuery != "" && len(s.items) == 0 {
+		left = fixedBox(dimBox, "Ничего не найдено по запросу\n«"+s.searchQuery+"».", s.listW, s.midH)
 	} else if len(s.tasks) == 0 {
 		left = fixedBox(dimBox, "Задач в проекте нет.", s.listW, s.midH)
 	} else {
@@ -793,6 +863,14 @@ func (s *tasksScreen) dialog() (string, bool) {
 		}
 		d := dialog{title: title, body: body,
 			primary: "Ctrl+S — применить", esc: "Esc — отмена"}
+		return d.render(), true
+	case taskSearch:
+		body := s.searchInput.View()
+		if s.searchQuery != "" {
+			body += "\n\n" + faint("Найдено: "+fmt.Sprint(len(s.items))+" элементов")
+		}
+		d := dialog{title: "Поиск", body: body,
+			primary: "Enter — применить", esc: "Esc — отмена"}
 		return d.render(), true
 	}
 	return "", false
@@ -1192,6 +1270,32 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			s.mode = taskBrowse
 		}
 		return m, cmd
+	case taskSearch:
+		var cmd tea.Cmd
+		s.searchInput, cmd = s.searchInput.Update(msg)
+		switch msg.String() {
+		case "enter":
+			s.searchQuery = strings.TrimSpace(s.searchInput.Value())
+			s.searchInput.Blur()
+			s.mode = taskBrowse
+			s.buildItems()
+			s.loadInfo()
+			s.loadDesc()
+		case "esc":
+			s.searchQuery = ""
+			s.searchInput.Blur()
+			s.mode = taskBrowse
+			s.buildItems()
+			s.loadInfo()
+			s.loadDesc()
+		default:
+			// живой фильтр по мере ввода
+			s.searchQuery = strings.TrimSpace(s.searchInput.Value())
+			s.buildItems()
+			s.loadInfo()
+			s.loadDesc()
+		}
+		return m, cmd
 	}
 
 	switch msg.String() {
@@ -1265,6 +1369,12 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+	case "/":
+		s.lastErr = nil
+		s.searchInput.SetValue(s.searchQuery)
+		s.searchInput.Focus()
+		s.mode = taskSearch
+		return m, nil
 	}
 
 	if s.focus == taskFocusDesc {
@@ -1279,6 +1389,14 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "enter", "right":
 		s.toggleExpand()
+		return m, nil
+	case "esc":
+		if s.searchQuery != "" {
+			s.searchQuery = ""
+			s.buildItems()
+			s.loadInfo()
+			s.loadDesc()
+		}
 		return m, nil
 	case "ctrl+l":
 		s.toggleTimer()

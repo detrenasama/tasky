@@ -79,6 +79,11 @@ type model struct {
 	// quitTitle — название подзадачи с идущим временем.
 	quitting  bool
 	quitTitle string
+
+	// reportConfirm — подтверждение перехода к отчётам при запущенном учёте
+	// времени; reportTitle — название подзадачи с идущим временем.
+	reportConfirm bool
+	reportTitle   string
 }
 
 type tickMsg time.Time
@@ -98,6 +103,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.tasks.resize(m.width, m.height-3)
 		m.proj.resize(m.width, m.height-3)
+		m.reports.resize(m.width, m.height-3)
 		return m, nil
 	case tea.KeyMsg:
 		if m.quitting {
@@ -109,6 +115,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			case "n", "esc", "q", "ctrl+c":
 				m.quitting = false
+			}
+			return m, nil
+		}
+		if m.reportConfirm {
+			switch msg.String() {
+			case "y", "enter":
+				if run, err := db.RunningSession(m.db); err == nil && run != nil {
+					db.StopSession(m.db, run.ID, time.Now())
+				}
+				m.reportConfirm = false
+				m.switchScreen(screenReports)
+				return m, nil
+			case "n", "esc", "r", "q", "ctrl+c":
+				m.reportConfirm = false
 			}
 			return m, nil
 		}
@@ -145,6 +165,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.switchScreen(screenProjects)
 				return m, nil
 			case "r":
+				if run, err := db.RunningSession(m.db); err == nil && run != nil {
+					m.reportConfirm = true
+					m.reportTitle = run.Title
+					return m, nil
+				}
 				m.switchScreen(screenReports)
 				return m, nil
 			case "s":
@@ -188,6 +213,8 @@ func (m *model) switchScreen(s screen) {
 		m.tasks.load()
 	case screenProjects:
 		m.proj.load()
+	case screenReports:
+		m.reports.load()
 	}
 }
 
@@ -233,6 +260,15 @@ func (m model) View() string {
 		}
 		full = overlay(full, d.render(), w, h)
 	}
+	if m.reportConfirm {
+		d := dialog{
+			title:   "Учёт времени запущен",
+			body:    fmt.Sprintf("На подзадаче «%s» идёт учёт времени.\nОстановить и сформировать отчёт?", m.reportTitle),
+			primary: "Enter — остановить и сформировать отчёт",
+			esc:     "Esc — отмена",
+		}
+		full = overlay(full, d.render(), w, h)
+	}
 	return full
 }
 
@@ -249,7 +285,7 @@ func main() {
 	m.tasks.load()
 	m.proj = newProjectsScreen(conn)
 	m.proj.load()
-	m.reports = newReportsScreen()
+	m.reports = newReportsScreen(conn)
 	m.settings = newSettingsScreen()
 
 	p := tea.NewProgram(m, tea.WithAltScreen())

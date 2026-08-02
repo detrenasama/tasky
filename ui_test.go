@@ -1089,3 +1089,153 @@ func TestQuitNoSession(t *testing.T) {
 		t.Error("предупреждение показано без запущенной сессии")
 	}
 }
+
+// reportsSeedProject создаёт проект с задачей и подзадачей и закрытой
+// записью времени за последний час (в пределах сегодняшнего дня).
+func reportsSeedProject(t *testing.T) (*sql.DB, db.Task) {
+	t.Helper()
+	conn, err := db.Open(t.TempDir() + "/test.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { conn.Close() })
+	p, err := db.CreateProject(conn, "P")
+	if err != nil {
+		t.Fatal(err)
+	}
+	task, err := db.CreateTask(conn, p.ID, "T")
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := db.CreateSubtask(conn, task.ID, "S")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	if err := db.StartSession(conn, st.ID, now.Add(-2*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.StopSession(conn, st.ID, now.Add(-1*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	return conn, task
+}
+
+// newReportsModel собирает полную модель с отчётами для тестов клавиатуры.
+func newReportsModel(conn *sql.DB) model {
+	m := model{db: conn, screen: screenTasks}
+	m.tasks = newTasksScreen(conn)
+	m.proj = newProjectsScreen(conn)
+	m.reports = newReportsScreen(conn)
+	m.tasks.load()
+	m.proj.load()
+	m.tasks.resize(150, 27)
+	m.proj.resize(150, 27)
+	m.reports.resize(150, 27)
+	m.width, m.height = 150, 30
+	return m
+}
+
+// TestReportsScreenRender — отчёт за сегодня: переход по r, заголовок
+// периода, задачи с подзадачами и общее время.
+func TestReportsScreenRender(t *testing.T) {
+	conn, task := reportsSeedProject(t)
+	m := newReportsModel(conn)
+
+	mm, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	m = mm.(model)
+	if cmd != nil {
+		t.Fatal("переход на отчёты не должен возвращать команду")
+	}
+	if m.screen != screenReports {
+		t.Fatalf("экран %d, ожидался screenReports", m.screen)
+	}
+	view := m.View()
+	for _, want := range []string{"Отчет за сегодня", "Общее время:", task.Title, "S · "} {
+		if !strings.Contains(view, want) {
+			t.Errorf("в отчёте нет %q", want)
+		}
+	}
+}
+
+// TestReportsEmptyDay — без записей за сегодня отчёт показывает подсказку.
+func TestReportsEmptyDay(t *testing.T) {
+	conn, err := db.Open(t.TempDir() + "/test.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	m := newReportsModel(conn)
+
+	mm, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	m = mm.(model)
+	if !strings.Contains(m.View(), "Времени за период ещё не учтено") {
+		t.Error("пустой отчёт не показывает подсказку")
+	}
+}
+
+// TestReportsSwitchWithRunningSession — при запущенном учёте времени переход
+// на отчёты показывает предупреждение: Enter останавливает подзадачу и
+// переходит, Esc отменяет.
+func TestReportsSwitchWithRunningSession(t *testing.T) {
+	conn, err := db.Open(t.TempDir() + "/test.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	p, err := db.CreateProject(conn, "P")
+	if err != nil {
+		t.Fatal(err)
+	}
+	task, err := db.CreateTask(conn, p.ID, "T")
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := db.CreateSubtask(conn, task.ID, "S")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.StartSession(conn, st.ID, time.Now().Add(-30*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	m := newReportsModel(conn)
+	r := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}}
+
+	mm, cmd := m.Update(r)
+	m = mm.(model)
+	if cmd != nil {
+		t.Fatal("r с запущенной сессией не должен переключать сразу")
+	}
+	if !m.reportConfirm || m.screen != screenTasks {
+		t.Errorf("предупреждение не выставлено: confirm=%v screen=%d", m.reportConfirm, m.screen)
+	}
+	if !strings.Contains(m.View(), "сформировать отчёт") {
+		t.Error("в предупреждении нет вопроса о формировании отчёта")
+	}
+
+	mm, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = mm.(model)
+	if m.reportConfirm {
+		t.Error("Esc не отменил предупреждение")
+	}
+	if run, _ := db.RunningSession(conn); run == nil {
+		t.Error("отмена остановила сессию")
+	}
+
+	mm, _ = m.Update(r)
+	m = mm.(model)
+	if !m.reportConfirm {
+		t.Fatal("r не показал предупреждение повторно")
+	}
+	mm, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = mm.(model)
+	if m.reportConfirm || m.screen != screenReports {
+		t.Errorf("Enter не перешёл к отчётам: confirm=%v screen=%d", m.reportConfirm, m.screen)
+	}
+	if run, _ := db.RunningSession(conn); run != nil {
+		t.Error("переход к отчётам не остановил сессию")
+	}
+	if !strings.Contains(m.View(), "S · ") {
+		t.Error("остановленная сессия не попала в отчёт")
+	}
+}

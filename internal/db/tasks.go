@@ -8,9 +8,10 @@ import (
 func CreateTask(conn *sql.DB, projectID int64, title string) (Task, error) {
 	var t Task
 	now := time.Now().Unix()
+	status, _ := DefaultStatus(conn)
 	res, err := conn.Exec(
-		"INSERT INTO tasks (project_id, title, created_at) VALUES (?, ?, ?)",
-		projectID, title, now)
+		"INSERT INTO tasks (project_id, title, status, created_at) VALUES (?, ?, ?, ?)",
+		projectID, title, status, now)
 	if err != nil {
 		return t, err
 	}
@@ -18,7 +19,7 @@ func CreateTask(conn *sql.DB, projectID int64, title string) (Task, error) {
 	if err != nil {
 		return t, err
 	}
-	t = Task{ID: id, ProjectID: projectID, Title: title, Status: "todo",
+	t = Task{ID: id, ProjectID: projectID, Title: title, Status: status,
 		CreatedAt: time.Unix(now, 0)}
 	return t, nil
 }
@@ -31,10 +32,11 @@ func DeleteTask(conn *sql.DB, id int64) error {
 func CreateSubtask(conn *sql.DB, taskID int64, title string) (SubtaskWithTime, error) {
 	var s SubtaskWithTime
 	now := time.Now().Unix()
+	status, _ := DefaultStatus(conn)
 	res, err := conn.Exec(`
-INSERT INTO subtasks (task_id, title, sort_order, created_at)
-SELECT ?, ?, COALESCE(MAX(sort_order), 0) + 1, ? FROM subtasks WHERE task_id = ?`,
-		taskID, title, now, taskID)
+INSERT INTO subtasks (task_id, title, status, sort_order, created_at)
+SELECT ?, ?, ?, COALESCE(MAX(sort_order), 0) + 1, ? FROM subtasks WHERE task_id = ?`,
+		taskID, title, status, now, taskID)
 	if err != nil {
 		return s, err
 	}
@@ -42,7 +44,7 @@ SELECT ?, ?, COALESCE(MAX(sort_order), 0) + 1, ? FROM subtasks WHERE task_id = ?
 	if err != nil {
 		return s, err
 	}
-	s = SubtaskWithTime{ID: id, TaskID: taskID, Title: title, Status: "todo",
+	s = SubtaskWithTime{ID: id, TaskID: taskID, Title: title, Status: status,
 		CreatedAt: time.Unix(now, 0)}
 	return s, nil
 }

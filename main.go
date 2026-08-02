@@ -145,7 +145,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.screen == screenTasks &&
 			(m.tasks.mode == taskDescEdit || m.tasks.mode == taskLinkInput || m.tasks.mode == taskLinks ||
-				m.tasks.mode == taskLinkConfirm || m.tasks.mode == taskJournal) {
+				m.tasks.mode == taskLinkConfirm || m.tasks.mode == taskJournal ||
+				m.tasks.mode == taskStatusPick || m.tasks.mode == taskStatusNote) {
 			return m.updateTasks(msg)
 		}
 		if m.screen == screenSettings && m.settings.mode != settingsBrowse {

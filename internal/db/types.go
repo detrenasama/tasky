@@ -54,3 +54,22 @@ type JournalEntry struct {
 	CreatedAt time.Time
 	Text      string
 }
+
+// StatusDef — настраиваемый статус из каталога statuses.
+type StatusDef struct {
+	ID         int64
+	Name       string
+	Type       string // new | in_progress | done
+	Color      string
+	NotePrompt string
+	IsQuick    bool
+	SortOrder  int
+}
+
+// StatusHistoryEntry — запись истории смены статуса задачи.
+type StatusHistoryEntry struct {
+	From      string
+	To        string
+	Note      string
+	CreatedAt time.Time
+}

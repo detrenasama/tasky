@@ -8,6 +8,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/kalpamer/tasky/internal/db"
 )
@@ -20,11 +21,30 @@ const (
 	settingsProjList
 	settingsPeriodList
 	settingsPeriodInput
+	settingsStatusList
+	settingsStatusEdit
+	settingsColorPick
+	settingsStatusConfirm
 )
 
+// statusPalette — палитра цветов статусов (приглушённые, видны на тёмном
+// фоне). Хранится индексом в pickList.
+var statusPalette = []string{
+	"#6a9955", "#4f7942", "#569cd6", "#c586c0", "#d7ba7d",
+	"#ce9178", "#8a8a8a", "#8f3e3e", "#4ec9b0", "#d47a9e",
+}
+
+var paletteNames = []string{
+	"зелёный", "тёмно-зелёный", "синий", "фиолетовый", "жёлтый",
+	"оранжевый", "серый", "тёмно-красный", "голубой", "розовый",
+}
+
+var statusTypeNames = []string{"Новый", "В работе", "Завершённый"}
+var statusTypeCodes = []string{"new", "in_progress", "done"}
+
 // settingsScreen — страница «Настройки»: настройки отчёта (период, фильтр
-// проекта, журнал, каталог сохранения). Значения пишутся в общий
-// reportConfig экрана отчётов.
+// проекта, журнал, каталог сохранения) и каталог статусов. Значения отчёта
+// пишутся в общий reportConfig экрана отчётов.
 type settingsScreen struct {
 	db          *sql.DB
 	cfg         *reportConfig
@@ -36,6 +56,18 @@ type settingsScreen struct {
 	projPick    pickList
 	periodPick  pickList
 	lastErr     error
+
+	statuses     []db.StatusDef
+	statusPick   pickList
+	colorPick    pickList
+	editName     textinput.Model
+	editNote     textinput.Model
+	editType     int
+	editColor    int
+	editQuick    bool
+	editFocus    int
+	statusEditID int64
+	statusDelID  int64
 
 	midH int
 }
@@ -115,14 +147,35 @@ func newSettingsScreen(conn *sql.DB, cfg *reportConfig) *settingsScreen {
 	s := &settingsScreen{db: conn, cfg: cfg, dirInput: ti, periodInput: pi}
 	s.projPick.setVisible(12)
 	s.periodPick.setVisible(12)
+	s.statusPick.setVisible(12)
+	s.colorPick.setVisible(12)
 	items := make([]pickItem, 0, len(periodNames)+1)
 	for i, name := range periodNames {
 		items = append(items, pickItem{value: int64(i), label: name})
 	}
 	items = append(items, pickItem{value: int64(periodCustom), label: "свой…"})
 	s.periodPick.items = items
+	s.editName = textinput.New()
+	s.editName.Placeholder = "Название статуса"
+	s.editName.Prompt = "> "
+	s.editName.Width = 30
+	s.editNote = textinput.New()
+	s.editNote.Placeholder = "пусто — без заметки"
+	s.editNote.Prompt = "> "
+	s.editNote.Width = 30
+	for i, c := range statusPalette {
+		s.colorPick.items = append(s.colorPick.items, pickItem{
+			value: int64(i),
+			label: colorPreview(c) + " " + paletteNames[i],
+		})
+	}
 	s.load()
 	return s
+}
+
+// colorPreview — цветной квадрат-превью для палитры.
+func colorPreview(color string) string {
+	return lipgloss.NewStyle().Background(lipgloss.Color(color)).Render("  ")
 }
 
 func (s *settingsScreen) load() {
@@ -144,6 +197,12 @@ func (s *settingsScreen) load() {
 		items = append(items, pickItem{value: p.ID, label: p.Name})
 	}
 	s.projPick.items = items
+	s.statuses, _ = db.Statuses(s.db)
+	sItems := make([]pickItem, 0, len(s.statuses))
+	for _, st := range s.statuses {
+		sItems = append(sItems, pickItem{value: st.ID, label: st.Name})
+	}
+	s.statusPick.items = sItems
 }
 
 func (s *settingsScreen) resize(w, h int) {
@@ -151,6 +210,8 @@ func (s *settingsScreen) resize(w, h int) {
 	visible := max(4, min(h-8, 12))
 	s.projPick.setVisible(visible)
 	s.periodPick.setVisible(visible)
+	s.statusPick.setVisible(visible)
+	s.colorPick.setVisible(visible)
 }
 
 func (s *settingsScreen) header(w int) string {
@@ -202,6 +263,7 @@ func (s *settingsScreen) view(w, h int) string {
 		"Проект:  " + s.projectName(),
 		"Журнал:  " + boolWord(s.cfg.includeJournal),
 		"Каталог: " + s.dirName(),
+		"Статусы: " + fmt.Sprintf("%d", len(s.statuses)),
 	}
 	var lines []string
 	for i, r := range rows {
@@ -214,7 +276,7 @@ func (s *settingsScreen) view(w, h int) string {
 	inner := headerStyle.Render("Настройки отчёта") + "\n\n" +
 		strings.Join(lines, "\n") + "\n\n" +
 		faint("Enter — выбор из списка (журнал — вкл/выкл,")
-	inner += "\n" + faint("каталог — ввод пути)")
+	inner += "\n" + faint("каталог — ввод пути, статусы — каталог статусов)")
 	return boxStyle.Render(padLines(inner, max(w-4, 1), max(h-4, 1)))
 }
 
@@ -243,6 +305,59 @@ func (s *settingsScreen) dialog() (string, bool) {
 		d := dialog{title: "Свой период",
 			body:    body,
 			primary: "Enter — применить", esc: "Esc — отмена"}
+		return d.render(), true
+	case settingsStatusList:
+		body := s.statusPick.view()
+		if s.lastErr != nil {
+			body += "\n\n" + errorStyle.Render("Ошибка: "+s.lastErr.Error())
+		}
+		d := dialog{title: "Статусы",
+			body:    body,
+			primary: "Enter — изменить · n — новый · d — удалить", esc: "Esc — назад"}
+		return d.render(), true
+	case settingsStatusEdit:
+		title := "Новый статус"
+		if s.statusEditID != 0 {
+			title = "Статус"
+		}
+		lines := []string{
+			"Имя:       " + s.editName.View(),
+			"Тип:       " + statusTypeNames[s.editType],
+			"Цвет:      " + colorPreview(statusPalette[s.editColor]) + " " + paletteNames[s.editColor],
+			"Быстрая цепочка: " + boolWord(s.editQuick),
+			"Подсказка: " + s.editNote.View(),
+		}
+		var body []string
+		for i, l := range lines {
+			if i == s.editFocus {
+				body = append(body, headerStyle.Render("▸ "+l))
+			} else {
+				body = append(body, "  "+l)
+			}
+		}
+		body = append(body, "", faint("Тип — Enter, цвет — Enter, цепочка — Enter, Ctrl+S — сохранить"))
+		inner := strings.Join(body, "\n")
+		if s.lastErr != nil {
+			inner += "\n\n" + errorStyle.Render("Ошибка: "+s.lastErr.Error())
+		}
+		d := dialog{title: title, body: inner,
+			primary: "Ctrl+S — сохранить", esc: "Esc — отмена"}
+		return d.render(), true
+	case settingsColorPick:
+		d := dialog{title: "Цвет статуса",
+			body:    s.colorPick.view(),
+			primary: "Enter — выбрать", esc: "Esc — отмена"}
+		return d.render(), true
+	case settingsStatusConfirm:
+		name := ""
+		for _, st := range s.statuses {
+			if st.ID == s.statusDelID {
+				name = st.Name
+			}
+		}
+		d := dialog{title: "Удаление статуса",
+			body:    fmt.Sprintf("Удалить статус «%s»?", name),
+			primary: "y — удалить", esc: "n — нет"}
 		return d.render(), true
 	}
 	return "", false
@@ -397,13 +512,109 @@ func (m *model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			s.mode = settingsBrowse
 		}
 		return m, nil
+	case settingsStatusList:
+		switch msg.String() {
+		case "up":
+			s.statusPick.move(-1)
+		case "down":
+			s.statusPick.move(1)
+		case "pgup":
+			s.statusPick.move(-s.statusPick.visible)
+		case "pgdown":
+			s.statusPick.move(s.statusPick.visible)
+		case "enter":
+			if it, ok := s.statusPick.selected(); ok {
+				s.openStatusEdit(it.value)
+			}
+		case "n":
+			s.openStatusEdit(0)
+		case "d":
+			if it, ok := s.statusPick.selected(); ok {
+				s.statusDelID = it.value
+				s.mode = settingsStatusConfirm
+			}
+		case "esc":
+			s.lastErr = nil
+			s.mode = settingsBrowse
+		}
+		return m, nil
+	case settingsStatusEdit:
+		switch msg.String() {
+		case "up":
+			s.editFocus = (s.editFocus + 4) % 5
+			s.focusEditField()
+		case "down", "tab":
+			s.editFocus = (s.editFocus + 1) % 5
+			s.focusEditField()
+		case "enter":
+			switch s.editFocus {
+			case 0:
+				s.editFocus = 1
+				s.focusEditField()
+			case 1:
+				s.editType = (s.editType + 1) % 3
+			case 2:
+				s.colorPick.sel = s.editColor
+				s.colorPick.clampScroll()
+				s.mode = settingsColorPick
+			case 3:
+				s.editQuick = !s.editQuick
+			case 4:
+				s.saveStatusEdit()
+			}
+		case "ctrl+s":
+			s.saveStatusEdit()
+		case "esc":
+			s.lastErr = nil
+			s.mode = settingsStatusList
+		default:
+			if s.editFocus == 0 {
+				s.editName, _ = s.editName.Update(msg)
+			} else if s.editFocus == 4 {
+				s.editNote, _ = s.editNote.Update(msg)
+			}
+		}
+		return m, nil
+	case settingsColorPick:
+		switch msg.String() {
+		case "up":
+			s.colorPick.move(-1)
+		case "down":
+			s.colorPick.move(1)
+		case "pgup":
+			s.colorPick.move(-s.colorPick.visible)
+		case "pgdown":
+			s.colorPick.move(s.colorPick.visible)
+		case "enter":
+			if it, ok := s.colorPick.selected(); ok {
+				s.editColor = int(it.value)
+			}
+			s.mode = settingsStatusEdit
+		case "esc":
+			s.mode = settingsStatusEdit
+		}
+		return m, nil
+	case settingsStatusConfirm:
+		switch msg.String() {
+		case "y", "enter":
+			if err := db.DeleteStatus(s.db, s.statusDelID); err != nil {
+				s.lastErr = err
+			} else {
+				s.lastErr = nil
+				s.load()
+			}
+			s.mode = settingsStatusList
+		case "n", "esc":
+			s.mode = settingsStatusList
+		}
+		return m, nil
 	}
 
 	switch msg.String() {
 	case "up":
-		s.sel = (s.sel + 3) % 4
+		s.sel = (s.sel + 4) % 5
 	case "down":
-		s.sel = (s.sel + 1) % 4
+		s.sel = (s.sel + 1) % 5
 	case "enter":
 		switch s.sel {
 		case 0:
@@ -416,9 +627,83 @@ func (m *model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			s.dirInput.SetValue(s.cfg.saveDir)
 			s.dirInput.Focus()
 			s.mode = settingsDirInput
+		case 4:
+			s.lastErr = nil
+			s.mode = settingsStatusList
 		}
 	}
 	return m, nil
+}
+
+// focusEditField переводит фокус textinput на текущее поле редактора
+// статуса (имя или подсказка).
+func (s *settingsScreen) focusEditField() {
+	switch s.editFocus {
+	case 0:
+		s.editName.Focus()
+		s.editNote.Blur()
+	case 4:
+		s.editName.Blur()
+		s.editNote.Focus()
+	default:
+		s.editName.Blur()
+		s.editNote.Blur()
+	}
+}
+
+// openStatusEdit открывает редактор статуса: id=0 — новый, иначе — правка.
+func (s *settingsScreen) openStatusEdit(id int64) {
+	s.statusEditID = id
+	s.lastErr = nil
+	s.editName.SetValue("")
+	s.editNote.SetValue("")
+	s.editType, s.editColor, s.editQuick = 0, 0, false
+	for _, st := range s.statuses {
+		if st.ID != id {
+			continue
+		}
+		s.editName.SetValue(st.Name)
+		s.editNote.SetValue(st.NotePrompt)
+		s.editQuick = st.IsQuick
+		for i, t := range statusTypeCodes {
+			if t == st.Type {
+				s.editType = i
+			}
+		}
+		for i, c := range statusPalette {
+			if c == st.Color {
+				s.editColor = i
+			}
+		}
+	}
+	s.editFocus = 0
+	s.editName.Focus()
+	s.editNote.Blur()
+	s.mode = settingsStatusEdit
+}
+
+// saveStatusEdit сохраняет статус из редактора.
+func (s *settingsScreen) saveStatusEdit() {
+	name := strings.TrimSpace(s.editName.Value())
+	if name == "" {
+		s.lastErr = fmt.Errorf("имя не может быть пустым")
+		return
+	}
+	var err error
+	if s.statusEditID == 0 {
+		_, err = db.CreateStatus(s.db, name, statusTypeCodes[s.editType],
+			statusPalette[s.editColor], strings.TrimSpace(s.editNote.Value()), s.editQuick)
+	} else {
+		err = db.UpdateStatus(s.db, s.statusEditID, name, statusTypeCodes[s.editType],
+			statusPalette[s.editColor], strings.TrimSpace(s.editNote.Value()), s.editQuick)
+	}
+	if err != nil {
+		s.lastErr = err
+		return
+	}
+	s.lastErr = nil
+	s.load()
+	s.mode = settingsStatusList
 }
 
 func boolWord(b bool) string {

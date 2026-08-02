@@ -1589,3 +1589,295 @@ func TestSettingsListScroll(t *testing.T) {
 		t.Error("Enter не выбрал проект из прокрученного списка")
 	}
 }
+
+// TestTaskStatusQuickCycle — x/z двигают статус по быстрой цепочке
+// Новая → В работе → На проверке → Выполнена без зацикливания.
+func TestTaskStatusQuickCycle(t *testing.T) {
+	conn, s, task, _ := tasksSeedProject(t)
+	if len(s.statuses) != 8 {
+		t.Fatalf("статусов %d, ожидалось 8", len(s.statuses))
+	}
+	down := func() {
+		s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	}
+	statusOf := func() string {
+		var st string
+		if err := conn.QueryRow("SELECT status FROM tasks WHERE id = ?", task.ID).Scan(&st); err != nil {
+			t.Fatal(err)
+		}
+		return st
+	}
+
+	down() // В работе
+	if statusOf() != "В работе" {
+		t.Fatalf("после x статус %q", statusOf())
+	}
+	down() // На проверке
+	down() // Выполнена
+	if statusOf() != "Выполнена" {
+		t.Fatalf("после x×3 статус %q", statusOf())
+	}
+	var completed sql.NullInt64
+	if err := conn.QueryRow("SELECT completed_at FROM tasks WHERE id = ?", task.ID).Scan(&completed); err != nil {
+		t.Fatal(err)
+	}
+	if !completed.Valid {
+		t.Error("completed_at не выставлен для Выполнена")
+	}
+
+	down() // без зацикливания: остаёмся на Выполнена
+	if statusOf() != "Выполнена" {
+		t.Fatalf("x с Выполнена зациклился: %q", statusOf())
+	}
+
+	// z назад: На проверке, completed_at очищен
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'z'}})
+	if statusOf() != "На проверке" {
+		t.Fatalf("после z статус %q", statusOf())
+	}
+	if err := conn.QueryRow("SELECT completed_at FROM tasks WHERE id = ?", task.ID).Scan(&completed); err != nil {
+		t.Fatal(err)
+	}
+	if completed.Valid {
+		t.Error("completed_at не очищен при выходе из Выполнена")
+	}
+
+	// статус вне цепочки: x прыгает на первый элемент
+	db.SetStatus(conn, db.OwnerTask, task.ID, "Отменена", "", time.Now())
+	s.loadData()
+	down()
+	if statusOf() != "Новая" {
+		t.Fatalf("x из внецепочного статуса: %q", statusOf())
+	}
+
+	// полоса и цветной статус в списке
+	plain := stripANSI(s.list.View())
+	if !strings.Contains(plain, "Новая · ") {
+		t.Errorf("в списке нет статуса: %q", plain)
+	}
+}
+
+// TestTaskStatusPickAndNote — c открывает модалку выбора, «Делегирована»
+// требует заметку (имя коллеги), переход пишется в журнал подзадачи.
+func TestTaskStatusPickAndNote(t *testing.T) {
+	conn, s, _, st := tasksSeedProject(t)
+	m := &model{tasks: s}
+	selectFirstSubtask(m)
+
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+	if s.mode != taskStatusPick {
+		t.Fatalf("c не открыл выбор статуса (mode=%d)", s.mode)
+	}
+	if _, open := s.dialog(); !open {
+		t.Error("выбор статуса не рендерится как модалка")
+	}
+	// преселект на текущем статусе («Новая»)
+	if s.statusPick.sel != 0 {
+		t.Errorf("преселект курсора: %d", s.statusPick.sel)
+	}
+
+	// ↓ до «Делегирована» (индекс 5) и Enter — модалка заметки
+	for i := 0; i < 5; i++ {
+		s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyDown})
+	}
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEnter})
+	if s.mode != taskStatusNote {
+		t.Fatalf("Делегирована не открыла заметку (mode=%d)", s.mode)
+	}
+	if _, open := s.dialog(); !open {
+		t.Error("заметка не рендерится как модалка")
+	}
+
+	// Esc отменяет — статус не меняется
+	s.statusNote.SetValue("Иван")
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
+	if s.mode != taskBrowse {
+		t.Fatalf("Esc не отменил заметку (mode=%d)", s.mode)
+	}
+	var status string
+	if err := conn.QueryRow("SELECT status FROM subtasks WHERE id = ?", st.ID).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != "Новая" {
+		t.Fatalf("отменённый переход применился: %q", status)
+	}
+
+	// снова: Делегирована + Ctrl+S с именем коллеги
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+	for i := 0; i < 5; i++ {
+		s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyDown})
+	}
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEnter})
+	s.statusNote.SetValue("Иван Петров")
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyCtrlS})
+	if s.mode != taskBrowse {
+		t.Fatalf("Ctrl+S не применил статус (mode=%d)", s.mode)
+	}
+	if err := conn.QueryRow("SELECT status FROM subtasks WHERE id = ?", st.ID).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != "Делегирована" {
+		t.Fatalf("статус после заметки: %q", status)
+	}
+	hist, _ := db.StatusHistory(conn, db.OwnerSubtask, st.ID)
+	if len(hist) != 1 || hist[0].From != "Новая" || hist[0].To != "Делегирована" ||
+		hist[0].Note != "Иван Петров" {
+		t.Errorf("запись истории: %+v", hist)
+	}
+	entries, _ := db.JournalEntries(conn, st.ID)
+	if len(entries) != 0 {
+		t.Errorf("журнал не должен содержать переход статуса: %+v", entries)
+	}
+}
+
+// TestTaskStatusSubtaskHistory — быстрый переход подзадачи пишется в
+// status_history и виден в info-панели.
+func TestTaskStatusSubtaskHistory(t *testing.T) {
+	conn, s, _, st := tasksSeedProject(t)
+	m := &model{tasks: s}
+	selectFirstSubtask(m)
+
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	hist, _ := db.StatusHistory(conn, db.OwnerSubtask, st.ID)
+	if len(hist) != 1 || hist[0].From != "Новая" || hist[0].To != "В работе" {
+		t.Fatalf("история: %+v", hist)
+	}
+	entries, _ := db.JournalEntries(conn, st.ID)
+	if len(entries) != 0 {
+		t.Fatalf("журнал не должен содержать переход статуса: %+v", entries)
+	}
+	plain := stripANSI(s.infoTop(20))
+	for _, want := range []string{"История статусов:", "Новая → В работе"} {
+		if !strings.Contains(plain, want) {
+			t.Errorf("в info нет %q", want)
+		}
+	}
+	// в колонке описания переход не дублируется в журнале
+	desc := stripANSI(s.descBox())
+	if strings.Contains(desc, "Статус: ") {
+		t.Error("переход статуса виден в журнале колонки описания")
+	}
+}
+
+// TestTaskStatusHistoryInfo — переходы задачи видны в info-панели.
+func TestTaskStatusHistoryInfo(t *testing.T) {
+	conn, s, task, _ := tasksSeedProject(t)
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	hist, _ := db.StatusHistory(conn, db.OwnerTask, task.ID)
+	if len(hist) != 2 {
+		t.Fatalf("история: %d записей", len(hist))
+	}
+	plain := stripANSI(s.infoTop(20))
+	for _, want := range []string{"История статусов:", "Новая → В работе", "В работе → На проверке"} {
+		if !strings.Contains(plain, want) {
+			t.Errorf("в info нет %q", want)
+		}
+	}
+}
+
+// TestSettingsStatusesManage — настройки статусов: просмотр, создание,
+// удаление неиспользуемого и запрет удаления используемого.
+func TestSettingsStatusesManage(t *testing.T) {
+	conn, err := db.Open(t.TempDir() + "/test.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	m := newReportsModel(conn)
+	m.switchScreen(screenSettings)
+	down := func() { m.updateSettings(tea.KeyMsg{Type: tea.KeyDown}) }
+
+	// строка «Статусы» — четвёртое нажатие вниз (период→проект→журнал→каталог→статусы)
+	for i := 0; i < 4; i++ {
+		down()
+	}
+	if m.settings.sel != 4 {
+		t.Fatalf("sel=%d, ожидался статусы", m.settings.sel)
+	}
+	if !strings.Contains(m.View(), "Статусы: 8") {
+		t.Error("строка статусов не показывает количество")
+	}
+
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
+	if m.settings.mode != settingsStatusList {
+		t.Fatalf("Enter не открыл список статусов (mode=%d)", m.settings.mode)
+	}
+
+	// создание нового статуса
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	if m.settings.mode != settingsStatusEdit {
+		t.Fatalf("n не открыл редактор (mode=%d)", m.settings.mode)
+	}
+	m.settings.editName.SetValue("Новый статус")
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter}) // имя → тип
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter}) // тип: Новый → В работе
+	if m.settings.editType != 1 {
+		t.Errorf("тип не переключился: %d", m.settings.editType)
+	}
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyDown}) // тип → цвет
+	if m.settings.editFocus != 2 {
+		t.Fatalf("editFocus=%d, ожидался цвет", m.settings.editFocus)
+	}
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter}) // открыть палитру
+	if m.settings.mode != settingsColorPick {
+		t.Fatalf("Enter на цвете не открыл палитру (mode=%d)", m.settings.mode)
+	}
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyDown})
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyDown})
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
+	if m.settings.editColor != 2 {
+		t.Errorf("цвет не выбран: %d", m.settings.editColor)
+	}
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyDown}) // цвет → быстрая цепочка
+	if m.settings.editFocus != 3 {
+		t.Fatalf("editFocus=%d, ожидался 3", m.settings.editFocus)
+	}
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter}) // быстрая цепочка: вкл
+	if !m.settings.editQuick {
+		t.Error("быстрая цепочка не включилась")
+	}
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyCtrlS})
+	if m.settings.mode != settingsStatusList {
+		t.Fatalf("Ctrl+S не сохранил статус (mode=%d)", m.settings.mode)
+	}
+	sts, _ := db.Statuses(conn)
+	if len(sts) != 9 {
+		t.Fatalf("статусов %d, ожидалось 9", len(sts))
+	}
+	last := sts[len(sts)-1]
+	if last.Name != "Новый статус" || last.Type != "in_progress" ||
+		last.Color != "#569cd6" || !last.IsQuick {
+		t.Errorf("созданный статус: %+v", last)
+	}
+
+	// удаление неиспользуемого статуса
+	m.settings.statusPick.sel = len(m.settings.statusPick.items) - 1
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	if m.settings.mode != settingsStatusConfirm {
+		t.Fatalf("d не открыл подтверждение (mode=%d)", m.settings.mode)
+	}
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+	if m.settings.mode != settingsStatusList {
+		t.Fatalf("подтверждение не закрылось (mode=%d)", m.settings.mode)
+	}
+	if sts, _ = db.Statuses(conn); len(sts) != 8 {
+		t.Errorf("статусов после удаления: %d", len(sts))
+	}
+
+	// удаление используемого — ошибка
+	p, _ := db.CreateProject(conn, "P")
+	db.CreateTask(conn, p.ID, "T") // статус «Новая»
+	m.settings.statusPick.sel = 0
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+	if m.settings.lastErr == nil {
+		t.Fatal("удаление используемого статуса не дало ошибку")
+	}
+	if !strings.Contains(m.View(), "статус используется") {
+		t.Error("ошибка не показана в модалке")
+	}
+	if sts, _ = db.Statuses(conn); len(sts) != 8 {
+		t.Errorf("используемый статус удалён: %d", len(sts))
+	}
+}

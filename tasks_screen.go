@@ -27,6 +27,8 @@ const (
 	taskLinks
 	taskLinkConfirm
 	taskJournal
+	taskStatusPick
+	taskStatusNote
 )
 
 type taskFocus int
@@ -46,6 +48,7 @@ const (
 type taskItem struct {
 	t        db.Task
 	expanded bool
+	scr      *tasksScreen
 }
 
 func (i taskItem) FilterValue() string { return i.t.Title }
@@ -55,7 +58,7 @@ func (i taskItem) Title() string {
 	if i.expanded {
 		marker = "▾"
 	}
-	return marker + " " + i.t.Title
+	return statusBar(i.scr.statusColor(i.t.Status)) + " " + marker + " " + i.t.Title
 }
 
 func (i taskItem) Description() string {
@@ -63,7 +66,7 @@ func (i taskItem) Description() string {
 	if i.t.SubCount == 1 {
 		plural = "подзадача"
 	}
-	return statusRU(i.t.Status) + " · " + fmt.Sprintf("%d %s", i.t.SubCount, plural)
+	return i.scr.statusText(i.t.Status) + " · " + fmt.Sprintf("%d %s", i.t.SubCount, plural)
 }
 
 type subItem struct {
@@ -73,16 +76,18 @@ type subItem struct {
 
 func (i subItem) FilterValue() string { return i.st.Title }
 
-func (i subItem) Title() string { return "  ├ " + i.st.Title }
+func (i subItem) Title() string {
+	return "  " + statusBar(i.scr.statusColor(i.st.Status)) + " ├ " + i.st.Title
+}
 
 func (i subItem) Description() string {
-	text := statusRU(i.st.Status)
+	text := i.scr.statusText(i.st.Status)
 	total := time.Duration(i.st.TotalSeconds) * time.Second
 	if i.st.ActiveSince != nil {
 		elapsed := i.scr.now.Sub(time.Unix(*i.st.ActiveSince, 0))
-		return text + " · идет " + fmtElapsed(elapsed)
+		return "  " + text + " · идет " + fmtElapsed(elapsed)
 	}
-	return text + " · " + fmtDur(total)
+	return "  " + text + " · " + fmtDur(total)
 }
 
 type tasksScreen struct {
@@ -118,6 +123,7 @@ type tasksScreen struct {
 	desc          string
 	links         []db.Link
 	journal       []db.JournalEntry
+	history       []db.StatusHistoryEntry
 	descText      textarea.Model
 	descV         viewport.Model
 	linkName      textinput.Model
@@ -126,6 +132,13 @@ type tasksScreen struct {
 	journalText   textarea.Model
 	confirmLinkID int64
 	journalEditID int64
+
+	statuses     []db.StatusDef
+	statusPick   pickList
+	statusNote   textarea.Model
+	statusKind   paneKind
+	statusID     int64
+	statusTarget *db.StatusDef
 }
 
 func newTasksScreen(conn *sql.DB) *tasksScreen {
@@ -170,6 +183,13 @@ func newTasksScreen(conn *sql.DB) *tasksScreen {
 	s.journalText.SetWidth(60)
 	s.journalText.SetHeight(10)
 
+	s.statusNote = textarea.New()
+	s.statusNote.Placeholder = "Заметка к переходу…"
+	s.statusNote.ShowLineNumbers = false
+	s.statusNote.SetWidth(60)
+	s.statusNote.SetHeight(3)
+	s.statusPick.setVisible(12)
+
 	ld := list.NewDefaultDelegate()
 	ld.ShowDescription = true
 	s.linkList = list.New(nil, ld, 50, 8)
@@ -188,6 +208,12 @@ func (s *tasksScreen) load() {
 	if s.projIdx >= len(s.projects) {
 		s.projIdx = 0
 	}
+	s.statuses, _ = db.Statuses(s.db)
+	items := make([]pickItem, 0, len(s.statuses))
+	for _, st := range s.statuses {
+		items = append(items, pickItem{value: st.ID, label: st.Name})
+	}
+	s.statusPick.items = items
 	s.loadData()
 	s.today, _ = db.TodayTotal(s.db, s.now)
 	s.weekly, _ = db.WeeklyTotal(s.db, s.now)
@@ -212,10 +238,15 @@ func (s *tasksScreen) loadData() {
 func (s *tasksScreen) loadInfo() {
 	s.run, _ = db.RunningSession(s.db)
 	s.entries = nil
+	s.history = nil
 	kind, id := s.selectedKindID()
+	if id == 0 {
+		return
+	}
 	if kind == kindSubtask {
 		s.entries, _ = db.TimeEntriesBySubtask(s.db, id)
 	}
+	s.history, _ = db.StatusHistory(s.db, dbOwner(kind), id)
 }
 
 // loadDesc подгружает описание, ссылки и (для подзадачи) записи журнала
@@ -329,7 +360,7 @@ func (s *tasksScreen) currentProjectID() int64 {
 func (s *tasksScreen) buildItems() {
 	s.items = []list.Item{}
 	for _, t := range s.tasks {
-		s.items = append(s.items, taskItem{t: t, expanded: s.expanded[t.ID]})
+		s.items = append(s.items, taskItem{t: t, expanded: s.expanded[t.ID], scr: s})
 		if s.expanded[t.ID] {
 			for _, st := range s.subs {
 				if st.TaskID == t.ID {
@@ -347,6 +378,125 @@ func (s *tasksScreen) buildItems() {
 		}
 		s.list.Select(idx)
 	}
+}
+
+// statusDef возвращает определение статуса по имени.
+func (s *tasksScreen) statusDef(name string) (db.StatusDef, bool) {
+	for _, st := range s.statuses {
+		if st.Name == name {
+			return st, true
+		}
+	}
+	return db.StatusDef{}, false
+}
+
+// statusColor возвращает цвет статуса (серый для неизвестных).
+func (s *tasksScreen) statusColor(name string) string {
+	if st, ok := s.statusDef(name); ok {
+		return st.Color
+	}
+	return "#8a8a8a"
+}
+
+// statusText — название статуса, окрашенное его цветом.
+func (s *tasksScreen) statusText(name string) string {
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(s.statusColor(name))).Render(name)
+}
+
+// statusBar — цветная полоса слева от элемента списка.
+func statusBar(color string) string {
+	return lipgloss.NewStyle().Background(lipgloss.Color(color)).Render(" ")
+}
+
+// quickStatuses — статусы быстрой цепочки в порядке сортировки.
+func (s *tasksScreen) quickStatuses() []db.StatusDef {
+	var out []db.StatusDef
+	for _, st := range s.statuses {
+		if st.IsQuick {
+			out = append(out, st)
+		}
+	}
+	return out
+}
+
+// currentStatusName — статус выбранного элемента.
+func (s *tasksScreen) currentStatusName(kind paneKind, id int64) string {
+	if kind == kindTask {
+		for _, t := range s.tasks {
+			if t.ID == id {
+				return t.Status
+			}
+		}
+		return ""
+	}
+	for _, st := range s.subs {
+		if st.ID == id {
+			return st.Status
+		}
+	}
+	return ""
+}
+
+// shiftStatus двигает статус по быстрой цепочке (dir = ±1). Из «Выполнена»
+// вперёд переходов нет (без зацикливания); статус вне цепочки прыгает на
+// её первый/последний элемент.
+func (s *tasksScreen) shiftStatus(dir int) {
+	kind, id := s.selectedKindID()
+	if id == 0 {
+		return
+	}
+	qs := s.quickStatuses()
+	if len(qs) == 0 {
+		return
+	}
+	cur := s.currentStatusName(kind, id)
+	idx := -1
+	for i, st := range qs {
+		if st.Name == cur {
+			idx = i
+			break
+		}
+	}
+	target := -1
+	if idx >= 0 {
+		target = idx + dir
+	} else if dir > 0 {
+		target = 0
+	} else {
+		target = len(qs) - 1
+	}
+	if target < 0 || target >= len(qs) {
+		return
+	}
+	s.applyStatus(kind, id, qs[target])
+}
+
+// applyStatus применяет статус; при обязательной заметке открывает модалку
+// ввода (statusTarget запоминается до сохранения).
+func (s *tasksScreen) applyStatus(kind paneKind, id int64, st db.StatusDef) {
+	s.statusKind, s.statusID = kind, id
+	if st.NotePrompt != "" {
+		t := st
+		s.statusTarget = &t
+		s.statusNote.SetValue("")
+		s.statusNote.Focus()
+		s.mode = taskStatusNote
+		return
+	}
+	s.statusTarget = nil
+	if err := db.SetStatus(s.db, dbOwner(kind), id, st.Name, "", time.Now()); err == nil {
+		s.now = time.Now()
+		s.loadData()
+	} else {
+		s.lastErr = err
+	}
+}
+
+func dbOwner(kind paneKind) db.StatusOwner {
+	if kind == kindSubtask {
+		return db.OwnerSubtask
+	}
+	return db.OwnerTask
 }
 
 func (s *tasksScreen) selectedKindID() (paneKind, int64) {
@@ -511,7 +661,7 @@ func (s *tasksScreen) footer(w int) string {
 	if s.focus == taskFocusDesc {
 		return padW(faint("↑/↓ скролл · e — описание · l — ссылка · o — ссылки · Ctrl+J — запись · j — изменить запись · Tab — список"), w)
 	}
-	hint := "↑/↓ выбор · Enter раскрыть · n задача · a подзадача · d удалить · Ctrl+L старт/пауза · [ / ] проект · Tab — описание · q выход"
+	hint := "↑/↓ выбор · Enter раскрыть · n задача · a подзадача · d удалить · Ctrl+L старт/пауза · x/z статус · c — все статусы · [ / ] проект · Tab — описание · q выход"
 	return padW(faint(hint), w)
 }
 
@@ -626,6 +776,23 @@ func (s *tasksScreen) dialog() (string, bool) {
 		d := dialog{title: title, body: body,
 			primary: "Ctrl+S — сохранить", esc: "Esc — отмена"}
 		return d.render(), true
+	case taskStatusPick:
+		d := dialog{title: "Статус",
+			body:    s.statusPick.view(),
+			primary: "Enter — выбрать", esc: "Esc — отмена"}
+		return d.render(), true
+	case taskStatusNote:
+		title := "Заметка"
+		if s.statusTarget != nil && s.statusTarget.NotePrompt != "" {
+			title = s.statusTarget.Name + " — " + s.statusTarget.NotePrompt
+		}
+		body := s.statusNote.View()
+		if s.lastErr != nil {
+			body += "\n\n" + errorStyle.Render("Ошибка: "+s.lastErr.Error())
+		}
+		d := dialog{title: title, body: body,
+			primary: "Ctrl+S — применить", esc: "Esc — отмена"}
+		return d.render(), true
 	}
 	return "", false
 }
@@ -674,7 +841,7 @@ func (s *tasksScreen) infoTop(topH int) string {
 			break
 		}
 		body = append(body, st.Title)
-		body = append(body, faint("Статус: ")+statusRU(st.Status))
+		body = append(body, faint("Статус: ")+s.statusText(st.Status))
 		total := time.Duration(st.TotalSeconds) * time.Second
 		if st.ActiveSince != nil {
 			total += s.now.Sub(time.Unix(*st.ActiveSince, 0))
@@ -687,6 +854,7 @@ func (s *tasksScreen) infoTop(topH int) string {
 		if len(s.entries) == 0 {
 			body = append(body, faint("Записей нет."))
 		}
+		body = append(body, s.historyLines()...)
 	case kind == kindTask:
 		var t *db.Task
 		for i := range s.tasks {
@@ -699,7 +867,7 @@ func (s *tasksScreen) infoTop(topH int) string {
 			break
 		}
 		body = append(body, t.Title)
-		body = append(body, faint("Статус: ")+statusRU(t.Status))
+		body = append(body, faint("Статус: ")+s.statusText(t.Status))
 		plural := "подзадач"
 		if t.SubCount == 1 {
 			plural = "подзадача"
@@ -717,12 +885,36 @@ func (s *tasksScreen) infoTop(topH int) string {
 			body = append(body, "  ├ "+st.Title+" · "+fmtDur(d))
 		}
 		body = append(body, faint(fmt.Sprintf("%d %s, всего: %s", t.SubCount, plural, fmtDur(sum))))
+		body = append(body, s.historyLines()...)
 	default:
 		body = append(body, faint("Выберите задачу или подзадачу."))
 	}
 	inner := strings.Join(body, "\n")
 	inner = padLines(inner, max(s.infoW-4, 1), topH-2)
 	return boxStyle.Render(inner)
+}
+
+// historyLines — последние 6 переходов статусов выбранного элемента: штамп
+// дня отдельной строкой, сам переход и заметка wrapText.
+func (s *tasksScreen) historyLines() []string {
+	var body []string
+	if len(s.history) == 0 {
+		return body
+	}
+	body = append(body, "", faint("История статусов:"))
+	start := 0
+	if len(s.history) > 6 {
+		start = len(s.history) - 6
+	}
+	w := max(s.infoW-4, 1)
+	for _, h := range s.history[start:] {
+		body = append(body, faint(h.CreatedAt.Format("2006-01-02 15:04")))
+		body = append(body, wrapText(h.From+" → "+h.To, w))
+		if h.Note != "" {
+			body = append(body, wrapText("      "+h.Note, w))
+		}
+	}
+	return body
 }
 func entryLine(e db.TimeEntry, now time.Time) string {
 	start := e.StartedAt.Format("15:04")
@@ -750,18 +942,6 @@ func (s *tasksScreen) infoBottom() string {
 		body[i] = padW(body[i], max(s.infoW-4, 1))
 	}
 	return boxStyle.Render(strings.Join(body, "\n"))
-}
-
-func statusRU(s string) string {
-	switch s {
-	case "todo":
-		return "TODO"
-	case "in_progress":
-		return "в работе"
-	case "done":
-		return "готово"
-	}
-	return s
 }
 
 func fmtDur(d time.Duration) string {
@@ -963,6 +1143,51 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			s.mode = taskBrowse
 		}
 		return m, cmd
+	case taskStatusPick:
+		switch msg.String() {
+		case "up":
+			s.statusPick.move(-1)
+		case "down":
+			s.statusPick.move(1)
+		case "pgup":
+			s.statusPick.move(-s.statusPick.visible)
+		case "pgdown":
+			s.statusPick.move(s.statusPick.visible)
+		case "enter":
+			if it, ok := s.statusPick.selected(); ok {
+				for _, st := range s.statuses {
+					if st.ID == it.value {
+						s.applyStatus(s.statusKind, s.statusID, st)
+						break
+					}
+				}
+			}
+		case "esc":
+			s.mode = taskBrowse
+		}
+		return m, nil
+	case taskStatusNote:
+		var cmd tea.Cmd
+		s.statusNote, cmd = s.statusNote.Update(msg)
+		switch msg.String() {
+		case "ctrl+s":
+			note := strings.TrimSpace(s.statusNote.Value())
+			if s.statusTarget != nil {
+				if err := db.SetStatus(s.db, dbOwner(s.statusKind), s.statusID,
+					s.statusTarget.Name, note, time.Now()); err == nil {
+					s.now = time.Now()
+					s.loadData()
+				} else {
+					s.lastErr = err
+				}
+			}
+			s.statusNote.Blur()
+			s.mode = taskBrowse
+		case "esc":
+			s.statusNote.Blur()
+			s.mode = taskBrowse
+		}
+		return m, cmd
 	}
 
 	switch msg.String() {
@@ -1091,6 +1316,28 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			s.mode = taskConfirm
 		}
+		return m, nil
+	case "x":
+		s.shiftStatus(1)
+		return m, nil
+	case "z":
+		s.shiftStatus(-1)
+		return m, nil
+	case "c":
+		kind, id := s.selectedKindID()
+		if id == 0 {
+			return m, nil
+		}
+		cur := s.currentStatusName(kind, id)
+		s.statusKind, s.statusID = kind, id
+		s.statusPick.sel = 0
+		for i, it := range s.statusPick.items {
+			if it.label == cur {
+				s.statusPick.sel = i
+			}
+		}
+		s.statusPick.clampScroll()
+		s.mode = taskStatusPick
 		return m, nil
 	}
 	var cmd tea.Cmd

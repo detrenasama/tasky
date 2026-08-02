@@ -19,7 +19,7 @@ func TestCreateTask(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateTask: %v", err)
 	}
-	if task.ID == 0 || task.Status != "todo" {
+	if task.ID == 0 || task.Status != "Новая" {
 		t.Errorf("CreateTask: id=%d status=%q", task.ID, task.Status)
 	}
 

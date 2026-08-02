@@ -104,6 +104,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.tasks.resize(m.width, m.height-3)
 		m.proj.resize(m.width, m.height-3)
 		m.reports.resize(m.width, m.height-3)
+		m.settings.resize(m.width, m.height-3)
 		return m, nil
 	case tea.KeyMsg:
 		if m.quitting {
@@ -147,6 +148,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.tasks.mode == taskLinkConfirm || m.tasks.mode == taskJournal) {
 			return m.updateTasks(msg)
 		}
+		if m.screen == screenSettings && m.settings.mode != settingsBrowse {
+			return m.updateSettings(msg)
+		}
+		// на экране отчётов ctrl+s сохраняет отчёт в файл
+		if m.screen == screenReports && msg.String() == "ctrl+s" {
+			m.reports.save()
+			return m, nil
+		}
 		switch msg.String() {
 		case "q", "ctrl+c":
 			if run, err := db.RunningSession(m.db); err == nil && run != nil {
@@ -188,6 +197,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.screen == screenProjects {
 			return m.updateProjects(msg)
 		}
+		if m.screen == screenSettings {
+			return m.updateSettings(msg)
+		}
 		return m, nil
 	case tickMsg:
 		now := time.Time(msg)
@@ -202,6 +214,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *model) modalOpen() bool {
+	if m.settings != nil && m.settings.mode != settingsBrowse {
+		return true
+	}
 	return m.tasks.mode != taskBrowse || m.proj.mode != projBrowse
 }
 
@@ -215,6 +230,8 @@ func (m *model) switchScreen(s screen) {
 		m.proj.load()
 	case screenReports:
 		m.reports.load()
+	case screenSettings:
+		m.settings.load()
 	}
 }
 
@@ -285,8 +302,10 @@ func main() {
 	m.tasks.load()
 	m.proj = newProjectsScreen(conn)
 	m.proj.load()
-	m.reports = newReportsScreen(conn)
-	m.settings = newSettingsScreen()
+	repCfg := &reportConfig{period: periodToday, saveDir: "reports"}
+	m.reports = newReportsScreen(conn, repCfg)
+	m.reports.load()
+	m.settings = newSettingsScreen(conn, repCfg)
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {

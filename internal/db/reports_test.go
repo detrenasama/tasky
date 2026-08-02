@@ -145,3 +145,40 @@ func TestReportByTask(t *testing.T) {
 		t.Errorf("ReportByTask(nil): задач %d, ожидалось 0", n)
 	}
 }
+
+func TestJournalEntriesByRange(t *testing.T) {
+	conn := openTestDB(t)
+	day := time.Date(2026, 7, 30, 0, 0, 0, 0, time.Local)
+	sid := seedSubtask(t, conn)
+
+	addJournal := func(ts time.Time, text string) {
+		exec(t, conn, "INSERT INTO journal_entries (subtask_id, created_at, text) VALUES (?, ?, ?)",
+			sid, ts.Unix(), text)
+	}
+	addJournal(day.Add(9*time.Hour), "первая")                   // внутри
+	addJournal(day.Add(10*time.Hour), "вторая")                  // внутри
+	addJournal(day.AddDate(0, 0, -1).Add(23*time.Hour), "вчера") // до
+	addJournal(day.AddDate(0, 0, 1), "завтра")                   // на границе to — вне
+
+	entries, err := JournalEntriesByRange(conn, day, day.AddDate(0, 0, 1))
+	if err != nil {
+		t.Fatalf("JournalEntriesByRange: %v", err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("записей: %d, ожидалось 2", len(entries))
+	}
+	if entries[0].Text != "первая" || entries[1].Text != "вторая" {
+		t.Errorf("порядок нарушен: %+v", entries)
+	}
+	if entries[0].SubtaskID != sid || !entries[0].CreatedAt.Equal(day.Add(9*time.Hour)) {
+		t.Errorf("поля записи: %+v", entries[0])
+	}
+
+	empty, err := JournalEntriesByRange(conn, day.AddDate(0, 0, 10), day.AddDate(0, 0, 11))
+	if err != nil {
+		t.Fatalf("JournalEntriesByRange: %v", err)
+	}
+	if len(empty) != 0 {
+		t.Errorf("записей в пустом периоде: %d", len(empty))
+	}
+}

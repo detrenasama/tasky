@@ -24,6 +24,13 @@ type SubtaskReport struct {
 	Seconds int64
 }
 
+// ReportJournalEntry — запись журнала подзадачи за период отчёта.
+type ReportJournalEntry struct {
+	SubtaskID int64
+	CreatedAt time.Time
+	Text      string
+}
+
 // TaskReport — задача в отчёте с подзадачами и суммарным временем.
 type TaskReport struct {
 	TaskID      int64
@@ -65,6 +72,31 @@ ORDER BY t.created_at, t.id, s.sort_order, s.id`,
 			&e.SubtaskID, &e.SubtaskTitle, &e.Seconds); err != nil {
 			return nil, err
 		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
+// JournalEntriesByRange возвращает записи журнала за период [from, to)
+// хронологически (старые сверху).
+func JournalEntriesByRange(conn *sql.DB, from, to time.Time) ([]ReportJournalEntry, error) {
+	rows, err := conn.Query(`
+SELECT subtask_id, created_at, text FROM journal_entries
+WHERE created_at >= ? AND created_at < ?
+ORDER BY created_at, id`, from.Unix(), to.Unix())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []ReportJournalEntry
+	for rows.Next() {
+		var e ReportJournalEntry
+		var ts int64
+		if err := rows.Scan(&e.SubtaskID, &ts, &e.Text); err != nil {
+			return nil, err
+		}
+		e.CreatedAt = time.Unix(ts, 0)
 		out = append(out, e)
 	}
 	return out, rows.Err()

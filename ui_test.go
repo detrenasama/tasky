@@ -2,6 +2,9 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -1092,7 +1095,7 @@ func TestQuitNoSession(t *testing.T) {
 
 // reportsSeedProject создаёт проект с задачей и подзадачей и закрытой
 // записью времени за последний час (в пределах сегодняшнего дня).
-func reportsSeedProject(t *testing.T) (*sql.DB, db.Task) {
+func reportsSeedProject(t *testing.T) (*sql.DB, db.Task, db.SubtaskWithTime) {
 	t.Helper()
 	conn, err := db.Open(t.TempDir() + "/test.db")
 	if err != nil {
@@ -1118,17 +1121,21 @@ func reportsSeedProject(t *testing.T) (*sql.DB, db.Task) {
 	if err := db.StopSession(conn, st.ID, now.Add(-1*time.Hour)); err != nil {
 		t.Fatal(err)
 	}
-	return conn, task
+	return conn, task, st
 }
 
-// newReportsModel собирает полную модель с отчётами для тестов клавиатуры.
+// newReportsModel собирает полную модель с отчётами и настройками для
+// тестов клавиатуры.
 func newReportsModel(conn *sql.DB) model {
 	m := model{db: conn, screen: screenTasks}
 	m.tasks = newTasksScreen(conn)
 	m.proj = newProjectsScreen(conn)
-	m.reports = newReportsScreen(conn)
+	repCfg := &reportConfig{period: periodToday, saveDir: "reports"}
+	m.reports = newReportsScreen(conn, repCfg)
+	m.settings = newSettingsScreen(conn, repCfg)
 	m.tasks.load()
 	m.proj.load()
+	m.reports.load()
 	m.tasks.resize(150, 27)
 	m.proj.resize(150, 27)
 	m.reports.resize(150, 27)
@@ -1139,7 +1146,7 @@ func newReportsModel(conn *sql.DB) model {
 // TestReportsScreenRender — отчёт за сегодня: переход по r, заголовок
 // периода, задачи с подзадачами и общее время.
 func TestReportsScreenRender(t *testing.T) {
-	conn, task := reportsSeedProject(t)
+	conn, task, _ := reportsSeedProject(t)
 	m := newReportsModel(conn)
 
 	mm, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
@@ -1237,5 +1244,348 @@ func TestReportsSwitchWithRunningSession(t *testing.T) {
 	}
 	if !strings.Contains(m.View(), "S · ") {
 		t.Error("остановленная сессия не попала в отчёт")
+	}
+}
+
+// TestReportsPeriods — период «вчера» показывает данные за вчера и свой
+// заголовок; «неделя» и «месяц» — свои заголовки.
+func TestReportsPeriods(t *testing.T) {
+	conn, err := db.Open(t.TempDir() + "/test.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	p, err := db.CreateProject(conn, "P")
+	if err != nil {
+		t.Fatal(err)
+	}
+	task, err := db.CreateTask(conn, p.ID, "T вчера")
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := db.CreateSubtask(conn, task.ID, "S вчера")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	if err := db.StartSession(conn, st.ID, now.Add(-26*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.StopSession(conn, st.ID, now.Add(-25*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	m := newReportsModel(conn)
+	r := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}}
+
+	// сегодня: записей нет
+	mm, _ := m.Update(r)
+	m = mm.(model)
+	if !strings.Contains(m.View(), "Времени за период ещё не учтено") {
+		t.Error("за сегодня отчёт не пуст")
+	}
+
+	// вчера
+	m.reports.cfg.period = periodYesterday
+	mm, _ = m.Update(r)
+	m = mm.(model)
+	view := m.View()
+	for _, want := range []string{"Отчет за вчера", "T вчера", "S вчера"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("за вчера нет %q", want)
+		}
+	}
+
+	// неделя и месяц — заголовки
+	m.reports.cfg.period = periodWeek
+	mm, _ = m.Update(r)
+	m = mm.(model)
+	if !strings.Contains(m.View(), "Отчет за неделю") {
+		t.Error("нет заголовка недели")
+	}
+	m.reports.cfg.period = periodMonth
+	mm, _ = m.Update(r)
+	m = mm.(model)
+	if !strings.Contains(m.View(), "Отчет за "+monthNames[time.Now().Month()-1]) {
+		t.Error("нет заголовка месяца")
+	}
+}
+
+// TestReportsSave — клавиша s на экране отчётов сохраняет файл с заголовком,
+// задачами и общим временем; на экране появляется подтверждение.
+func TestReportsSave(t *testing.T) {
+	conn, task, _ := reportsSeedProject(t)
+	m := newReportsModel(conn)
+	dir := t.TempDir()
+	m.settings.cfg.saveDir = dir
+	r := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}}
+	sv := tea.KeyMsg{Type: tea.KeyCtrlS}
+
+	mm, _ := m.Update(r)
+	m = mm.(model)
+	mm, _ = m.Update(sv)
+	m = mm.(model)
+
+	name := m.reports.saveFileName()
+	data, err := os.ReadFile(filepath.Join(dir, name))
+	if err != nil {
+		t.Fatalf("файл отчёта не создан: %v", err)
+	}
+	for _, want := range []string{"Отчет за сегодня", task.Title, "Общее время:"} {
+		if !strings.Contains(string(data), want) {
+			t.Errorf("в файле отчёта нет %q", want)
+		}
+	}
+	if !strings.Contains(m.View(), "Отчёт сохранён") {
+		t.Error("на экране нет подтверждения сохранения")
+	}
+}
+
+// TestReportsSaveCreatesDir — каталог сохранения создаётся автоматически.
+func TestReportsSaveCreatesDir(t *testing.T) {
+	conn, _, _ := reportsSeedProject(t)
+	m := newReportsModel(conn)
+	dir := t.TempDir() + "/deep/reports"
+	m.settings.cfg.saveDir = dir
+
+	mm, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	m = mm.(model)
+	mm, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+	m = mm.(model)
+
+	if _, err := os.Stat(filepath.Join(dir, m.reports.saveFileName())); err != nil {
+		t.Fatalf("файл в созданном каталоге: %v", err)
+	}
+}
+
+// TestReportsJournalInReport — при включённом журнале записи за период
+// показываются под подзадачей и попадают в сохраняемый файл.
+func TestReportsJournalInReport(t *testing.T) {
+	conn, _, st := reportsSeedProject(t)
+	if _, err := db.CreateJournalEntry(conn, st.ID, "запись в журнале"); err != nil {
+		t.Fatal(err)
+	}
+	m := newReportsModel(conn)
+	m.settings.cfg.includeJournal = true
+	dir := t.TempDir()
+	m.settings.cfg.saveDir = dir
+
+	mm, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	m = mm.(model)
+	if !strings.Contains(m.View(), "запись в журнале") {
+		t.Error("запись журнала не показана в отчёте")
+	}
+
+	mm, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+	m = mm.(model)
+	data, err := os.ReadFile(filepath.Join(dir, m.reports.saveFileName()))
+	if err != nil {
+		t.Fatalf("файл отчёта не создан: %v", err)
+	}
+	if !strings.Contains(string(data), "запись в журнале") {
+		t.Error("запись журнала не попала в файл")
+	}
+}
+
+// TestSettingsForm — настройки: период и проект выбираются в модалках,
+// журнал — toggle, каталог — ввод пути; значения пишутся в общий cfg.
+func TestSettingsForm(t *testing.T) {
+	conn, err := db.Open(t.TempDir() + "/test.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	p1, err := db.CreateProject(conn, "P1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.CreateProject(conn, "P2"); err != nil {
+		t.Fatal(err)
+	}
+	m := newReportsModel(conn)
+
+	mm, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m = mm.(model)
+	if m.screen != screenSettings {
+		t.Fatalf("s не открыл настройки (screen=%d)", m.screen)
+	}
+	view := m.View()
+	for _, want := range []string{"Настройки отчёта", "Период:  сегодня", "все проекты", "Журнал:  выкл", "Каталог: reports"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("в настройках нет %q", want)
+		}
+	}
+
+	// период: Enter → модалка списка, ↓ Enter → вчера
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
+	if m.settings.mode != settingsPeriodList {
+		t.Fatalf("Enter на периоде не открыл модалку (mode=%d)", m.settings.mode)
+	}
+	if !strings.Contains(m.View(), "Период отчёта") {
+		t.Error("модалка периода не отрендерилась")
+	}
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyDown})
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
+	if m.settings.cfg.period != periodYesterday || !strings.Contains(m.View(), "Период:  вчера") {
+		t.Errorf("период не сменился: %d", m.settings.cfg.period)
+	}
+
+	// свой период: модалка (курсор на текущем — «вчера»), ↓×3 до «свой…»
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
+	if m.settings.mode != settingsPeriodList {
+		t.Fatalf("Enter на периоде не открыл модалку (mode=%d)", m.settings.mode)
+	}
+	for i := 0; i < 3; i++ {
+		m.updateSettings(tea.KeyMsg{Type: tea.KeyDown})
+	}
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
+	if m.settings.mode != settingsPeriodInput {
+		t.Fatalf("«свой…» не открыл ввод (mode=%d)", m.settings.mode)
+	}
+
+	// неверный формат — ошибка, режим не закрывается
+	m.settings.periodInput.SetValue("abc")
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
+	if m.settings.mode != settingsPeriodInput || m.settings.lastErr == nil {
+		t.Fatal("неверная дата не показала ошибку")
+	}
+	if !strings.Contains(m.View(), "нужен формат ДД.ММ.ГГГГ") {
+		t.Error("нет подсказки про формат")
+	}
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEsc})
+	if m.settings.mode != settingsBrowse || m.settings.cfg.period != periodYesterday {
+		t.Error("Esc после ошибки вёл себя неверно")
+	}
+
+	// верный диапазон: снова модалка (курсор на «вчера»), ↓×3 до «свой…»
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
+	for i := 0; i < 3; i++ {
+		m.updateSettings(tea.KeyMsg{Type: tea.KeyDown})
+	}
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
+	m.settings.periodInput.SetValue("01.08.2026-03.08.2026")
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
+	if m.settings.cfg.period != periodCustom {
+		t.Fatal("диапазон не применился")
+	}
+	wantFrom := time.Date(2026, 8, 1, 0, 0, 0, 0, time.Local)
+	wantTo := time.Date(2026, 8, 4, 0, 0, 0, 0, time.Local)
+	if !m.settings.cfg.customFrom.Equal(wantFrom) || !m.settings.cfg.customTo.Equal(wantTo) {
+		t.Errorf("границы: %v — %v", m.settings.cfg.customFrom, m.settings.cfg.customTo)
+	}
+	if !strings.Contains(m.View(), "Период:  свой · 01.08.2026 – 03.08.2026") {
+		t.Error("строка периода не показывает диапазон")
+	}
+	if m.reports.periodLabel() != "Отчет · 01.08.2026 – 03.08.2026" {
+		t.Errorf("заголовок отчёта: %q", m.reports.periodLabel())
+	}
+
+	// одиночная дата: модалка (курсор уже на «свой…»), сразу Enter
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
+	m.settings.periodInput.SetValue("15.08.2026")
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
+	if m.reports.periodLabel() != "Отчет за день · 15.08.2026" {
+		t.Errorf("заголовок одиночного дня: %q", m.reports.periodLabel())
+	}
+	if m.reports.saveFileName() != "2026-08-15.txt" {
+		t.Errorf("имя файла: %q", m.reports.saveFileName())
+	}
+
+	// проект: ↓ Enter → модалка списка, ↓ Enter → P1, Esc — отмена
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyDown})
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
+	if m.settings.mode != settingsProjList {
+		t.Fatalf("Enter на проекте не открыл модалку (mode=%d)", m.settings.mode)
+	}
+	if !strings.Contains(m.View(), "Фильтр по проекту") {
+		t.Error("модалка проекта не отрендерилась")
+	}
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyDown})
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
+	if m.settings.cfg.projectID != p1.ID || !strings.Contains(m.View(), "Проект:  P1") {
+		t.Errorf("фильтр не перешёл на первый проект: %d", m.settings.cfg.projectID)
+	}
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
+	if m.settings.mode != settingsProjList {
+		t.Fatal("Enter на проекте не открыл модалку повторно")
+	}
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEsc})
+	if m.settings.mode != settingsBrowse || m.settings.cfg.projectID != p1.ID {
+		t.Error("Esc не отменил выбор проекта")
+	}
+
+	// журнал: ↓ Enter → вкл
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyDown})
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
+	if !m.settings.cfg.includeJournal || !strings.Contains(m.View(), "Журнал:  вкл") {
+		t.Error("журнал не включился")
+	}
+
+	// каталог: ↓ Enter → модалка, ввод пути, Enter
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyDown})
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
+	if m.settings.mode != settingsDirInput {
+		t.Fatalf("Enter на каталоге не открыл модалку (mode=%d)", m.settings.mode)
+	}
+	if !strings.Contains(m.View(), "Каталог сохранения отчётов") {
+		t.Error("модалка каталога не отрендерилась")
+	}
+	m.settings.dirInput.SetValue("out/reports")
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
+	if m.settings.mode != settingsBrowse {
+		t.Fatal("Enter не закрыл модалку каталога")
+	}
+	if m.settings.cfg.saveDir != "out/reports" || !strings.Contains(m.View(), "Каталог: out/reports") {
+		t.Errorf("каталог не сохранился: %q", m.settings.cfg.saveDir)
+	}
+
+	// Esc в модалке отменяет
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
+	m.settings.dirInput.SetValue("другой")
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEsc})
+	if m.settings.mode != settingsBrowse || m.settings.cfg.saveDir != "out/reports" {
+		t.Error("Esc не отменил изменение каталога")
+	}
+}
+
+// TestSettingsListScroll — при большом числе проектов модалка показывает
+// лишь видимую часть и плавно прокручивается за курсором.
+func TestSettingsListScroll(t *testing.T) {
+	conn, err := db.Open(t.TempDir() + "/test.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	for i := 0; i < 15; i++ {
+		if _, err := db.CreateProject(conn, fmt.Sprintf("Проект %02d", i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	m := newReportsModel(conn)
+	m.settings.resize(100, 27) // visible = 12
+
+	mm, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m = mm.(model)
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyDown}) // строка «Проект»
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
+	if m.settings.mode != settingsProjList {
+		t.Fatalf("модалка проекта не открылась (mode=%d)", m.settings.mode)
+	}
+	view := m.View()
+	if !strings.Contains(view, "все проекты") || strings.Contains(view, "Проект 14") {
+		t.Error("в начале видны не те элементы списка")
+	}
+
+	for i := 0; i < 15; i++ {
+		m.updateSettings(tea.KeyMsg{Type: tea.KeyDown})
+	}
+	view = m.View()
+	if !strings.Contains(view, "Проект 14") || strings.Contains(view, "Проект 00") {
+		t.Error("список не прокрутился за курсором до конца")
+	}
+
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
+	if m.settings.cfg.projectID == 0 {
+		t.Error("Enter не выбрал проект из прокрученного списка")
 	}
 }

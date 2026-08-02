@@ -74,6 +74,11 @@ type model struct {
 	proj     *projectsScreen
 	reports  *reportsScreen
 	settings *settingsScreen
+
+	// quitting — подтверждение выхода при запущенном учёте времени;
+	// quitTitle — название подзадачи с идущим временем.
+	quitting  bool
+	quitTitle string
 }
 
 type tickMsg time.Time
@@ -95,6 +100,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.proj.resize(m.width, m.height-3)
 		return m, nil
 	case tea.KeyMsg:
+		if m.quitting {
+			switch msg.String() {
+			case "y", "enter":
+				if run, err := db.RunningSession(m.db); err == nil && run != nil {
+					db.StopSession(m.db, run.ID, time.Now())
+				}
+				return m, tea.Quit
+			case "n", "esc", "q", "ctrl+c":
+				m.quitting = false
+			}
+			return m, nil
+		}
 		if m.screen == screenProjects && m.proj.mode == projInput {
 			return m.updateProjects(msg)
 		}
@@ -112,6 +129,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		switch msg.String() {
 		case "q", "ctrl+c":
+			if run, err := db.RunningSession(m.db); err == nil && run != nil {
+				m.quitting = true
+				m.quitTitle = run.Title
+				return m, nil
+			}
 			return m, tea.Quit
 		}
 		if !m.modalOpen() {
@@ -201,6 +223,15 @@ func (m model) View() string {
 	full := tabsLine(m.screen, w) + "\n" + header + "\n" + mid + "\n" + footer
 	if modalOpen {
 		full = overlay(full, dlg, w, h)
+	}
+	if m.quitting {
+		d := dialog{
+			title:   "Учёт времени запущен",
+			body:    fmt.Sprintf("На подзадаче «%s» идёт учёт времени.\nОстановить и выйти?", m.quitTitle),
+			primary: "Enter — остановить и выйти",
+			esc:     "Esc — отмена",
+		}
+		full = overlay(full, d.render(), w, h)
 	}
 	return full
 }

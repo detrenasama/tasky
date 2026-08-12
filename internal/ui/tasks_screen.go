@@ -142,6 +142,7 @@ type tasksScreen struct {
 	statusID     int64
 	statusTarget *db.StatusDef
 
+	hideDays     int
 	searchInput  textinput.Model
 	searchQuery  string
 	journalTexts map[int64]string
@@ -224,6 +225,7 @@ func (s *tasksScreen) load() {
 		s.projIdx = 0
 	}
 	s.statuses, _ = db.Statuses(s.db)
+	s.hideDays = loadHideDays(s.db)
 	items := make([]pickItem, 0, len(s.statuses))
 	for _, st := range s.statuses {
 		items = append(items, pickItem{value: st.ID, label: st.Name})
@@ -380,6 +382,9 @@ func (s *tasksScreen) buildItems() {
 	}
 	s.items = []list.Item{}
 	for _, t := range s.tasks {
+		if s.hiddenDue(t) {
+			continue
+		}
 		s.items = append(s.items, taskItem{t: t, expanded: s.expanded[t.ID], scr: s})
 		if s.expanded[t.ID] {
 			for _, st := range s.subs {
@@ -390,6 +395,20 @@ func (s *tasksScreen) buildItems() {
 		}
 	}
 	s.finishBuildItems()
+}
+
+// hiddenDue возвращает true, если задачу нужно скрыть: статус завершённого
+// типа, задача завершена hideDays и более дней назад. Поиск (buildSearchItems)
+// фильтр не применяет — скрытые задачи остаются доступны через поиск.
+func (s *tasksScreen) hiddenDue(t db.Task) bool {
+	if s.hideDays <= 0 || t.CompletedAt == nil {
+		return false
+	}
+	st, ok := s.statusDef(t.Status)
+	if !ok || st.Type != "done" {
+		return false
+	}
+	return s.now.Sub(*t.CompletedAt) >= time.Duration(s.hideDays)*24*time.Hour
 }
 
 // buildSearchItems собирает дерево по запросу q (регистронезависимо):

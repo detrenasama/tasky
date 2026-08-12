@@ -115,6 +115,12 @@ CREATE TABLE IF NOT EXISTS status_history (
     created_at  INTEGER NOT NULL,
     CHECK ((task_id IS NULL) != (subtask_id IS NULL))
 );
+
+-- Простые настройки приложения (ключ → значение).
+CREATE TABLE IF NOT EXISTS settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 `
 
 func CreateSchema(conn *sql.DB) error {

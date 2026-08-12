@@ -213,6 +213,100 @@ func TestSettingsListScroll(t *testing.T) {
 	}
 }
 
+// TestSettingsHideInput — строка «Скрытие»: ввод числа дней, 0 — выкл,
+// неверный формат — ошибка без изменения значения.
+
+func TestSettingsHideInput(t *testing.T) {
+	conn, err := db.Open(t.TempDir() + "/test.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	m := newReportsModel(conn)
+	m.switchScreen(screenSettings)
+
+	// по умолчанию — 7 дн
+	if !strings.Contains(m.View(), "Скрытие: 7 дн") {
+		t.Error("нет строки скрытия по умолчанию (7 дн)")
+	}
+
+	open := func() {
+		for m.settings.sel != 4 {
+			m.updateSettings(tea.KeyMsg{Type: tea.KeyDown})
+		}
+		m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
+		if m.settings.mode != settingsHideInput {
+			t.Fatalf("Enter на скрытии не открыл модалку (mode=%d)", m.settings.mode)
+		}
+	}
+
+	// неверный формат — ошибка, значение не меняется
+	open()
+	m.settings.hideInput.SetValue("abc")
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
+	if m.settings.mode != settingsHideInput || m.settings.lastErr == nil {
+		t.Fatal("мусор в пороге не дал ошибку")
+	}
+	if !strings.Contains(m.View(), "целое число дней") {
+		t.Error("нет подсказки про формат")
+	}
+	if v, _, _ := db.GetSetting(conn, "hide_days"); v != "" {
+		t.Errorf("ошибочный ввод записал настройку: %q", v)
+	}
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEsc})
+	if m.settings.mode != settingsBrowse || m.settings.lastErr != nil {
+		t.Error("Esc после ошибки вёл себя неверно")
+	}
+
+	// отрицательное число — тоже ошибка
+	open()
+	m.settings.hideInput.SetValue("-3")
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
+	if m.settings.mode != settingsHideInput || m.settings.lastErr == nil {
+		t.Fatal("отрицательное число не дало ошибку")
+	}
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEsc})
+
+	// 14 → сохранилось в БД и в строке
+	open()
+	m.settings.hideInput.SetValue("14")
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
+	if m.settings.mode != settingsBrowse {
+		t.Fatal("Enter не закрыл модалку скрытия")
+	}
+	if v, _, _ := db.GetSetting(conn, "hide_days"); v != "14" {
+		t.Errorf("порог не сохранён: %q", v)
+	}
+	if !strings.Contains(m.View(), "Скрытие: 14 дн") {
+		t.Error("строка не показывает 14 дн")
+	}
+
+	// 0 → выкл
+	open()
+	m.settings.hideInput.SetValue("0")
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
+	if v, _, _ := db.GetSetting(conn, "hide_days"); v != "0" {
+		t.Errorf("0 не сохранён: %q", v)
+	}
+	if !strings.Contains(m.View(), "Скрытие: выкл") {
+		t.Error("строка не показывает выкл")
+	}
+
+	// Esc отменяет изменение
+	open()
+	m.settings.hideInput.SetValue("30")
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEsc})
+	if v, _, _ := db.GetSetting(conn, "hide_days"); v != "0" {
+		t.Errorf("Esc не отменил изменение: %q", v)
+	}
+
+	// load() снова читает из БД
+	m.settings.load()
+	if m.settings.hideDays != 0 {
+		t.Errorf("load() не прочитал настройку: %d", m.settings.hideDays)
+	}
+}
+
 // TestTaskStatusQuickCycle — x/z двигают статус по быстрой цепочке
 // Новая → В работе → На проверке → Выполнена без зацикливания.
 
@@ -226,11 +320,11 @@ func TestSettingsStatusesManage(t *testing.T) {
 	m.switchScreen(screenSettings)
 	down := func() { m.updateSettings(tea.KeyMsg{Type: tea.KeyDown}) }
 
-	// строка «Статусы» — четвёртое нажатие вниз (период→проект→журнал→каталог→статусы)
-	for i := 0; i < 4; i++ {
+	// строка «Статусы» — пятое нажатие вниз (период→проект→журнал→каталог→скрытие→статусы)
+	for i := 0; i < 5; i++ {
 		down()
 	}
-	if m.settings.sel != 4 {
+	if m.settings.sel != 5 {
 		t.Fatalf("sel=%d, ожидался статусы", m.settings.sel)
 	}
 	if !strings.Contains(m.View(), "Статусы: 8") {

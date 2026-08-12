@@ -3,6 +3,7 @@ package ui
 import (
 	"database/sql"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,6 +22,7 @@ const (
 	settingsProjList
 	settingsPeriodList
 	settingsPeriodInput
+	settingsHideInput
 	settingsStatusList
 	settingsStatusEdit
 	settingsColorPick
@@ -31,8 +33,8 @@ var statusTypeNames = []string{"Новый", "В работе", "Завершё�
 var statusTypeCodes = []string{"new", "in_progress", "done"}
 
 // settingsScreen — страница «Настройки»: настройки отчёта (период, фильтр
-// проекта, журнал, каталог сохранения) и каталог статусов. Значения отчёта
-// пишутся в общий reportConfig экрана отчётов.
+// проекта, журнал, каталог сохранения), скрытие завершённых задач и каталог
+// статусов. Значения отчёта пишутся в общий reportConfig экрана отчётов.
 type settingsScreen struct {
 	db          *sql.DB
 	cfg         *reportConfig
@@ -41,6 +43,8 @@ type settingsScreen struct {
 	projects    []db.Project
 	dirInput    textinput.Model
 	periodInput textinput.Model
+	hideInput   textinput.Model
+	hideDays    int
 	projPick    pickList
 	periodPick  pickList
 	lastErr     error
@@ -67,6 +71,9 @@ func newSettingsScreen(conn *sql.DB, cfg *reportConfig) *settingsScreen {
 	pi.Placeholder = "02.08.2026 или 01.08.2026-05.08.2026"
 
 	s := &settingsScreen{db: conn, cfg: cfg, dirInput: ti, periodInput: pi}
+	s.hideInput = textinput.New()
+	s.hideInput.Placeholder = "7"
+	s.hideInput.Prompt = "> "
 	s.projPick.setVisible(12)
 	s.periodPick.setVisible(12)
 	s.statusPick.setVisible(12)
@@ -120,6 +127,20 @@ func (s *settingsScreen) load() {
 		sItems = append(sItems, pickItem{value: st.ID, label: st.Name})
 	}
 	s.statusPick.items = sItems
+	s.hideDays = loadHideDays(s.db)
+}
+
+// loadHideDays читает порог скрытия завершённых задач из БД (по умолчанию 7).
+func loadHideDays(conn *sql.DB) int {
+	v, ok, err := db.GetSetting(conn, "hide_days")
+	if err != nil || !ok {
+		return 7
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(v))
+	if err != nil || n < 0 {
+		return 7
+	}
+	return n
 }
 
 func (s *settingsScreen) resize(w, h int) {
@@ -174,12 +195,20 @@ func (s *settingsScreen) dirName() string {
 	return s.cfg.saveDir
 }
 
+func (s *settingsScreen) hideName() string {
+	if s.hideDays <= 0 {
+		return "выкл"
+	}
+	return fmt.Sprintf("%d дн", s.hideDays)
+}
+
 func (s *settingsScreen) view(w, h int) string {
 	rows := []string{
 		"Период:  " + s.periodName(),
 		"Проект:  " + s.projectName(),
 		"Журнал:  " + boolWord(s.cfg.includeJournal),
 		"Каталог: " + s.dirName(),
+		"Скрытие: " + s.hideName() + " (завершённые)",
 		"Статусы: " + fmt.Sprintf("%d", len(s.statuses)),
 	}
 	var lines []string
@@ -193,7 +222,7 @@ func (s *settingsScreen) view(w, h int) string {
 	inner := theme.HeaderStyle.Render("Настройки отчёта") + "\n\n" +
 		strings.Join(lines, "\n") + "\n\n" +
 		theme.Faint("Enter — выбор из списка (журнал — вкл/выкл,")
-	inner += "\n" + theme.Faint("каталог — ввод пути, статусы — каталог статусов)")
+	inner += "\n" + theme.Faint("каталог — ввод пути, скрытие — дни, статусы — каталог статусов)")
 	return theme.BoxStyle.Render(padLines(inner, max(w-4, 1), max(h-4, 1)))
 }
 
@@ -222,6 +251,15 @@ func (s *settingsScreen) dialog() (string, bool) {
 		d := dialog{title: "Свой период",
 			body:    body,
 			primary: "Enter — применить", esc: "Esc — отмена"}
+		return d.render(), true
+	case settingsHideInput:
+		body := s.hideInput.View()
+		if s.lastErr != nil {
+			body += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
+		}
+		d := dialog{title: "Скрытие завершённых задач",
+			body:    body,
+			primary: "Enter — сохранить", esc: "Esc — отмена"}
 		return d.render(), true
 	case settingsStatusList:
 		body := s.statusPick.view()
@@ -325,6 +363,16 @@ func (s *settingsScreen) customInputValue() string {
 	return s.cfg.customFrom.Format("02.01.2006")
 }
 
+// parseHideDays разбирает порог скрытия: целое ≥ 0 (0 — скрытие выключено).
+func parseHideDays(v string) (int, error) {
+	v = strings.TrimSpace(v)
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 0 {
+		return 0, fmt.Errorf("нужно целое число дней (0 — выключить)")
+	}
+	return n, nil
+}
+
 // openPeriodPick открывает модалку периода, курсор — на текущем значении.
 func (s *settingsScreen) openPeriodPick() {
 	s.periodPick.sel = int(s.cfg.period)
@@ -422,6 +470,27 @@ func (m *model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			s.cfg.customFrom, s.cfg.customTo = from, to
 			s.cfg.period = periodCustom
+			s.lastErr = nil
+			s.mode = settingsBrowse
+		case "esc":
+			s.lastErr = nil
+			s.mode = settingsBrowse
+		}
+		return m, nil
+	case settingsHideInput:
+		s.hideInput, _ = s.hideInput.Update(msg)
+		switch msg.String() {
+		case "enter":
+			n, err := parseHideDays(s.hideInput.Value())
+			if err != nil {
+				s.lastErr = err
+				return m, nil
+			}
+			if err := db.SetSetting(s.db, "hide_days", strconv.Itoa(n)); err != nil {
+				s.lastErr = err
+				return m, nil
+			}
+			s.hideDays = n
 			s.lastErr = nil
 			s.mode = settingsBrowse
 		case "esc":
@@ -529,9 +598,9 @@ func (m *model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	switch msg.String() {
 	case "up":
-		s.sel = (s.sel + 4) % 5
+		s.sel = (s.sel + 5) % 6
 	case "down":
-		s.sel = (s.sel + 1) % 5
+		s.sel = (s.sel + 1) % 6
 	case "enter":
 		switch s.sel {
 		case 0:
@@ -545,6 +614,10 @@ func (m *model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			s.dirInput.Focus()
 			s.mode = settingsDirInput
 		case 4:
+			s.hideInput.SetValue(strconv.Itoa(s.hideDays))
+			s.hideInput.Focus()
+			s.mode = settingsHideInput
+		case 5:
 			s.lastErr = nil
 			s.mode = settingsStatusList
 		}

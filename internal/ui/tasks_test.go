@@ -150,6 +150,133 @@ func TestTasksFocusTab(t *testing.T) {
 
 // TestTasksDescBox — колонка описания: для задачи описание и ссылки, для
 // подзадачи — блоки «Описание» и «Журнал» с записью.
+// TestHideCompletedTasks — задачи в завершённом статусе скрываются спустя
+// N дней (настройка hide_days), поиск находит скрытые, выход из done
+// возвращает задачу, подзадачи не фильтруются.
+
+func TestHideCompletedTasks(t *testing.T) {
+	conn, err := db.Open(t.TempDir() + "/test.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	p, err := db.CreateProject(conn, "P")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	mk := func(title string) db.Task {
+		tk, err := db.CreateTask(conn, p.ID, title)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return tk
+	}
+	old := mk("Старая")
+	recent := mk("Свежая")
+	reopened := mk("Возвращена")
+	if err := db.SetStatus(conn, db.OwnerTask, old.ID, "Выполнена", "", now.Add(-8*24*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.SetStatus(conn, db.OwnerTask, recent.ID, "Выполнена", "", now.Add(-2*24*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.SetStatus(conn, db.OwnerTask, reopened.ID, "Выполнена", "", now.Add(-8*24*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.SetStatus(conn, db.OwnerTask, reopened.ID, "Новая", "", now.Add(-1*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+
+	s := newTasksScreen(conn)
+	s.now = now
+	s.load()
+	byID := map[int64]db.Task{}
+	for _, t2 := range s.tasks {
+		byID[t2.ID] = t2
+	}
+	if !s.hiddenDue(byID[old.ID]) {
+		t.Error("задача done 8 дней назад не помечена скрытой")
+	}
+	if s.hiddenDue(byID[recent.ID]) {
+		t.Error("задача done 2 дня назад помечена скрытой")
+	}
+	if s.hiddenDue(byID[reopened.ID]) {
+		t.Error("задача, вернувшаяся из done, помечена скрытой")
+	}
+	tt := searchTitles(s)
+	if containsString(tt, "Старая") {
+		t.Errorf("скрытая задача в списке: %v", tt)
+	}
+	if !containsString(tt, "Свежая") || !containsString(tt, "Возвращена") {
+		t.Errorf("видимые задачи пропали: %v", tt)
+	}
+
+	// поиск находит скрытую задачу
+	s.searchQuery = "Старая"
+	s.buildItems()
+	if !containsString(searchTitles(s), "Старая") {
+		t.Error("поиск не нашёл скрытую задачу")
+	}
+
+	// hideDays=0 — скрытие выключено
+	s.searchQuery = ""
+	s.hideDays = 0
+	s.buildItems()
+	if !containsString(searchTitles(s), "Старая") {
+		t.Error("при hideDays=0 задача осталась скрытой")
+	}
+
+	// подзадачи не фильтруются: done-подзадача под видимой задачей
+	st, err := db.CreateSubtask(conn, recent.ID, "Подзадача")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.SetStatus(conn, db.OwnerSubtask, st.ID, "Выполнена", "", now.Add(-30*24*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	s.searchQuery = ""
+	s.hideDays = 7
+	s.expanded[recent.ID] = true
+	s.loadData()
+	if !containsString(searchTitles(s), "Подзадача") {
+		t.Error("done-подзадача пропала из списка")
+	}
+
+	// граница: ровно N дней — уже скрыта, чуть меньше — видна
+	s.hideDays = 7
+	bound := db.Task{
+		Title:       "Граница",
+		Status:      "Выполнена",
+		CompletedAt: ptrTime(now.Add(-7 * 24 * time.Hour)),
+	}
+	s.now = now
+	if !s.hiddenDue(bound) {
+		t.Error("ровно N дней назад не скрыто")
+	}
+	bound.CompletedAt = ptrTime(now.Add(-7*24*time.Hour + time.Hour))
+	if s.hiddenDue(bound) {
+		t.Error("меньше N дней скрыто")
+	}
+	// статус не завершённого типа — не скрывается
+	bound.Status = "В работе"
+	bound.CompletedAt = nil
+	if s.hiddenDue(bound) {
+		t.Error("задача в работе скрыта")
+	}
+}
+
+func containsString(list []string, want string) bool {
+	for _, s := range list {
+		if s == want {
+			return true
+		}
+	}
+	return false
+}
+
+func ptrTime(t time.Time) *time.Time { return &t }
+
 // TestTaskSearch — / открывает модалку поиска, фильтр по журналу/описанию/
 // названию применяется по мере ввода, Enter оставляет фильтр, Esc сбрасывает.
 

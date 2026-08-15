@@ -3,13 +3,15 @@ package ui
 import (
 	"database/sql"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbletea"
 
-	"github.com/kalpamer/tasky/internal/db"
-	"github.com/kalpamer/tasky/internal/ui/theme"
+	"github.com/detrenasama/tasky/internal/db"
+	"github.com/detrenasama/tasky/internal/ui/theme"
+	"github.com/detrenasama/tasky/internal/update"
 )
 
 type screen int
@@ -70,18 +72,24 @@ type model struct {
 	// времени; reportTitle — название подзадачи с идущим временем.
 	reportConfirm bool
 	reportTitle   string
+
+	// version — версия сборки (из -ldflags); updateVer — доступное обновление.
+	version   string
+	updateVer string
 }
 
 // New создаёт корневую модель: экраны, общий конфиг отчётов, первичная
-// загрузка данных.
-func New(conn *sql.DB) *model {
-	m := &model{db: conn}
+// загрузка данных. dataDir — корень данных (база, отчёты по умолчанию);
+// version — версия сборки.
+func New(conn *sql.DB, dataDir, version string) *model {
+	m := &model{db: conn, version: version}
 	m.tasks = newTasksScreen(conn)
+	m.tasks.version = version
 	m.tasks.now = time.Now()
 	m.tasks.load()
 	m.proj = newProjectsScreen(conn)
 	m.proj.load()
-	repCfg := &reportConfig{period: periodToday, saveDir: "reports"}
+	repCfg := &reportConfig{period: periodToday, saveDir: filepath.Join(dataDir, "reports")}
 	m.reports = newReportsScreen(conn, repCfg)
 	m.reports.load()
 	m.settings = newSettingsScreen(conn, repCfg)
@@ -92,8 +100,21 @@ type tickMsg time.Time
 
 func tickCmd(t time.Time) tea.Msg { return tickMsg(t) }
 
+// updateMsg — результат проверки последней версии (пустая строка — ошибка).
+type updateMsg string
+
+func checkUpdateCmd() tea.Cmd {
+	return func() tea.Msg {
+		v, err := update.LatestVersion()
+		if err != nil {
+			return updateMsg("")
+		}
+		return updateMsg(v)
+	}
+}
+
 func (m model) Init() tea.Cmd {
-	return tea.Tick(time.Second, tickCmd)
+	return tea.Batch(tea.Tick(time.Second, tickCmd), checkUpdateCmd())
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -222,6 +243,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.tasks.weekly, _ = db.WeeklyTotal(m.db, now)
 		}
 		return m, tea.Tick(time.Second, tickCmd)
+	case updateMsg:
+		if msg != "" && m.version != "" && m.version != "dev" &&
+			update.Compare(string(msg), m.version) > 0 {
+			m.updateVer = string(msg)
+			m.tasks.updateVer = string(msg)
+		}
+		return m, nil
 	}
 	return m, nil
 }

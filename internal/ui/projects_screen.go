@@ -12,8 +12,8 @@ import (
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/kalpamer/tasky/internal/db"
-	"github.com/kalpamer/tasky/internal/ui/theme"
+	"github.com/detrenasama/tasky/internal/db"
+	"github.com/detrenasama/tasky/internal/ui/theme"
 )
 
 type projMode int

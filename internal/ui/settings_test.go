@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbletea"
-	"github.com/kalpamer/tasky/internal/db"
+	"github.com/detrenasama/tasky/internal/db"
 )
 
 func TestSettingsForm(t *testing.T) {

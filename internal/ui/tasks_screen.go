@@ -13,8 +13,8 @@ import (
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/kalpamer/tasky/internal/db"
-	"github.com/kalpamer/tasky/internal/ui/theme"
+	"github.com/detrenasama/tasky/internal/db"
+	"github.com/detrenasama/tasky/internal/ui/theme"
 )
 
 type taskMode int
@@ -109,6 +109,9 @@ type tasksScreen struct {
 	today    time.Duration
 	weekly   time.Duration
 	now      time.Time
+
+	version   string
+	updateVer string
 
 	entries []db.TimeEntry
 	run     *db.SubtaskWithTime
@@ -914,11 +917,18 @@ func (s *tasksScreen) resize(w, h int) {
 
 func (s *tasksScreen) header(w int) string {
 	h := theme.HeaderStyle.Render("Tasky")
+	if s.version != "" {
+		h += " " + theme.Faint("v"+strings.TrimPrefix(s.version, "v"))
+	}
 	if s.projIdx >= 0 && s.projIdx < len(s.projects) {
 		h += "  " + theme.Faint("проект: ") + s.projects[s.projIdx].Name
 	}
 	if s.searchQuery != "" {
 		h += "  " + theme.Faint("поиск: ") + s.searchQuery
+	}
+	if s.updateVer != "" {
+		h += "  " + theme.HeaderStyle.Render("обновление: v"+strings.TrimPrefix(s.updateVer, "v")) +
+			theme.Faint(" — tasky upgrade")
 	}
 	return padW(h, w)
 }

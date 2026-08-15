@@ -1,4 +1,4 @@
-module github.com/kalpamer/tasky
+module github.com/detrenasama/tasky
 
 go 1.26.5
 

@@ -5,8 +5,8 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/kalpamer/tasky/internal/db"
-	"github.com/kalpamer/tasky/internal/ui/theme"
+	"github.com/detrenasama/tasky/internal/db"
+	"github.com/detrenasama/tasky/internal/ui/theme"
 )
 
 // linkItem — элемент списка ссылок: название (или URL) и URL в описании.

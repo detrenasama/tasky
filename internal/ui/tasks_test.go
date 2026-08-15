@@ -8,7 +8,7 @@ import (
 
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/kalpamer/tasky/internal/db"
+	"github.com/detrenasama/tasky/internal/db"
 )
 
 func TestResizeColumns(t *testing.T) {

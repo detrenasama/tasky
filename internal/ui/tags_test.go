@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/bubbletea"
-	"github.com/kalpamer/tasky/internal/db"
+	"github.com/detrenasama/tasky/internal/db"
 )
 
 // TestTaskTagsFlow — клавиша g открывает модалку тегов задачи, n создаёт тег

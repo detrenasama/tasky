@@ -10,8 +10,8 @@ import (
 
 	"github.com/charmbracelet/bubbles/viewport"
 
-	"github.com/kalpamer/tasky/internal/db"
-	"github.com/kalpamer/tasky/internal/ui/theme"
+	"github.com/detrenasama/tasky/internal/db"
+	"github.com/detrenasama/tasky/internal/ui/theme"
 )
 
 // reportPeriod — тип периода отчёта.

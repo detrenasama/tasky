@@ -31,12 +31,14 @@ build-target os arch:
 
 # Релиз: все таргеты + tar.gz + SHA256SUMS + подсказка публикации
 release:
-    @rm -rf dist/release && mkdir -p dist/release
+    @rm -rf dist/release && mkdir -p dist/release dist/release/stage
     @for t in {{RELEASES}}; do \
         os=${t%-*}; arch=${t#*-}; \
         just build-target $os $arch; \
+        cp dist/release/tasky-$os-$arch dist/release/stage/tasky; \
+        tar czf dist/release/tasky-$os-$arch.tar.gz -C dist/release/stage tasky; \
     done
-    @cd dist/release && for f in tasky-*; do tar czf "$f.tar.gz" "$f"; done
+    @rm -rf dist/release/stage
     @cd dist/release && sha256sum *.tar.gz > SHA256SUMS
     @echo ""
     @echo "Готово: dist/release/*.tar.gz + SHA256SUMS"

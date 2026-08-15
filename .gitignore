@@ -1,3 +1,4 @@
+.opencode/
 /dist/
 *.db
 *.db-shm

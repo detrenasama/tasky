@@ -11,6 +11,7 @@
 - [x] Этап 7. Теги задач
 - [ ] Этап 8. Синхронизация с другими сервисами
 - [x] Этап 9. Полнотекстовый поиск задач/подзадач
+- [x] Этап 10. Установка и обновления
 
 ---
 
@@ -77,3 +78,13 @@
 На экране проектов — то же самое: `/` ищет по названию, описанию и ссылкам проектов; Esc при активном поиске перехватывается в `main.go` до глобального esc «назад на задачи» (`clearSearch()`).
 
 Реализация: `tasks_screen.go` (режим `taskSearch`, `buildSearchItems`/`subMatches`), `projects_screen.go` (режим `projSearch`, `buildItems`), `internal/db/tasks.go` (`JournalTexts`, описание в `TasksByProject`/`SubtasksByProject`/`SubtasksWithTime`), `internal/db/projects.go` (`ProjectLinksTexts`), тесты в `ui_test.go` (`TestTaskSearch`, `TestProjectSearch`) и `tasks_test.go`/`projects_test.go`.
+
+## Этап 10. Установка и обновления — [x] завершён
+
+Модуль переименован в `github.com/detrenasama/tasky` (совпадает с репозиторием для `go install`). Добавлены `LICENSE` (MIT) и `README.md`. Сборка через `Justfile`: статическая (`CGO_ENABLED=0`), версия подставляется `-ldflags -X main.version=$(git describe --tags)`, `just release` собирает linux/amd64+arm64 в `dist/release/` (tar.gz + SHA256SUMS) и печатает команду публикации `gh release create`.
+
+Данные переехали в XDG: `~/.local/share/tasky/` (`tasky.db`, отчёты по умолчанию `reports/`), переопределение — `TASKY_HOME` (`internal/xdg`); при первом запуске новой версии старая база из рабочего каталога переносится (`migrateDataDir`).
+
+Самообновление (`internal/update`, CLI `tasky upgrade`): сравнение версий (семвер, `Compare`/`TrimV`), скачивание `tasky-<os>-<arch>.tar.gz` + `SHA256SUMS` из последнего релиза GitHub, проверка контрольной суммы, атомарная замена бинарника (`os.Rename`). При старте TUI фоновая проверка (`checkUpdateCmd`) показывает в шапке задач «обновление: vX.Y.Z — tasky upgrade». Установка: `scripts/install.sh` (curl + SHA256) в `~/.local/bin`, `just install`, `go install`.
+
+Реализация: `version.go`, `upgrade.go`, `internal/xdg`, `internal/update` (+ тесты на httptest-сервере), изменения `main.go`/`internal/ui/app.go`/`tasks_screen.go`, `Justfile`, `scripts/install.sh`, `LICENSE`, `README.md`.

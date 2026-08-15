@@ -75,3 +75,27 @@ type StatusHistoryEntry struct {
 	Note      string
 	CreatedAt time.Time
 }
+
+// TagType — настраиваемый тип тега из каталога tag_types. Kind: text |
+// task_id (номер задачи внешнего сервиса).
+type TagType struct {
+	ID        int64
+	Name      string
+	Kind      string
+	Color     string
+	SortOrder int
+}
+
+// Tag — тег задачи: значение + ссылка на тип. TypeName/Kind/Color
+// денормализованы из типа для отображения без джойнов.
+type Tag struct {
+	ID        int64
+	TaskID    int64
+	TypeID    int64
+	TypeName  string
+	Kind      string
+	Color     string
+	Text      string
+	URL       string
+	CreatedAt time.Time
+}

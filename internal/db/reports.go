@@ -31,13 +31,14 @@ type ReportJournalEntry struct {
 	Text      string
 }
 
-// TaskReport — задача в отчёте с подзадачами и суммарным временем.
+// TaskReport — задача в отчёте с подзадачами, суммарным временем и тегами.
 type TaskReport struct {
 	TaskID      int64
 	ProjectID   int64
 	ProjectName string
 	TaskTitle   string
 	Seconds     int64
+	Tags        []Tag
 	Subs        []SubtaskReport
 }
 

@@ -27,7 +27,8 @@ func TestSchemaCreatesTables(t *testing.T) {
 	conn := openTestDB(t)
 	var n int
 	for _, table := range []string{"projects", "tasks", "subtasks", "time_entries",
-		"project_links", "task_links", "subtask_links", "journal_entries"} {
+		"project_links", "task_links", "subtask_links", "journal_entries",
+		"tag_types", "task_tags"} {
 		err := conn.QueryRow(
 			"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?", table,
 		).Scan(&n)

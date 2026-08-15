@@ -76,6 +76,16 @@ func (s *reportsScreen) load() {
 		return
 	}
 	s.rep = db.ReportByTask(entries)
+	// теги задач для строк отчёта (номера внешних сервисов)
+	taskIDs := make([]int64, 0, len(s.rep))
+	for _, t := range s.rep {
+		taskIDs = append(taskIDs, t.TaskID)
+	}
+	if tags, err := db.TagsByTasks(s.db, taskIDs); err == nil {
+		for i := range s.rep {
+			s.rep[i].Tags = tags[s.rep[i].TaskID]
+		}
+	}
 	var total int64
 	for _, t := range s.rep {
 		total += t.Seconds
@@ -166,8 +176,8 @@ func (s *reportsScreen) refresh() {
 		body = append(body, theme.Faint("Времени за период ещё не учтено."))
 	} else {
 		for _, t := range s.rep {
-			body = append(body, fmt.Sprintf("%s · %s", t.TaskTitle,
-				fmtDur(time.Duration(t.Seconds)*time.Second)))
+			body = append(body, fmt.Sprintf("%s%s · %s", t.TaskTitle,
+				tagsLine(t.Tags), fmtDur(time.Duration(t.Seconds)*time.Second)))
 			for _, st := range t.Subs {
 				body = append(body, "  ├ "+st.Title+" · "+fmtDur(time.Duration(st.Seconds)*time.Second))
 				for _, e := range s.journal[st.ID] {
@@ -195,8 +205,8 @@ func (s *reportsScreen) save() {
 	var sb strings.Builder
 	sb.WriteString(s.periodLabel() + "\n\n")
 	for _, t := range s.rep {
-		sb.WriteString(fmt.Sprintf("%s · %s\n", t.TaskTitle,
-			fmtDur(time.Duration(t.Seconds)*time.Second)))
+		sb.WriteString(fmt.Sprintf("%s%s · %s\n", t.TaskTitle,
+			tagsLine(t.Tags), fmtDur(time.Duration(t.Seconds)*time.Second)))
 		for _, st := range t.Subs {
 			sb.WriteString(fmt.Sprintf("  ├ %s · %s\n", st.Title,
 				fmtDur(time.Duration(st.Seconds)*time.Second)))

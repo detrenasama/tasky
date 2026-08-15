@@ -27,10 +27,16 @@ const (
 	settingsStatusEdit
 	settingsColorPick
 	settingsStatusConfirm
+	settingsTagTypeList
+	settingsTagTypeEdit
+	settingsTagTypeConfirm
 )
 
 var statusTypeNames = []string{"Новый", "В работе", "Завершённый"}
 var statusTypeCodes = []string{"new", "in_progress", "done"}
+
+var tagKindNames = []string{"текст", "ид задачи"}
+var tagKindCodes = []string{"text", "task_id"}
 
 // settingsScreen — страница «Настройки»: настройки отчёта (период, фильтр
 // проекта, журнал, каталог сохранения), скрытие завершённых задач и каталог
@@ -61,6 +67,13 @@ type settingsScreen struct {
 	statusEditID int64
 	statusDelID  int64
 
+	tagTypes      []db.TagType
+	tagTypePick   pickList
+	tagTypeEditID int64
+	tagTypeDelID  int64
+	editKind      int
+	colorFromTag  bool // палитра открыта из редактора типа тега
+
 	midH int
 }
 
@@ -78,6 +91,7 @@ func newSettingsScreen(conn *sql.DB, cfg *reportConfig) *settingsScreen {
 	s.periodPick.setVisible(12)
 	s.statusPick.setVisible(12)
 	s.colorPick.setVisible(12)
+	s.tagTypePick.setVisible(12)
 	items := make([]pickItem, 0, len(periodNames)+1)
 	for i, name := range periodNames {
 		items = append(items, pickItem{value: int64(i), label: name})
@@ -127,6 +141,12 @@ func (s *settingsScreen) load() {
 		sItems = append(sItems, pickItem{value: st.ID, label: st.Name})
 	}
 	s.statusPick.items = sItems
+	s.tagTypes, _ = db.TagTypes(s.db)
+	tItems := make([]pickItem, 0, len(s.tagTypes))
+	for _, tt := range s.tagTypes {
+		tItems = append(tItems, pickItem{value: tt.ID, label: tt.Name})
+	}
+	s.tagTypePick.items = tItems
 	s.hideDays = loadHideDays(s.db)
 }
 
@@ -150,6 +170,7 @@ func (s *settingsScreen) resize(w, h int) {
 	s.periodPick.setVisible(visible)
 	s.statusPick.setVisible(visible)
 	s.colorPick.setVisible(visible)
+	s.tagTypePick.setVisible(visible)
 }
 
 func (s *settingsScreen) header(w int) string {
@@ -210,6 +231,7 @@ func (s *settingsScreen) view(w, h int) string {
 		"Каталог: " + s.dirName(),
 		"Скрытие: " + s.hideName() + " (завершённые)",
 		"Статусы: " + fmt.Sprintf("%d", len(s.statuses)),
+		"Типы тегов: " + fmt.Sprintf("%d", len(s.tagTypes)),
 	}
 	var lines []string
 	for i, r := range rows {
@@ -222,7 +244,7 @@ func (s *settingsScreen) view(w, h int) string {
 	inner := theme.HeaderStyle.Render("Настройки отчёта") + "\n\n" +
 		strings.Join(lines, "\n") + "\n\n" +
 		theme.Faint("Enter — выбор из списка (журнал — вкл/выкл,")
-	inner += "\n" + theme.Faint("каталог — ввод пути, скрытие — дни, статусы — каталог статусов)")
+	inner += "\n" + theme.Faint("каталог — ввод пути, скрытие — дни, статусы и типы тегов — каталоги)")
 	return theme.BoxStyle.Render(padLines(inner, max(w-4, 1), max(h-4, 1)))
 }
 
@@ -312,6 +334,52 @@ func (s *settingsScreen) dialog() (string, bool) {
 		}
 		d := dialog{title: "Удаление статуса",
 			body:    fmt.Sprintf("Удалить статус «%s»?", name),
+			primary: "y — удалить", esc: "n — нет"}
+		return d.render(), true
+	case settingsTagTypeList:
+		body := s.tagTypePick.view()
+		if s.lastErr != nil {
+			body += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
+		}
+		d := dialog{title: "Типы тегов",
+			body:    body,
+			primary: "Enter — изменить · n — новый · d — удалить", esc: "Esc — назад"}
+		return d.render(), true
+	case settingsTagTypeEdit:
+		title := "Новый тип тега"
+		if s.tagTypeEditID != 0 {
+			title = "Тип тега"
+		}
+		lines := []string{
+			"Имя:   " + s.editName.View(),
+			"Тип:   " + tagKindNames[s.editKind],
+			"Цвет:  " + colorPreview(theme.StatusPalette[s.editColor]) + " " + theme.PaletteNames[s.editColor],
+		}
+		var body []string
+		for i, l := range lines {
+			if i == s.editFocus {
+				body = append(body, theme.HeaderStyle.Render("▸ "+l))
+			} else {
+				body = append(body, "  "+l)
+			}
+		}
+		body = append(body, "", theme.Faint("Тип — Enter, цвет — Enter, Ctrl+S — сохранить"))
+		inner := strings.Join(body, "\n")
+		if s.lastErr != nil {
+			inner += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
+		}
+		d := dialog{title: title, body: inner,
+			primary: "Ctrl+S — сохранить", esc: "Esc — отмена"}
+		return d.render(), true
+	case settingsTagTypeConfirm:
+		name := ""
+		for _, tt := range s.tagTypes {
+			if tt.ID == s.tagTypeDelID {
+				name = tt.Name
+			}
+		}
+		d := dialog{title: "Удаление типа тега",
+			body:    fmt.Sprintf("Удалить тип тега «%s»?", name),
 			primary: "y — удалить", esc: "n — нет"}
 		return d.render(), true
 	}
@@ -540,6 +608,7 @@ func (m *model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			case 1:
 				s.editType = (s.editType + 1) % 3
 			case 2:
+				s.colorFromTag = false
 				s.colorPick.sel = s.editColor
 				s.colorPick.clampScroll()
 				s.mode = settingsColorPick
@@ -575,9 +644,17 @@ func (m *model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if it, ok := s.colorPick.selected(); ok {
 				s.editColor = int(it.value)
 			}
-			s.mode = settingsStatusEdit
+			if s.colorFromTag {
+				s.mode = settingsTagTypeEdit
+			} else {
+				s.mode = settingsStatusEdit
+			}
 		case "esc":
-			s.mode = settingsStatusEdit
+			if s.colorFromTag {
+				s.mode = settingsTagTypeEdit
+			} else {
+				s.mode = settingsStatusEdit
+			}
 		}
 		return m, nil
 	case settingsStatusConfirm:
@@ -594,13 +671,85 @@ func (m *model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			s.mode = settingsStatusList
 		}
 		return m, nil
+	case settingsTagTypeList:
+		switch msg.String() {
+		case "up":
+			s.tagTypePick.move(-1)
+		case "down":
+			s.tagTypePick.move(1)
+		case "pgup":
+			s.tagTypePick.move(-s.tagTypePick.visible)
+		case "pgdown":
+			s.tagTypePick.move(s.tagTypePick.visible)
+		case "enter":
+			if it, ok := s.tagTypePick.selected(); ok {
+				s.openTagTypeEdit(it.value)
+			}
+		case "n":
+			s.openTagTypeEdit(0)
+		case "d":
+			if it, ok := s.tagTypePick.selected(); ok {
+				s.tagTypeDelID = it.value
+				s.mode = settingsTagTypeConfirm
+			}
+		case "esc":
+			s.lastErr = nil
+			s.mode = settingsBrowse
+		}
+		return m, nil
+	case settingsTagTypeEdit:
+		switch msg.String() {
+		case "up":
+			s.editFocus = (s.editFocus + 2) % 3
+			s.focusTagTypeField()
+		case "down", "tab":
+			s.editFocus = (s.editFocus + 1) % 3
+			s.focusTagTypeField()
+		case "enter":
+			switch s.editFocus {
+			case 0:
+				s.editFocus = 1
+				s.focusTagTypeField()
+			case 1:
+				s.editKind = (s.editKind + 1) % 2
+			case 2:
+				s.colorFromTag = true
+				s.colorPick.sel = s.editColor
+				s.colorPick.clampScroll()
+				s.mode = settingsColorPick
+			}
+		case "ctrl+s":
+			s.saveTagTypeEdit()
+		case "esc":
+			s.lastErr = nil
+			s.mode = settingsTagTypeList
+		default:
+			if s.editFocus == 0 {
+				s.editName, _ = s.editName.Update(msg)
+			}
+		}
+		return m, nil
+	case settingsTagTypeConfirm:
+		switch msg.String() {
+		case "y", "enter":
+			if err := db.DeleteTagType(s.db, s.tagTypeDelID); err != nil {
+				s.lastErr = err
+			} else {
+				s.lastErr = nil
+				s.load()
+			}
+			s.mode = settingsTagTypeList
+		case "n", "esc":
+			s.mode = settingsTagTypeList
+		}
+		return m, nil
 	}
 
 	switch msg.String() {
 	case "up":
-		s.sel = (s.sel + 5) % 6
+		s.sel = (s.sel + 6) % 7
 	case "down":
-		s.sel = (s.sel + 1) % 6
+		s.sel = (s.sel + 1) % 7
 	case "enter":
 		switch s.sel {
 		case 0:
@@ -620,6 +769,9 @@ func (m *model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case 5:
 			s.lastErr = nil
 			s.mode = settingsStatusList
+		case 6:
+			s.lastErr = nil
+			s.mode = settingsTagTypeList
 		}
 	}
 	return m, nil
@@ -694,6 +846,66 @@ func (s *settingsScreen) saveStatusEdit() {
 	s.lastErr = nil
 	s.load()
 	s.mode = settingsStatusList
+}
+
+// openTagTypeEdit открывает редактор типа тега: id=0 — новый, иначе — правка.
+func (s *settingsScreen) openTagTypeEdit(id int64) {
+	s.tagTypeEditID = id
+	s.lastErr = nil
+	s.editName.SetValue("")
+	s.editKind, s.editColor = 0, 0
+	for _, tt := range s.tagTypes {
+		if tt.ID != id {
+			continue
+		}
+		s.editName.SetValue(tt.Name)
+		for i, k := range tagKindCodes {
+			if k == tt.Kind {
+				s.editKind = i
+			}
+		}
+		for i, c := range theme.StatusPalette {
+			if c == tt.Color {
+				s.editColor = i
+			}
+		}
+	}
+	s.editFocus = 0
+	s.editName.Focus()
+	s.mode = settingsTagTypeEdit
+}
+
+// focusTagTypeField переводит фокус textinput на поле имени типа тега.
+func (s *settingsScreen) focusTagTypeField() {
+	if s.editFocus == 0 {
+		s.editName.Focus()
+	} else {
+		s.editName.Blur()
+	}
+}
+
+// saveTagTypeEdit сохраняет тип тега из редактора.
+func (s *settingsScreen) saveTagTypeEdit() {
+	name := strings.TrimSpace(s.editName.Value())
+	if name == "" {
+		s.lastErr = fmt.Errorf("имя не может быть пустым")
+		return
+	}
+	var err error
+	if s.tagTypeEditID == 0 {
+		_, err = db.CreateTagType(s.db, name, tagKindCodes[s.editKind],
+			theme.StatusPalette[s.editColor])
+	} else {
+		err = db.UpdateTagType(s.db, s.tagTypeEditID, name, tagKindCodes[s.editKind],
+			theme.StatusPalette[s.editColor])
+	}
+	if err != nil {
+		s.lastErr = err
+		return
+	}
+	s.lastErr = nil
+	s.load()
+	s.mode = settingsTagTypeList
 }
 
 func boolWord(b bool) string {

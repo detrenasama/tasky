@@ -31,6 +31,10 @@ const (
 	taskStatusPick
 	taskStatusNote
 	taskSearch
+	taskTags
+	taskTagEdit
+	taskTagTypePick
+	taskTagConfirm
 )
 
 type taskFocus int
@@ -60,7 +64,8 @@ func (i taskItem) Title() string {
 	if i.expanded {
 		marker = "▾"
 	}
-	return statusBar(i.scr.statusColor(i.t.Status)) + " " + marker + " " + i.t.Title
+	return statusBar(i.scr.statusColor(i.t.Status)) + " " + marker + " " +
+		i.t.Title + i.scr.tagsChips(i.t.ID)
 }
 
 func (i taskItem) Description() string {
@@ -146,6 +151,20 @@ type tasksScreen struct {
 	searchInput  textinput.Model
 	searchQuery  string
 	journalTexts map[int64]string
+
+	tagTypes     []db.TagType
+	tagTypePick  pickList
+	tagPick      pickList
+	tags         []db.Tag
+	tagsMap      map[int64][]db.Tag
+	tagsText     map[int64]string
+	tagTaskID    int64
+	tagEditID    int64
+	tagEditType  int64
+	tagEditText  textinput.Model
+	tagEditURL   textinput.Model
+	tagEditFocus int
+	tagConfirmID int64
 }
 
 func newTasksScreen(conn *sql.DB) *tasksScreen {
@@ -206,6 +225,21 @@ func newTasksScreen(conn *sql.DB) *tasksScreen {
 	s.searchInput.CharLimit = 64
 	s.searchInput.Width = 40
 
+	s.tagEditText = textinput.New()
+	s.tagEditText.Placeholder = "GW-567, 4455, …"
+	s.tagEditText.Prompt = "> "
+	s.tagEditText.CharLimit = 64
+	s.tagEditText.Width = 40
+
+	s.tagEditURL = textinput.New()
+	s.tagEditURL.Placeholder = "https://… (необязательно)"
+	s.tagEditURL.Prompt = "> "
+	s.tagEditURL.CharLimit = 512
+	s.tagEditURL.Width = 40
+
+	s.tagTypePick.setVisible(12)
+	s.tagPick.setVisible(12)
+
 	ld := list.NewDefaultDelegate()
 	ld.ShowDescription = true
 	s.linkList = list.New(nil, ld, 50, 8)
@@ -231,6 +265,13 @@ func (s *tasksScreen) load() {
 		items = append(items, pickItem{value: st.ID, label: st.Name})
 	}
 	s.statusPick.items = items
+	s.tagTypes, _ = db.TagTypes(s.db)
+	ttItems := make([]pickItem, 0, len(s.tagTypes))
+	for _, tt := range s.tagTypes {
+		ttItems = append(ttItems, pickItem{value: tt.ID,
+			label: colorPreview(tt.Color) + " " + tt.Name})
+	}
+	s.tagTypePick.items = ttItems
 	s.loadData()
 	s.today, _ = db.TodayTotal(s.db, s.now)
 	s.weekly, _ = db.WeeklyTotal(s.db, s.now)
@@ -248,6 +289,15 @@ func (s *tasksScreen) loadData() {
 	s.tasks, _ = db.TasksByProject(s.db, s.currentProjectID())
 	s.subs, _ = db.SubtasksByProject(s.db, s.currentProjectID())
 	s.journalTexts, _ = db.JournalTexts(s.db, s.currentProjectID())
+	s.tagsMap, _ = db.TagsByProject(s.db, s.currentProjectID())
+	s.tagsText = make(map[int64]string, len(s.tagsMap))
+	for taskID, tg := range s.tagsMap {
+		parts := make([]string, 0, len(tg))
+		for _, t := range tg {
+			parts = append(parts, t.Text)
+		}
+		s.tagsText[taskID] = strings.Join(parts, " ")
+	}
 	s.buildItems()
 	s.loadInfo()
 	s.loadDesc()
@@ -419,7 +469,8 @@ func (s *tasksScreen) buildSearchItems(q string) {
 	s.items = []list.Item{}
 	for _, t := range s.tasks {
 		taskMatch := strings.Contains(strings.ToLower(t.Title), q) ||
-			strings.Contains(strings.ToLower(t.Description), q)
+			strings.Contains(strings.ToLower(t.Description), q) ||
+			strings.Contains(strings.ToLower(s.tagsText[t.ID]), q)
 		var subs []db.SubtaskWithTime
 		if taskMatch {
 			for _, st := range s.subs {
@@ -488,6 +539,34 @@ func (s *tasksScreen) statusText(name string) string {
 // statusBar — цветная полоса слева от элемента списка.
 func statusBar(color string) string {
 	return lipgloss.NewStyle().Background(lipgloss.Color(color)).Render(" ")
+}
+
+// tagChip — цветная метка тега `[текст]` (цвет от типа тега; при URL —
+// подчёркивание, как у ссылки).
+func tagChip(t db.Tag) string {
+	st := lipgloss.NewStyle().Foreground(lipgloss.Color(t.Color))
+	if t.URL != "" {
+		st = st.Underline(true)
+	}
+	return st.Render("[" + t.Text + "]")
+}
+
+// tagsLine — метки тегов через пробел с ведущим пробелом (для списка и
+// строк отчётов).
+func tagsLine(tags []db.Tag) string {
+	var parts []string
+	for _, t := range tags {
+		parts = append(parts, tagChip(t))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return " " + strings.Join(parts, " ")
+}
+
+// tagsChips — метки тегов задачи через пробел (для строки списка).
+func (s *tasksScreen) tagsChips(taskID int64) string {
+	return tagsLine(s.tagsMap[taskID])
 }
 
 // quickStatuses — статусы быстрой цепочки в порядке сортировки.
@@ -640,6 +719,110 @@ func (s *tasksScreen) selectedTaskID() int64 {
 	return 0
 }
 
+// tagTypeName возвращает имя и цвет типа тега по id (пустые, если не найден).
+func (s *tasksScreen) tagTypeName(id int64) (string, string) {
+	for _, tt := range s.tagTypes {
+		if tt.ID == id {
+			return tt.Name, tt.Color
+		}
+	}
+	return "", ""
+}
+
+// openTags открывает модалку тегов выбранной задачи (для подзадачи —
+// родительской).
+func (s *tasksScreen) openTags() {
+	taskID := s.selectedTaskID()
+	if taskID == 0 {
+		return
+	}
+	s.lastErr = nil
+	s.tagTaskID = taskID
+	s.loadTags()
+	s.tagTypePick.sel = 0
+	s.tagTypePick.clampScroll()
+	s.mode = taskTags
+}
+
+// loadTags перечитывает теги текущей задачи и собирает список модалки.
+func (s *tasksScreen) loadTags() {
+	s.tags, _ = db.TaskTags(s.db, s.tagTaskID)
+	items := make([]pickItem, 0, len(s.tags))
+	for _, t := range s.tags {
+		label := tagChip(t)
+		if t.URL != "" {
+			label += " " + theme.Faint(t.URL)
+		}
+		items = append(items, pickItem{value: t.ID, label: label})
+	}
+	s.tagPick.items = items
+	s.tagPick.clampScroll()
+}
+
+// openTagEdit открывает редактор тега: id=0 — новый, иначе — правка.
+func (s *tasksScreen) openTagEdit(id int64) {
+	s.tagEditID = id
+	s.lastErr = nil
+	s.tagEditText.SetValue("")
+	s.tagEditURL.SetValue("")
+	s.tagEditType = 0
+	if len(s.tagTypes) > 0 {
+		s.tagEditType = s.tagTypes[0].ID
+	}
+	for _, t := range s.tags {
+		if t.ID != id {
+			continue
+		}
+		s.tagEditText.SetValue(t.Text)
+		s.tagEditURL.SetValue(t.URL)
+		s.tagEditType = t.TypeID
+	}
+	s.tagEditFocus = 0
+	s.tagEditText.Blur()
+	s.tagEditURL.Blur()
+	s.mode = taskTagEdit
+}
+
+// focusTagEditField переводит фокус textinput на поле редактора тега.
+func (s *tasksScreen) focusTagEditField() {
+	switch s.tagEditFocus {
+	case 1:
+		s.tagEditText.Focus()
+		s.tagEditURL.Blur()
+	case 2:
+		s.tagEditText.Blur()
+		s.tagEditURL.Focus()
+	default:
+		s.tagEditText.Blur()
+		s.tagEditURL.Blur()
+	}
+}
+
+// saveTagEdit сохраняет тег из редактора и возвращается к списку тегов.
+func (s *tasksScreen) saveTagEdit() {
+	text := strings.TrimSpace(s.tagEditText.Value())
+	if text == "" {
+		s.lastErr = fmt.Errorf("значение тега не может быть пустым")
+		return
+	}
+	var err error
+	if s.tagEditID == 0 {
+		_, err = db.CreateTag(s.db, s.tagTaskID, s.tagEditType, text,
+			strings.TrimSpace(s.tagEditURL.Value()))
+	} else {
+		err = db.UpdateTag(s.db, s.tagEditID, s.tagEditType, text,
+			strings.TrimSpace(s.tagEditURL.Value()))
+	}
+	if err != nil {
+		s.lastErr = err
+		return
+	}
+	s.lastErr = nil
+	s.loadTags()
+	s.loadData()
+	s.mode = taskTags
+}
+
 func (s *tasksScreen) toggleExpand() {
 	item, ok := s.list.SelectedItem().(taskItem)
 	if !ok {
@@ -745,9 +928,9 @@ func (s *tasksScreen) footer(w int) string {
 		return padW(theme.Faint("Ctrl+S — сохранить · Esc — отмена"), w)
 	}
 	if s.focus == taskFocusDesc {
-		return padW(theme.Faint("↑/↓ скролл · e — описание · l — ссылка · o — ссылки · Ctrl+J — запись · j — изменить запись · / — поиск · Tab — список"), w)
+		return padW(theme.Faint("↑/↓ скролл · e — описание · l — ссылка · o — ссылки · Ctrl+J — запись · j — изменить запись · g — теги · / — поиск · Tab — список"), w)
 	}
-	hint := "↑/↓ выбор · Enter раскрыть · n задача · a подзадача · d удалить · Ctrl+L старт/пауза · x/z статус · c — все статусы · / — поиск · [ / ] проект · Tab — описание · q выход"
+	hint := "↑/↓ выбор · Enter раскрыть · n задача · a подзадача · d удалить · Ctrl+L старт/пауза · x/z статус · c — все статусы · g — теги · / — поиск · [ / ] проект · Tab — описание · q выход"
 	if s.searchQuery != "" {
 		hint = "Поиск: «" + s.searchQuery + "» — / — изменить · Esc — сбросить"
 	}
@@ -892,6 +1075,61 @@ func (s *tasksScreen) dialog() (string, bool) {
 		d := dialog{title: "Поиск", body: body,
 			primary: "Enter — применить", esc: "Esc — отмена"}
 		return d.render(), true
+	case taskTags:
+		body := s.tagPick.view()
+		if len(s.tags) == 0 {
+			body = theme.Faint("Тегов нет. n — добавить.")
+		}
+		if s.lastErr != nil {
+			body += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
+		}
+		d := dialog{title: "Теги",
+			body:    body,
+			primary: "Enter — изменить · n — новый · d — удалить", esc: "Esc — закрыть"}
+		return d.render(), true
+	case taskTagEdit:
+		title := "Новый тег"
+		if s.tagEditID != 0 {
+			title = "Тег"
+		}
+		name, color := s.tagTypeName(s.tagEditType)
+		lines := []string{
+			"Тип:      " + colorPreview(color) + " " + name,
+			"Значение: " + s.tagEditText.View(),
+			"URL:      " + s.tagEditURL.View(),
+		}
+		var body []string
+		for i, l := range lines {
+			if i == s.tagEditFocus {
+				body = append(body, theme.HeaderStyle.Render("▸ "+l))
+			} else {
+				body = append(body, "  "+l)
+			}
+		}
+		body = append(body, "", theme.Faint("Тип — Enter, Ctrl+S — сохранить"))
+		inner := strings.Join(body, "\n")
+		if s.lastErr != nil {
+			inner += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
+		}
+		d := dialog{title: title, body: inner,
+			primary: "Ctrl+S — сохранить", esc: "Esc — отмена"}
+		return d.render(), true
+	case taskTagTypePick:
+		d := dialog{title: "Тип тега",
+			body:    s.tagTypePick.view(),
+			primary: "Enter — выбрать", esc: "Esc — отмена"}
+		return d.render(), true
+	case taskTagConfirm:
+		label := ""
+		for _, t := range s.tags {
+			if t.ID == s.tagConfirmID {
+				label = t.Text
+			}
+		}
+		d := dialog{title: "Удаление тега",
+			body:    fmt.Sprintf("Удалить тег «%s»?", label),
+			primary: "y — удалить", esc: "n — нет"}
+		return d.render(), true
 	}
 	return "", false
 }
@@ -984,6 +1222,16 @@ func (s *tasksScreen) infoTop(topH int) string {
 			body = append(body, "  ├ "+st.Title+" · "+fmtDur(d))
 		}
 		body = append(body, theme.Faint(fmt.Sprintf("%d %s, всего: %s", t.SubCount, plural, fmtDur(sum))))
+		if len(s.tagsMap[t.ID]) > 0 {
+			body = append(body, "", theme.Faint("Теги:"))
+			for _, tg := range s.tagsMap[t.ID] {
+				line := "  " + tagChip(tg)
+				if tg.URL != "" {
+					line += " " + theme.Faint(tg.URL)
+				}
+				body = append(body, line)
+			}
+		}
 		body = append(body, s.historyLines()...)
 	default:
 		body = append(body, theme.Faint("Выберите задачу или подзадачу."))
@@ -1286,6 +1534,101 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			s.loadDesc()
 		}
 		return m, cmd
+	case taskTags:
+		switch msg.String() {
+		case "up":
+			s.tagPick.move(-1)
+		case "down":
+			s.tagPick.move(1)
+		case "pgup":
+			s.tagPick.move(-s.tagPick.visible)
+		case "pgdown":
+			s.tagPick.move(s.tagPick.visible)
+		case "n":
+			s.openTagEdit(0)
+		case "enter":
+			if it, ok := s.tagPick.selected(); ok {
+				s.openTagEdit(it.value)
+			}
+		case "d":
+			if it, ok := s.tagPick.selected(); ok {
+				s.tagConfirmID = it.value
+				s.mode = taskTagConfirm
+			}
+		case "esc":
+			s.lastErr = nil
+			s.mode = taskBrowse
+		}
+		return m, nil
+	case taskTagEdit:
+		switch msg.String() {
+		case "up":
+			s.tagEditFocus = (s.tagEditFocus + 2) % 3
+			s.focusTagEditField()
+		case "down", "tab":
+			s.tagEditFocus = (s.tagEditFocus + 1) % 3
+			s.focusTagEditField()
+		case "enter":
+			switch s.tagEditFocus {
+			case 0:
+				s.tagTypePick.sel = 0
+				for i, tt := range s.tagTypes {
+					if tt.ID == s.tagEditType {
+						s.tagTypePick.sel = i
+					}
+				}
+				s.tagTypePick.clampScroll()
+				s.mode = taskTagTypePick
+			case 1:
+				s.tagEditFocus = 2
+				s.focusTagEditField()
+			case 2:
+				s.saveTagEdit()
+			}
+		case "ctrl+s":
+			s.saveTagEdit()
+		case "esc":
+			s.lastErr = nil
+			s.mode = taskTags
+		default:
+			switch s.tagEditFocus {
+			case 1:
+				s.tagEditText, _ = s.tagEditText.Update(msg)
+			case 2:
+				s.tagEditURL, _ = s.tagEditURL.Update(msg)
+			}
+		}
+		return m, nil
+	case taskTagTypePick:
+		switch msg.String() {
+		case "up":
+			s.tagTypePick.move(-1)
+		case "down":
+			s.tagTypePick.move(1)
+		case "pgup":
+			s.tagTypePick.move(-s.tagTypePick.visible)
+		case "pgdown":
+			s.tagTypePick.move(s.tagTypePick.visible)
+		case "enter":
+			if it, ok := s.tagTypePick.selected(); ok {
+				s.tagEditType = it.value
+			}
+			s.mode = taskTagEdit
+		case "esc":
+			s.mode = taskTagEdit
+		}
+		return m, nil
+	case taskTagConfirm:
+		switch msg.String() {
+		case "y", "enter":
+			db.DeleteTag(s.db, s.tagConfirmID)
+			s.loadTags()
+			s.loadData()
+			s.mode = taskTags
+		case "n", "esc":
+			s.mode = taskTags
+		}
+		return m, nil
 	}
 
 	switch msg.String() {
@@ -1364,6 +1707,9 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		s.searchInput.SetValue(s.searchQuery)
 		s.searchInput.Focus()
 		s.mode = taskSearch
+		return m, nil
+	case "g":
+		s.openTags()
 		return m, nil
 	}
 

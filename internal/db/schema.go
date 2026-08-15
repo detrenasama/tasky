@@ -121,6 +121,29 @@ CREATE TABLE IF NOT EXISTS settings (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
+
+-- Каталог типов тегов: настраиваемый список (см. tags.go, сид по умолчанию —
+-- в миграции). kind: text | task_id — «текст» или номер задачи внешнего сервиса.
+CREATE TABLE IF NOT EXISTS tag_types (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT    NOT NULL UNIQUE,
+    kind       TEXT    NOT NULL DEFAULT 'text'
+                CHECK (kind IN ('text', 'task_id')),
+    color      TEXT    NOT NULL DEFAULT '#8a8a8a',
+    sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+-- Теги задач: значение + ссылка на тип (цвет берётся из типа) + URL опционально.
+CREATE TABLE IF NOT EXISTS task_tags (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id    INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    type_id    INTEGER NOT NULL REFERENCES tag_types(id),
+    text       TEXT    NOT NULL,
+    url        TEXT    NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_tags_task ON task_tags(task_id);
 `
 
 func CreateSchema(conn *sql.DB) error {
@@ -189,7 +212,42 @@ func migrateStatuses(conn *sql.DB) error {
 	if err := migrateStatusJournal(conn); err != nil {
 		return err
 	}
-	return seedStatuses(conn)
+	if err := seedStatuses(conn); err != nil {
+		return err
+	}
+	return seedTagTypes(conn)
+}
+
+// seedTagTypes заполняет каталог типов тегов значениями по умолчанию, если
+// он пуст. По умолчанию — два типа для номеров задач внешних сервисов
+// (Jira и трекер компании); пользователь может изменить каталог в настройках.
+func seedTagTypes(conn *sql.DB) error {
+	var n int
+	if err := conn.QueryRow("SELECT COUNT(*) FROM tag_types").Scan(&n); err != nil {
+		return err
+	}
+	if n > 0 {
+		return nil
+	}
+	defaults := []struct {
+		name, kind, color string
+	}{
+		{"Jira", "task_id", "#569cd6"},
+		{"Трекер", "task_id", "#6a9955"},
+	}
+	tx, err := conn.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for i, t := range defaults {
+		if _, err := tx.Exec(`
+INSERT INTO tag_types (name, kind, color, sort_order)
+VALUES (?, ?, ?, ?)`, t.name, t.kind, t.color, i); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 // migrateStatusJournal переносит старые записи журнала смены статусов

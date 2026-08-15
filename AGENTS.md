@@ -12,7 +12,7 @@ TUI-приложение «Tasky» на Go: менеджер задач с уч�
 - `just test` / `just check` — тесты + `go vet` + `gofmt -l`
 - `go run .` — запуск приложения (требуется настоящий TTY)
 - `go build -o dist/tasky .` — ручная сборка (директория `dist/` создаётся автоматически; `go build ./...` НЕ создаёт файл в каталоге)
-- CLI-аргументы: `tasky --version` / `-v` — версия; `tasky upgrade` — самообновление; без аргументов — TUI
+- CLI-аргументы: `tasky --version` / `-v` — версия; `tasky upgrade` — самообновление; `tasky help` / `--help` / `-h` — справка (`buildHelpText` в `help.go`); неизвестный аргумент — «неизвестная команда» + справка в stderr, код 1; без аргументов — TUI
 - Данные в `~/.local/share/tasky/` (`tasky.db`, `reports/`), переопределение — `TASKY_HOME`
 
 ## Структура и стек

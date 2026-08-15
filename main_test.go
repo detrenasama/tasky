@@ -3,8 +3,18 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
+
+func TestBuildHelpText(t *testing.T) {
+	text := buildHelpText()
+	for _, want := range []string{"tasky upgrade", "tasky --version", "tasky help", "TASKY_HOME"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("справка не содержит %q", want)
+		}
+	}
+}
 
 func TestMigrateDataDir(t *testing.T) {
 	dir := t.TempDir()

@@ -87,4 +87,4 @@
 
 Самообновление (`internal/update`, CLI `tasky upgrade`): сравнение версий (семвер, `Compare`/`TrimV`), скачивание `tasky-<os>-<arch>.tar.gz` + `SHA256SUMS` из последнего релиза GitHub, проверка контрольной суммы, атомарная замена бинарника (`os.Rename`). При старте TUI фоновая проверка (`checkUpdateCmd`) показывает в шапке задач «обновление: vX.Y.Z — tasky upgrade». Установка: `scripts/install.sh` (curl + SHA256) в `~/.local/bin`, `just install`, `go install`.
 
-Реализация: `version.go`, `upgrade.go`, `internal/xdg`, `internal/update` (+ тесты на httptest-сервере), изменения `main.go`/`internal/ui/app.go`/`tasks_screen.go`, `Justfile`, `scripts/install.sh`, `LICENSE`, `README.md`.
+Реализация: `version.go`, `upgrade.go`, `help.go`, `internal/xdg`, `internal/update` (+ тесты на httptest-сервере), изменения `main.go`/`internal/ui/app.go`/`tasks_screen.go`, `Justfile`, `scripts/install.sh`, `LICENSE`, `README.md`.

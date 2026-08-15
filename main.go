@@ -22,6 +22,12 @@ func main() {
 			return
 		case "upgrade":
 			os.Exit(runUpgrade())
+		case "help", "--help", "-h":
+			os.Exit(runHelp())
+		default:
+			fmt.Fprintf(os.Stderr, "неизвестная команда: %s\n\n", os.Args[1])
+			fmt.Fprint(os.Stderr, buildHelpText())
+			os.Exit(1)
 		}
 	}
 

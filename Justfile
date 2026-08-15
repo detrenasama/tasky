@@ -1,5 +1,5 @@
 VERSION  := `git describe --tags --always --dirty`
-RELEASES := "linux-amd64 linux-arm64"
+RELEASES := "linux-amd64"
 
 default: check
 

@@ -30,6 +30,7 @@ const (
 	settingsTagTypeList
 	settingsTagTypeEdit
 	settingsTagTypeConfirm
+	settingsThemeList
 )
 
 var statusTypeNames = []string{"Новый", "В работе", "Завершённый"}
@@ -74,6 +75,8 @@ type settingsScreen struct {
 	editKind      int
 	colorFromTag  bool // палитра открыта из редактора типа тега
 
+	themePick pickList
+
 	midH int
 }
 
@@ -92,6 +95,7 @@ func newSettingsScreen(conn *sql.DB, cfg *reportConfig) *settingsScreen {
 	s.statusPick.setVisible(12)
 	s.colorPick.setVisible(12)
 	s.tagTypePick.setVisible(12)
+	s.themePick.setVisible(12)
 	items := make([]pickItem, 0, len(periodNames)+1)
 	for i, name := range periodNames {
 		items = append(items, pickItem{value: int64(i), label: name})
@@ -171,6 +175,7 @@ func (s *settingsScreen) resize(w, h int) {
 	s.statusPick.setVisible(visible)
 	s.colorPick.setVisible(visible)
 	s.tagTypePick.setVisible(visible)
+	s.themePick.setVisible(visible)
 }
 
 func (s *settingsScreen) header(w int) string {
@@ -232,6 +237,7 @@ func (s *settingsScreen) view(w, h int) string {
 		"Скрытие: " + s.hideName() + " (завершённые)",
 		"Статусы: " + fmt.Sprintf("%d", len(s.statuses)),
 		"Типы тегов: " + fmt.Sprintf("%d", len(s.tagTypes)),
+		"Тема:    " + theme.ActiveName(),
 	}
 	var lines []string
 	for i, r := range rows {
@@ -244,8 +250,9 @@ func (s *settingsScreen) view(w, h int) string {
 	inner := theme.HeaderStyle.Render("Настройки отчёта") + "\n\n" +
 		strings.Join(lines, "\n") + "\n\n" +
 		theme.Faint("Enter — выбор из списка (журнал — вкл/выкл,")
-	inner += "\n" + theme.Faint("каталог — ввод пути, скрытие — дни, статусы и типы тегов — каталоги)")
-	return theme.BoxStyle.Render(padLines(inner, max(w-4, 1), max(h-4, 1)))
+	inner += "\n" + theme.Faint("каталог — ввод пути, скрытие — дни, статусы и типы тегов, тема — каталоги)")
+	style := theme.Pane(false)
+	return renderPane(style, padLines(inner, max(w-style.GetHorizontalFrameSize(), 1), max(h-style.GetVerticalFrameSize(), 1)))
 }
 
 func (s *settingsScreen) dialog() (string, bool) {
@@ -381,6 +388,16 @@ func (s *settingsScreen) dialog() (string, bool) {
 		d := dialog{title: "Удаление типа тега",
 			body:    fmt.Sprintf("Удалить тип тега «%s»?", name),
 			primary: "y — удалить", esc: "n — нет"}
+		return d.render(), true
+	case settingsThemeList:
+		body := s.themePick.view()
+		if s.lastErr != nil {
+			body += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
+		}
+		body += "\n\n" + theme.Faint("темы: "+theme.ThemesDir())
+		d := dialog{title: "Тема",
+			body:    body,
+			primary: "Enter — выбрать", esc: "Esc — отмена"}
 		return d.render(), true
 	}
 	return "", false
@@ -743,13 +760,38 @@ func (m *model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			s.mode = settingsTagTypeList
 		}
 		return m, nil
+	case settingsThemeList:
+		switch msg.String() {
+		case "up":
+			s.themePick.move(-1)
+		case "down":
+			s.themePick.move(1)
+		case "pgup":
+			s.themePick.move(-s.themePick.visible)
+		case "pgdown":
+			s.themePick.move(s.themePick.visible)
+		case "enter":
+			if it, ok := s.themePick.selected(); ok {
+				if err := theme.Apply(it.label); err != nil {
+					s.lastErr = err
+				} else {
+					s.lastErr = nil
+					db.SetSetting(s.db, "theme", it.label)
+					m.retheme()
+				}
+			}
+			s.mode = settingsBrowse
+		case "esc":
+			s.mode = settingsBrowse
+		}
+		return m, nil
 	}
 
 	switch msg.String() {
 	case "up":
-		s.sel = (s.sel + 6) % 7
+		s.sel = (s.sel + 7) % 8
 	case "down":
-		s.sel = (s.sel + 1) % 7
+		s.sel = (s.sel + 1) % 8
 	case "enter":
 		switch s.sel {
 		case 0:
@@ -772,6 +814,20 @@ func (m *model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case 6:
 			s.lastErr = nil
 			s.mode = settingsTagTypeList
+		case 7:
+			s.lastErr = nil
+			s.themePick.items = nil
+			for _, n := range theme.Themes() {
+				s.themePick.items = append(s.themePick.items, pickItem{label: n})
+			}
+			s.themePick.sel = 0
+			for i, it := range s.themePick.items {
+				if it.label == theme.ActiveName() {
+					s.themePick.sel = i
+				}
+			}
+			s.themePick.clampScroll()
+			s.mode = settingsThemeList
 		}
 	}
 	return m, nil

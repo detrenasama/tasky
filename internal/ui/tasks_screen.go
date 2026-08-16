@@ -110,6 +110,9 @@ type tasksScreen struct {
 	weekly   time.Duration
 	now      time.Time
 
+	listDelegate *list.DefaultDelegate
+	linkDelegate *list.DefaultDelegate
+
 	version   string
 	updateVer string
 
@@ -175,7 +178,9 @@ func newTasksScreen(conn *sql.DB) *tasksScreen {
 
 	d := list.NewDefaultDelegate()
 	d.ShowDescription = true
-	s.list = list.New(nil, d, 80, 20)
+	theme.ApplyToDelegate(&d)
+	s.listDelegate = &d
+	s.list = list.New(nil, &d, 80, 20)
 	s.list.Title = "Задачи"
 	s.list.SetShowHelp(false)
 	s.list.SetShowPagination(false)
@@ -245,7 +250,9 @@ func newTasksScreen(conn *sql.DB) *tasksScreen {
 
 	ld := list.NewDefaultDelegate()
 	ld.ShowDescription = true
-	s.linkList = list.New(nil, ld, 50, 8)
+	theme.ApplyToDelegate(&ld)
+	s.linkDelegate = &ld
+	s.linkList = list.New(nil, &ld, 50, 8)
 	s.linkList.Title = "Ссылки"
 	s.linkList.SetShowHelp(false)
 	s.linkList.SetShowPagination(false)
@@ -904,15 +911,24 @@ func (s *tasksScreen) resize(w, h int) {
 		listW = w
 	}
 	s.listW, s.descW, s.infoW = listW, descW, infoW
-	s.list.SetWidth(listW - 2)
-	s.list.SetHeight(s.midH - 2)
-	s.descV.Width = max(descW-4, 1)
-	s.descV.Height = max(s.midH-2, 1)
-	s.descText.SetWidth(max(descW-4, 1))
-	s.descText.SetHeight(max(s.midH-2, 1))
-	s.journalText.SetWidth(max(descW-4, 1))
+	frame := theme.Pane(false).GetHorizontalFrameSize()
+	s.list.SetWidth(listW - frame)
+	s.list.SetHeight(s.midH)
+	s.descV.Width = max(descW-frame, 1)
+	s.descV.Height = max(s.midH, 1)
+	s.descText.SetWidth(max(descW-frame, 1))
+	s.descText.SetHeight(max(s.midH, 1))
+	s.journalText.SetWidth(max(descW-frame, 1))
 	s.journalText.SetHeight(10)
 	s.refreshDesc()
+}
+
+// retheme пересобирает стили делегатов списков после смены темы.
+func (s *tasksScreen) retheme() {
+	theme.ApplyToDelegate(s.listDelegate)
+	s.list.SetDelegate(s.listDelegate)
+	theme.ApplyToDelegate(s.linkDelegate)
+	s.linkList.SetDelegate(s.linkDelegate)
 }
 
 func (s *tasksScreen) header(w int) string {
@@ -948,20 +964,17 @@ func (s *tasksScreen) footer(w int) string {
 }
 
 func (s *tasksScreen) view(w, h int) string {
-	leftStyle := theme.DimBox
-	if s.focus == taskFocusList {
-		leftStyle = theme.FocusBox
-	}
+	leftStyle := theme.Pane(s.focus == taskFocusList)
 	var left string
 	if len(s.projects) == 0 {
-		left = fixedBox(theme.DimBox, "Нет проектов.\nНажмите p и создайте проект.", s.listW, s.midH)
+		left = fixedBox(theme.Pane(false), "Нет проектов.\nНажмите p и создайте проект.", s.listW, s.midH)
 	} else if s.searchQuery != "" && len(s.items) == 0 {
-		left = fixedBox(theme.DimBox, "Ничего не найдено по запросу\n«"+s.searchQuery+"».", s.listW, s.midH)
+		left = fixedBox(theme.Pane(false), "Ничего не найдено по запросу\n«"+s.searchQuery+"».", s.listW, s.midH)
 	} else if len(s.tasks) == 0 {
-		left = fixedBox(theme.DimBox, "Задач в проекте нет.", s.listW, s.midH)
+		left = fixedBox(theme.Pane(false), "Задач в проекте нет.", s.listW, s.midH)
 	} else {
 		// bubbles/list не дополняет строки до ширины — паддинг вручную
-		left = leftStyle.Render(padLines(s.list.View(), max(s.listW-4, 0), max(s.midH-2, 0)))
+		left = renderPane(leftStyle, padLines(s.list.View(), max(s.listW-leftStyle.GetHorizontalFrameSize(), 0), max(s.midH-leftStyle.GetVerticalFrameSize(), 0)))
 	}
 
 	cols := []string{left}
@@ -1148,14 +1161,11 @@ func (s *tasksScreen) dialog() (string, bool) {
 // (прокручиваемый viewport); при редактировании описания вместо контента —
 // textarea.
 func (s *tasksScreen) descBox() string {
+	style := theme.Pane(s.focus == taskFocusDesc)
 	if s.mode == taskDescEdit {
-		return theme.FocusBox.Render(padLines(s.descText.View(), max(s.descW-4, 0), max(s.midH-2, 0)))
+		return renderPane(style, padLines(s.descText.View(), max(s.descW-style.GetHorizontalFrameSize(), 0), max(s.midH-style.GetVerticalFrameSize(), 0)))
 	}
-	style := theme.DimBox
-	if s.focus == taskFocusDesc {
-		style = theme.FocusBox
-	}
-	return style.Render(s.descV.View())
+	return renderPane(style, s.descV.View())
 }
 
 // infoBox — правая колонка: выбранный элемент (на всю высоту) + общая
@@ -1247,8 +1257,8 @@ func (s *tasksScreen) infoTop(topH int) string {
 		body = append(body, theme.Faint("Выберите задачу или подзадачу."))
 	}
 	inner := strings.Join(body, "\n")
-	inner = padLines(inner, max(s.infoW-4, 1), topH-2)
-	return theme.BoxStyle.Render(inner)
+	inner = padLines(inner, max(s.infoW-2, 1), topH)
+	return renderPane(theme.Pane(false), inner)
 }
 
 // historyLines — последние 6 переходов статусов выбранного элемента: штамп
@@ -1263,7 +1273,7 @@ func (s *tasksScreen) historyLines() []string {
 	if len(s.history) > 6 {
 		start = len(s.history) - 6
 	}
-	w := max(s.infoW-4, 1)
+	w := max(s.infoW-2, 1)
 	for _, h := range s.history[start:] {
 		body = append(body, theme.Faint(h.CreatedAt.Format("2006-01-02 15:04")))
 		body = append(body, wrapText(h.From+" → "+h.To, w))
@@ -1296,9 +1306,9 @@ func (s *tasksScreen) infoBottom() string {
 		body = append(body, theme.Faint("Ничего не запущено."))
 	}
 	for i := range body {
-		body[i] = padW(body[i], max(s.infoW-4, 1))
+		body[i] = padW(body[i], max(s.infoW-2, 1))
 	}
-	return theme.BoxStyle.Render(strings.Join(body, "\n"))
+	return renderPane(theme.Pane(false), strings.Join(body, "\n"))
 }
 
 func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {

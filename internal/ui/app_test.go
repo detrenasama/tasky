@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/detrenasama/tasky/internal/db"
+	"github.com/detrenasama/tasky/internal/ui/theme"
 	"github.com/muesli/termenv"
 )
 
@@ -24,11 +25,18 @@ func TestTabsLine(t *testing.T) {
 			t.Errorf("вкладка %q отсутствует в %q", label, plain)
 		}
 	}
-	if !strings.Contains(line, "38;5;212") {
-		t.Error("текущая вкладка не выделена цветом")
+	active := theme.HeaderStyle.Render("Проекты <p>")
+	if !strings.Contains(line, active) {
+		t.Error("текущая вкладка не выделена (HeaderStyle)")
 	}
-	if n := strings.Count(line, "\x1b[2m"); n != 3 {
-		t.Errorf("dim-вкладок: %d, ожидалось 3", n)
+	if n := strings.Count(line, theme.Faint("Задачи <t>")); n != 1 {
+		t.Errorf("muted-вкладка «Задачи»: %d, ожидалась 1", n)
+	}
+	if n := strings.Count(line, theme.Faint("Отчеты <r>")); n != 1 {
+		t.Errorf("muted-вкладка «Отчеты»: %d, ожидалась 1", n)
+	}
+	if n := strings.Count(line, theme.Faint("Настройки <s>")); n != 1 {
+		t.Errorf("muted-вкладка «Настройки»: %d, ожидалась 1", n)
 	}
 }
 

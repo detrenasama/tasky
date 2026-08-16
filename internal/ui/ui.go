@@ -67,15 +67,16 @@ func padH(body string, w, h int) string {
 	return strings.Join(lines, "\n")
 }
 
-// fixedBox рендерит content в рамке style ровно w×h (контент дополняется
-// пробелами по ширине и высоте, лишние строки обрезаются). Хром рамки
-// theme.BoxStyle = 4 (бордер 2 + паддинг 2), поэтому контент паддится до w-4.
+// fixedBox рендерит content в панели style ровно w×h (контент дополняется
+// пробелами по ширине и высоте, лишние строки обрезаются). Размер хрома
+// берётся из самого стиля (рамки/паддинга), поэтому работает и для плоских
+// панелей без рамок, и для классических рамок.
 func fixedBox(style lipgloss.Style, content string, w, h int) string {
 	if h < 2 {
 		h = 2
 	}
-	inner := padLines(content, max(w-4, 1), h-2)
-	return style.Render(inner)
+	inner := padLines(content, max(w-style.GetHorizontalFrameSize(), 1), h-style.GetVerticalFrameSize())
+	return renderPane(style, inner)
 }
 
 // padLines приводит многострочный текст к холсту w×h, дополняя пробелами
@@ -98,4 +99,23 @@ func padLines(content string, w, h int) string {
 		lines = append(lines, strings.Repeat(" ", w))
 	}
 	return strings.Join(lines, "\n")
+}
+
+// renderPane рендерит content в панель style, восстанавливая фон после
+// внутренних \x1b[0m контента: липглосс оборачивает строку одной SGR-посылкой,
+// и сброс внутри цветного фрагмента (статус, muted-подпись, выделенный
+// элемент списка) гасит фон до конца строки.
+func renderPane(style lipgloss.Style, content string) string {
+	out := style.Render(content)
+	// Точная SGR-последовательность фона при текущем профиле (ANSI256/TrueColor).
+	probe := lipgloss.NewStyle().Background(style.GetBackground()).Render("§")
+	bg := strings.Split(probe, "§")[0]
+	if bg == "" {
+		return out
+	}
+	body, ok := strings.CutSuffix(out, "\x1b[0m")
+	if !ok {
+		return strings.ReplaceAll(out, "\x1b[0m", "\x1b[0m"+bg)
+	}
+	return strings.ReplaceAll(body, "\x1b[0m", "\x1b[0m"+bg) + "\x1b[0m"
 }

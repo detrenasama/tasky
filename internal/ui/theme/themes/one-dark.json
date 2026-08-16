@@ -1,0 +1,17 @@
+{
+  "name": "one-dark",
+  "colors": {
+    "accent": "#61afef",
+    "error": "#e06c75",
+    "success": "#98c379",
+    "warning": "#e5c07b",
+    "text": "#abb2bf",
+    "muted": "#5c6370",
+    "background": "#282c34",
+    "panel": "#2c313a",
+    "element": "#353b45",
+    "selection": "#3e4451",
+    "border": "#3e4451",
+    "borderSubtle": "#2c313a"
+  }
+}

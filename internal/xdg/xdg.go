@@ -22,3 +22,20 @@ func DataDir() string {
 	}
 	return filepath.Join(base, "tasky")
 }
+
+// ConfigDir возвращает корень конфигурации Tasky (темы): $TASKY_CONFIG_HOME,
+// иначе $XDG_CONFIG_HOME/tasky, иначе ~/.config/tasky.
+func ConfigDir() string {
+	if v := os.Getenv("TASKY_CONFIG_HOME"); v != "" {
+		return v
+	}
+	base := os.Getenv("XDG_CONFIG_HOME")
+	if base == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return filepath.Join(".", "tasky")
+		}
+		base = filepath.Join(home, ".config")
+	}
+	return filepath.Join(base, "tasky")
+}

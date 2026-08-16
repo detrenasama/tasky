@@ -19,7 +19,7 @@ func (d dialog) render() string {
 	title := theme.HeaderStyle.Render(d.title)
 	buttons := theme.Faint("[") + " " + theme.AccentBtn(d.primary) + "  " + theme.Faint("]  [") + " " +
 		theme.EscBtn(d.esc) + " " + theme.Faint("]")
-	return theme.BoxStyle.Render(title + "\n\n" + d.body + "\n\n" + buttons)
+	return renderPane(theme.ModalStyle, title+"\n\n"+d.body+"\n\n"+buttons)
 }
 
 // overlay кладёт dialog поверх base, центрируя его по середине холста
@@ -63,11 +63,11 @@ func overlay(base, dialog string, w, h int) string {
 		runes := []rune(plain)
 		left := string(runes[:min(col0, len(runes))])
 		right := string(runes[min(col0+dw, len(runes)):])
-		baseLines[row0+r] = theme.FaintStyle.Render(left) + dialogLines[r] + theme.FaintStyle.Render(right)
+		baseLines[row0+r] = theme.Dim(left) + dialogLines[r] + theme.Dim(right)
 	}
 	for i := 0; i < len(baseLines); i++ {
 		if i < row0 || i >= row0+dh {
-			baseLines[i] = theme.FaintStyle.Render(baseLines[i])
+			baseLines[i] = theme.Dim(baseLines[i])
 		}
 	}
 	return strings.Join(baseLines, "\n")

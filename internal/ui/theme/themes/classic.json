@@ -1,0 +1,17 @@
+{
+  "name": "classic",
+  "colors": {
+    "accent": "#ff87af",
+    "error": "#ff0000",
+    "success": "#00ff00",
+    "warning": "#d7ba7d",
+    "text": "#dddddd",
+    "muted": "#8a8a8a",
+    "background": "#000000",
+    "panel": "#1a1a1a",
+    "element": "#262626",
+    "selection": "#3a3a3a",
+    "border": "#444444",
+    "borderSubtle": "#333333"
+  }
+}

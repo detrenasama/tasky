@@ -9,6 +9,8 @@ import (
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/detrenasama/tasky/internal/db"
+	"github.com/detrenasama/tasky/internal/ui/theme"
+	"github.com/muesli/termenv"
 )
 
 func TestResizeColumns(t *testing.T) {
@@ -47,6 +49,7 @@ func TestViewFillsWidth(t *testing.T) {
 }
 
 func TestViewColumnsWithTasks(t *testing.T) {
+	lipgloss.SetColorProfile(termenv.ANSI256)
 	conn, err := db.Open(t.TempDir() + "/test.db")
 	if err != nil {
 		t.Fatal(err)
@@ -62,29 +65,42 @@ func TestViewColumnsWithTasks(t *testing.T) {
 	s := newTasksScreen(conn)
 	s.load()
 	s.resize(150, 26)
-	// три колонки: 59 + 2 + 58 + 2 + 29 = 150
-	want := []struct {
-		name string
-		w    int
-	}{
-		{"list", s.listW}, {"desc", s.descW}, {"info", s.infoW},
+	// три колонки: 59 + 2 + 58 + 2 + 29 = 150; каждая панель ровно своей
+	// ширины, разделители — 2 пробела
+	row := strings.Split(s.view(150, 26), "\n")[0]
+	if got := lipgloss.Width(row); got != 150 {
+		t.Fatalf("ширина строки %d, ожидалось 150", got)
 	}
-	row := []rune(stripANSI(strings.Split(s.view(150, 26), "\n")[0]))
-	for _, c := range want {
-		start := indexRune(row, '╭')
-		if start < 0 {
-			t.Fatalf("%s: не найден ╭", c.name)
+	// граница панели: сброс ANSI + восстановленный фон, 2 пробела-разделителя,
+	// фон следующей панели
+	probe := lipgloss.NewStyle().Background(theme.Pane(false).GetBackground()).Render("§")
+	bgSeq := strings.Split(probe, "§")[0]
+	if bgSeq == "" {
+		t.Fatal("фон панели не эмитит ANSI (нужен цветовой профиль)")
+	}
+	sep := bgSeq + "  " + bgSeq
+	var idx []int
+	from := 0
+	for {
+		i := strings.Index(row[from:], sep)
+		if i < 0 {
+			break
 		}
-		end := indexRune(row, '╮')
-		if end < 0 {
-			t.Fatalf("%s: не найден ╮", c.name)
-		}
-		if got := end - start + 1; got != c.w {
-			t.Errorf("%s: ширина %d, ожидалось %d", c.name, got, c.w)
-		}
-		t.Logf("%s: %d", c.name, end-start+1)
-		if end+2 < len(row) {
-			row = row[end+2:] // пропустить рамку и разделитель
+		idx = append(idx, from+i)
+		from += i + len(sep)
+	}
+	if len(idx) != 2 {
+		t.Fatalf("границ панелей: %d, ожидалось 2", len(idx))
+	}
+	segs := []string{
+		row[:idx[0]],
+		row[idx[0]+len(bgSeq)+2 : idx[1]],
+		row[idx[1]+len(bgSeq)+2:],
+	}
+	want := []int{s.listW, s.descW, s.infoW}
+	for i, seg := range segs {
+		if got := lipgloss.Width(seg); got != want[i] {
+			t.Errorf("колонка %d: ширина %d, ожидалось %d", i, got, want[i])
 		}
 	}
 	if s.listW+s.descW+s.infoW+4 != 150 {
@@ -92,7 +108,7 @@ func TestViewColumnsWithTasks(t *testing.T) {
 	}
 }
 
-func TestInfoBottomBorderVisible(t *testing.T) {
+func TestInfoBottomVisible(t *testing.T) {
 	conn, err := db.Open(t.TempDir() + "/test.db")
 	if err != nil {
 		t.Fatal(err)
@@ -124,9 +140,13 @@ func TestInfoBottomBorderVisible(t *testing.T) {
 	if len(rows) != 26 {
 		t.Fatalf("строк %d, ожидалось 26", len(rows))
 	}
-	last := stripANSI(rows[25])
-	if n := strings.Count(last, "╰"); n != 3 {
-		t.Errorf("на последней строке %d нижних бордеров, ожидалось 3 (list/desc/info)", n)
+	if got := lipgloss.Width(rows[25]); got != 150 {
+		t.Errorf("последняя строка шириной %d, ожидалось 150", got)
+	}
+	// подвал info-колонки (состояние запущенной подзадачи) виден внизу
+	tail := stripANSI(strings.Join(rows[len(rows)-4:], "\n"))
+	if !strings.Contains(tail, "Ничего не запущено.") {
+		t.Error("в info-колонке внизу нет строки о запущенной подзадаче")
 	}
 }
 
@@ -1021,3 +1041,30 @@ func TestTaskCreateRefreshesInfo(t *testing.T) {
 
 // TestSettingsStatusesManage — настройки статусов: просмотр, создание,
 // удаление неиспользуемого и запрет удаления используемого.
+
+// TestPaneBgNotClipped — после цветного фрагмента контента (muted-подпись,
+// статус, выделенный элемент) фон панели восстанавливается: между внутренним
+// \x1b[0m и концом строки не должно быть «голых» пробелов.
+func TestPaneBgNotClipped(t *testing.T) {
+	lipgloss.SetColorProfile(termenv.ANSI256)
+	probe := lipgloss.NewStyle().Background(theme.Pane(false).GetBackground()).Render("§")
+	bgSeq := strings.Split(probe, "§")[0]
+	if bgSeq == "" {
+		t.Fatal("фон панели не эмитит ANSI (нужен цветовой профиль)")
+	}
+	pad := strings.Repeat(" ", 10)
+	out := renderPane(theme.Pane(false), theme.Faint("метка")+pad)
+	// паддинг после цветного фрагмента должен остаться под фоном панели,
+	// а не «оголиться» до цвета терминала
+	if !strings.Contains(out, bgSeq+pad) {
+		t.Errorf("паддинг без фона после внутреннего сброса: %q", out)
+	}
+	// каждый внутренний сброс сопровождается восстановлением фона
+	if n := strings.Count(out, "\x1b[0m"+bgSeq); n < 2 {
+		t.Errorf("фон не восстановлен после внутренних сбросов: %d, строка %q", n, out)
+	}
+	// метка (5) + паддинг (10) + паддинг панели (2)
+	if got := lipgloss.Width(out); got != 17 {
+		t.Errorf("ширина %d, ожидалось 17 (метка + паддинг + хром панели)", got)
+	}
+}

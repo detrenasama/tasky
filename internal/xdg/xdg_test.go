@@ -34,3 +34,32 @@ func TestDataDir(t *testing.T) {
 		}
 	})
 }
+
+func TestConfigDir(t *testing.T) {
+	t.Run("TASKY_CONFIG_HOME", func(t *testing.T) {
+		t.Setenv("TASKY_CONFIG_HOME", "/tmp/tasky-config")
+		t.Setenv("XDG_CONFIG_HOME", "/tmp/xdg")
+		if got := ConfigDir(); got != "/tmp/tasky-config" {
+			t.Errorf("ConfigDir() = %q", got)
+		}
+	})
+	t.Run("XDG_CONFIG_HOME", func(t *testing.T) {
+		t.Setenv("TASKY_CONFIG_HOME", "")
+		t.Setenv("XDG_CONFIG_HOME", "/tmp/xdg")
+		if got := ConfigDir(); got != filepath.Join("/tmp", "xdg", "tasky") {
+			t.Errorf("ConfigDir() = %q", got)
+		}
+	})
+	t.Run("default", func(t *testing.T) {
+		t.Setenv("TASKY_CONFIG_HOME", "")
+		t.Setenv("XDG_CONFIG_HOME", "")
+		home, err := os.UserHomeDir()
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := filepath.Join(home, ".config", "tasky")
+		if got := ConfigDir(); got != want {
+			t.Errorf("ConfigDir() = %q, want %q", got, want)
+		}
+	})
+}

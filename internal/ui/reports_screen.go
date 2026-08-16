@@ -231,8 +231,8 @@ func (s *reportsScreen) save() {
 }
 
 func (s *reportsScreen) resize(w, h int) {
-	s.repV.Width = max(w-4, 1)
-	s.repV.Height = max(h-6, 1)
+	s.repV.Width = max(w-2, 1)
+	s.repV.Height = max(h-3, 1)
 }
 
 func (s *reportsScreen) header(w int) string {
@@ -251,12 +251,12 @@ func (s *reportsScreen) view(w, h int) string {
 	if status != "" {
 		statusH = 1
 	}
-	s.repV.Height = max(h-6-statusH, 1)
+	s.repV.Height = max(h-3-statusH, 1)
 	parts := []string{s.topBox(w)}
 	if status != "" {
 		parts = append(parts, "", status)
 	}
-	parts = append(parts, "", theme.BoxStyle.Render(s.repV.View()))
+	parts = append(parts, "", renderPane(theme.Pane(false), s.repV.View()))
 	return padH(strings.Join(parts, "\n"), w, h)
 }
 
@@ -273,7 +273,7 @@ func (s *reportsScreen) statusLine(w int) string {
 
 func (s *reportsScreen) topBox(w int) string {
 	inner := s.periodLabel() + "  " + theme.Faint("Общее время: ") + fmtDur(s.total)
-	return theme.BoxStyle.Render(padLines(inner, max(w-4, 1), 1))
+	return renderPane(theme.Pane(false), padLines(inner, max(w-2, 1), 1))
 }
 
 func (s *reportsScreen) dialog() (string, bool) { return "", false }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/detrenasama/tasky/internal/db"
 	"github.com/detrenasama/tasky/internal/ui"
+	"github.com/detrenasama/tasky/internal/ui/theme"
 	"github.com/detrenasama/tasky/internal/xdg"
 )
 
@@ -44,6 +45,9 @@ func main() {
 		log.Fatalf("не удалось открыть базу данных: %v", err)
 	}
 	defer conn.Close()
+
+	name, _, _ := db.GetSetting(conn, "theme")
+	theme.Init(xdg.ConfigDir(), name)
 
 	p := tea.NewProgram(ui.New(conn, dir, version), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {

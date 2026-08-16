@@ -261,6 +261,13 @@ func (m *model) modalOpen() bool {
 	return m.tasks.mode != taskBrowse || m.proj.mode != projBrowse
 }
 
+// retheme пересобирает стили делегатов списков после смены темы (панели и
+// модалки читают стили на рендере, им обновление не нужно).
+func (m *model) retheme() {
+	m.tasks.retheme()
+	m.proj.retheme()
+}
+
 // switchScreen переключает страницу и подгружает её данные.
 func (m *model) switchScreen(s screen) {
 	m.screen = s

@@ -87,7 +87,7 @@ func (p *pickList) view() string {
 	for i := p.scroll; i < end; i++ {
 		label := "  " + p.items[i].label
 		if i == p.sel {
-			label = "▸ " + p.items[i].label
+			label = theme.HeaderStyle.Render("▸ ") + p.items[i].label
 		}
 		lines = append(lines, label)
 	}

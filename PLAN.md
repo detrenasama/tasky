@@ -12,6 +12,7 @@
 - [ ] Этап 8. Синхронизация с другими сервисами
 - [x] Этап 9. Полнотекстовый поиск задач/подзадач
 - [x] Этап 10. Установка и обновления
+- [x] Этап 11. Темы и плоский интерфейс
 
 ---
 
@@ -88,3 +89,11 @@
 Самообновление (`internal/update`, CLI `tasky upgrade`): сравнение версий (семвер, `Compare`/`TrimV`), скачивание `tasky-<os>-<arch>.tar.gz` + `SHA256SUMS` из последнего релиза GitHub, проверка контрольной суммы, атомарная замена бинарника (`os.Rename`). При старте TUI фоновая проверка (`checkUpdateCmd`) показывает в шапке задач «обновление: vX.Y.Z — tasky upgrade». Установка: `scripts/install.sh` (curl + SHA256) в `~/.local/bin`, `just install`, `go install`.
 
 Реализация: `version.go`, `upgrade.go`, `help.go`, `internal/xdg`, `internal/update` (+ тесты на httptest-сервере), изменения `main.go`/`internal/ui/app.go`/`tasks_screen.go`, `Justfile`, `scripts/install.sh`, `LICENSE`, `README.md`.
+
+## Этап 11. Темы и плоский интерфейс — [x] завершён
+
+Интерфейс переведён с рамок на плоские панели в духе OpenCode TUI: колонки задач/проектов — заливка фоном без рамок, у фокусированной панели — акцентная полоса слева, остальная хрома (вкладки, подвал) — цветами. `fixedBox`/`padLines` вычисляют размеры из фрейма стиля (`GetHorizontalFrameSize`/`GetVerticalFrameSize`), модалки — `ModalStyle` (фон + лёгкая рамка), подложка затемняется через `Dim` (faint-цвет, цвета статусов сохраняются).
+
+Темы — JSON-каталог в `internal/ui/theme/` с 5 встроенными: `opencode` (по умолчанию), `classic` (прежний вид), `nord`, `dracula`, `one-dark`. Пользовательские темы — `~/.config/tasky/themes/*.json` (переопределение каталога — `TASKY_CONFIG_HOME`), все цвета опциональны, недостающие падают на дефолт opencode. Активная тема хранится в БД (`settings.theme`) и переживает перезапуск; окружение `TASKY_THEME` переопределяет её. Переключение — строка «Тема» на странице «Настройки» (модалка со списком на `pickList`, Enter применяет и сохраняет).
+
+Реализация: `internal/ui/theme` (`theme.go` — стили от активной темы, `Pane`, `ApplyToDelegate`, `Faint`/`Muted`/`Dim`, `ModalStyle`; `themes.go` — парсинг JSON, `//go:embed themes/*.json`, `Init`/`Apply`/`Themes`/`ActiveName`/`ThemesDir`; `theme_test.go`), `internal/xdg` (`ConfigDir`), плоские панели и `retheme` во всех экранах, `main.go` (`theme.Init` до `ui.New`), `settings_screen.go` (режим `settingsThemeList`), `README.md`.

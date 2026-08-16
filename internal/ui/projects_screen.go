@@ -210,6 +210,22 @@ func (s *projectsScreen) selectedProjectID() int64 {
 	return 0
 }
 
+// startNew открывает ввод имени нового проекта (из клавиши n или палитры).
+func (s *projectsScreen) startNew() {
+	s.mode = projInput
+	s.input.Focus()
+}
+
+// startDelete открывает подтверждение удаления выбранного проекта.
+func (s *projectsScreen) startDelete() {
+	item, ok := s.list.SelectedItem().(projectItem)
+	if !ok {
+		return
+	}
+	s.confirmID = item.p.ID
+	s.mode = projConfirm
+}
+
 // refreshDesc собирает контент viewport колонки описания.
 func (s *projectsScreen) refreshDesc() {
 	w := max(s.descV.Width, 1)
@@ -588,20 +604,11 @@ func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		s.mode = projSearch
 		return m, nil
 	case "n":
-		if s.focus == projFocusList {
-			s.mode = projInput
-			s.input.Focus()
-			return m, nil
-		}
+		s.startNew()
+		return m, nil
 	case "d":
-		if s.focus == projFocusList {
-			item, ok := s.list.SelectedItem().(projectItem)
-			if ok {
-				s.confirmID = item.p.ID
-				s.mode = projConfirm
-			}
-			return m, nil
-		}
+		s.startDelete()
+		return m, nil
 	}
 
 	if s.focus == projFocusDesc {

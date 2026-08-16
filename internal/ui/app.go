@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbletea"
 
 	"github.com/detrenasama/tasky/internal/db"
@@ -76,6 +77,13 @@ type model struct {
 	// version — версия сборки (из -ldflags); updateVer — доступное обновление.
 	version   string
 	updateVer string
+
+	// palette — палитра команд (ctrl+p): поисковая строка и список групп.
+	paletteOpen   bool
+	paletteInput  textinput.Model
+	paletteRows   []paletteRow
+	paletteSel    int
+	paletteScroll int
 }
 
 // New создаёт корневую модель: экраны, общий конфиг отчётов, первичная
@@ -93,6 +101,12 @@ func New(conn *sql.DB, dataDir, version string) *model {
 	m.reports = newReportsScreen(conn, repCfg)
 	m.reports.load()
 	m.settings = newSettingsScreen(conn, repCfg)
+	pi := textinput.New()
+	pi.Placeholder = "поиск команд…"
+	pi.Prompt = "> "
+	pi.CharLimit = 64
+	pi.Width = 40
+	m.paletteInput = pi
 	return m
 }
 
@@ -156,6 +170,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+		if m.paletteOpen {
+			return m.updatePalette(msg)
+		}
 		if m.screen == screenProjects && m.proj.mode == projInput {
 			return m.updateProjects(msg)
 		}
@@ -201,6 +218,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if !m.modalOpen() {
 			switch msg.String() {
+			case "ctrl+p":
+				m.openPalette()
+				return m, nil
 			case "t":
 				m.switchScreen(screenTasks)
 				return m, nil
@@ -315,6 +335,12 @@ func (m model) View() string {
 	full := tabsLine(m.screen, w) + "\n" + header + "\n" + mid + "\n" + footer
 	if modalOpen {
 		full = overlay(full, dlg, w, h)
+	}
+	if m.paletteOpen {
+		d, _ := m.paletteDialog()
+		if d != "" {
+			full = overlay(full, d, w, h)
+		}
 	}
 	if m.quitting {
 		d := dialog{

@@ -853,6 +853,45 @@ func (s *tasksScreen) canDelete() bool {
 	return s.list.Index() >= 0 && len(s.items) > 0
 }
 
+// startNewTask открывает ввод названия новой задачи (гвард canCreate).
+func (s *tasksScreen) startNewTask() {
+	if s.canCreate(kindTask) {
+		s.inputKind = kindTask
+		s.lastErr = nil
+		s.mode = taskInput
+		s.input.Focus()
+	}
+}
+
+// startNewSubtask открывает ввод названия новой подзадачи (гвард canCreate).
+func (s *tasksScreen) startNewSubtask() {
+	if s.canCreate(kindSubtask) {
+		s.inputKind = kindSubtask
+		s.lastErr = nil
+		s.mode = taskInput
+		s.input.Focus()
+	}
+}
+
+// startDelete открывает подтверждение удаления выбранного элемента.
+func (s *tasksScreen) startDelete() {
+	if !s.canDelete() {
+		return
+	}
+	s.confirmKind = s.selectedKind()
+	switch s.confirmKind {
+	case kindTask:
+		if item, ok := s.list.SelectedItem().(taskItem); ok {
+			s.confirmID = item.t.ID
+		}
+	case kindSubtask:
+		if item, ok := s.list.SelectedItem().(subItem); ok {
+			s.confirmID = item.st.ID
+		}
+	}
+	s.mode = taskConfirm
+}
+
 func (s *tasksScreen) switchProject(dir int) {
 	if len(s.projects) < 2 {
 		return
@@ -1764,36 +1803,13 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		s.switchProject(1)
 		return m, nil
 	case "n":
-		if s.canCreate(kindTask) {
-			s.inputKind = kindTask
-			s.lastErr = nil
-			s.mode = taskInput
-			s.input.Focus()
-		}
+		s.startNewTask()
 		return m, nil
 	case "a":
-		if s.canCreate(kindSubtask) {
-			s.inputKind = kindSubtask
-			s.lastErr = nil
-			s.mode = taskInput
-			s.input.Focus()
-		}
+		s.startNewSubtask()
 		return m, nil
 	case "d":
-		if s.canDelete() {
-			s.confirmKind = s.selectedKind()
-			switch s.confirmKind {
-			case kindTask:
-				if item, ok := s.list.SelectedItem().(taskItem); ok {
-					s.confirmID = item.t.ID
-				}
-			case kindSubtask:
-				if item, ok := s.list.SelectedItem().(subItem); ok {
-					s.confirmID = item.st.ID
-				}
-			}
-			s.mode = taskConfirm
-		}
+		s.startDelete()
 		return m, nil
 	case "x":
 		s.shiftStatus(1)

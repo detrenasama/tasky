@@ -21,7 +21,12 @@ var (
 	DimStyle    = lipgloss.NewStyle().Faint(true)
 	ErrorStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
 	SaveOKStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
-	linkStyle   = lipgloss.NewStyle().Underline(true).Foreground(Accent)
+	// SelectionStyle — выделенная строка списка: фон Selection + акцентный
+	// текст (используется в палитре команд).
+	SelectionStyle = lipgloss.NewStyle().
+			Background(lipgloss.Color(active.Colors.Selection)).
+			Foreground(lipgloss.Color(active.Colors.Accent))
+	linkStyle = lipgloss.NewStyle().Underline(true).Foreground(Accent)
 )
 
 // Pane возвращает стиль плоской панели без рамок: неактивная — фон-заливка

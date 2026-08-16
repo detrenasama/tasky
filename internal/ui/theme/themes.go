@@ -246,6 +246,9 @@ func applyTheme(t Theme) {
 	DimStyle = lipgloss.NewStyle().Faint(true)
 	ErrorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(t.Colors.Error))
 	SaveOKStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(t.Colors.Success))
+	SelectionStyle = lipgloss.NewStyle().
+		Background(lipgloss.Color(t.Colors.Selection)).
+		Foreground(lipgloss.Color(t.Colors.Accent))
 	linkStyle = lipgloss.NewStyle().Underline(true).Foreground(acc)
 	ModalStyle = lipgloss.NewStyle().
 		Background(lipgloss.Color(t.Colors.Element)).

@@ -1,6 +1,10 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/detrenasama/tasky/internal/xdg"
+)
 
 // buildHelpText собирает текст справки по CLI-командам.
 func buildHelpText() string {
@@ -12,9 +16,9 @@ func buildHelpText() string {
   tasky --version     показать версию (то же: -v)
   tasky upgrade       обновить до последней версии
 
-Данные: ~/.local/share/tasky/ (переопределение — TASKY_HOME)
+Данные: %s (переопределение — TASKY_HOME)
 Версия: %s
-`, version)
+`, xdg.DataDir(), version)
 }
 
 // runHelp печатает справку и возвращает код выхода.

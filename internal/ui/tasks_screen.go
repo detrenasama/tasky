@@ -22,6 +22,7 @@ type taskMode int
 const (
 	taskBrowse taskMode = iota
 	taskInput
+	taskTitleEdit
 	taskConfirm
 	taskDescEdit
 	taskLinkInput
@@ -127,6 +128,7 @@ type tasksScreen struct {
 	mode        taskMode
 	input       textinput.Model
 	inputKind   paneKind
+	editID      int64
 	confirmKind paneKind
 	confirmID   int64
 	lastErr     error
@@ -892,6 +894,34 @@ func (s *tasksScreen) startDelete() {
 	s.mode = taskConfirm
 }
 
+// startEditTitle открывает модалку изменения названия выбранного элемента:
+// textinput префиллен текущим названием, Enter сохраняет, Esc отменяет.
+func (s *tasksScreen) startEditTitle() {
+	if !s.canDelete() {
+		return
+	}
+	s.inputKind = s.selectedKind()
+	switch s.inputKind {
+	case kindTask:
+		if item, ok := s.list.SelectedItem().(taskItem); ok {
+			s.editID = item.t.ID
+			s.input.SetValue(item.t.Title)
+		}
+	case kindSubtask:
+		if item, ok := s.list.SelectedItem().(subItem); ok {
+			s.editID = item.st.ID
+			s.input.SetValue(item.st.Title)
+		}
+	}
+	if s.editID == 0 {
+		return
+	}
+	s.lastErr = nil
+	s.input.CursorEnd()
+	s.mode = taskTitleEdit
+	s.input.Focus()
+}
+
 func (s *tasksScreen) switchProject(dir int) {
 	if len(s.projects) < 2 {
 		return
@@ -995,7 +1025,7 @@ func (s *tasksScreen) footer(w int) string {
 	if s.focus == taskFocusDesc {
 		return padW(theme.Faint("↑/↓ скролл · e — описание · l — ссылка · o — ссылки · Ctrl+J — запись · j — изменить запись · g — теги · / — поиск · Tab — список"), w)
 	}
-	hint := "↑/↓ выбор · Enter раскрыть · n задача · a подзадача · d удалить · Ctrl+L старт/пауза · x/z статус · c — все статусы · g — теги · / — поиск · [ / ] проект · Tab — описание · q выход"
+	hint := "↑/↓ выбор · Enter раскрыть · n задача · a подзадача · e изменить · d удалить · Ctrl+L старт/пауза · x/z статус · c — все статусы · g — теги · / — поиск · [ / ] проект · Tab — описание · q выход"
 	if s.searchQuery != "" {
 		hint = "Поиск: «" + s.searchQuery + "» — / — изменить · Esc — сбросить"
 	}
@@ -1039,6 +1069,18 @@ func (s *tasksScreen) dialog() (string, bool) {
 			body += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
 		}
 		d := dialog{title: "Новая " + kind, body: body,
+			primary: "Enter — сохранить", esc: "Esc — отмена"}
+		return d.render(), true
+	case taskTitleEdit:
+		kind := "задача"
+		if s.inputKind == kindSubtask {
+			kind = "подзадача"
+		}
+		body := s.input.View()
+		if s.lastErr != nil {
+			body += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
+		}
+		d := dialog{title: "Название " + kind, body: body,
 			primary: "Enter — сохранить", esc: "Esc — отмена"}
 		return d.render(), true
 	case taskConfirm:
@@ -1383,6 +1425,39 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			s.mode = taskBrowse
 		}
 		return m, cmd
+	case taskTitleEdit:
+		var cmd tea.Cmd
+		s.input, cmd = s.input.Update(msg)
+		switch msg.String() {
+		case "enter":
+			title := strings.TrimSpace(s.input.Value())
+			if title == "" {
+				s.lastErr = fmt.Errorf("название не может быть пустым")
+				return m, cmd
+			}
+			var err error
+			if s.inputKind == kindTask {
+				err = db.UpdateTaskTitle(s.db, s.editID, title)
+			} else {
+				err = db.UpdateSubtaskTitle(s.db, s.editID, title)
+			}
+			s.lastErr = err
+			if err == nil {
+				s.loadData()
+				s.selectByKindID(s.inputKind, s.editID)
+				s.loadInfo()
+				s.loadDesc()
+				s.descV.GotoTop()
+			}
+			s.input.SetValue("")
+			s.input.Blur()
+			s.mode = taskBrowse
+		case "esc":
+			s.input.SetValue("")
+			s.input.Blur()
+			s.mode = taskBrowse
+		}
+		return m, cmd
 	case taskConfirm:
 		switch msg.String() {
 		case "y", "enter":
@@ -1701,6 +1776,10 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case "e":
+		if s.focus == taskFocusList {
+			s.startEditTitle()
+			return m, nil
+		}
 		if s.focus == taskFocusDesc {
 			s.lastErr = nil
 			s.descText.SetValue(s.desc)

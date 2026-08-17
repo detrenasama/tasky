@@ -191,6 +191,41 @@ func TestTaskSubtaskDescription(t *testing.T) {
 	}
 }
 
+func TestTaskSubtaskTitleUpdate(t *testing.T) {
+	conn := openTestDB(t)
+	pid := seedProject(t, conn)
+	task, err := CreateTask(conn, pid, "Задача")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sub, err := CreateSubtask(conn, task.ID, "Подзадача")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := UpdateTaskTitle(conn, task.ID, "Задача (изм.)"); err != nil {
+		t.Fatalf("UpdateTaskTitle: %v", err)
+	}
+	if err := UpdateSubtaskTitle(conn, sub.ID, "Подзадача (изм.)"); err != nil {
+		t.Fatalf("UpdateSubtaskTitle: %v", err)
+	}
+
+	tasks, err := TasksByProject(conn, pid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tasks) != 1 || tasks[0].Title != "Задача (изм.)" {
+		t.Errorf("TasksByProject: %+v", tasks)
+	}
+	subs, err := SubtasksByProject(conn, pid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(subs) != 1 || subs[0].Title != "Подзадача (изм.)" {
+		t.Errorf("SubtasksByProject: %+v", subs)
+	}
+}
+
 // TestProjectQueriesIncludeDescription — описания задач и подзадач приходят
 // из запросов по проекту (нужно для поиска).
 func TestProjectQueriesIncludeDescription(t *testing.T) {

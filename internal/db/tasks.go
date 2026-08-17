@@ -54,6 +54,11 @@ func DeleteSubtask(conn *sql.DB, id int64) error {
 	return err
 }
 
+func UpdateTaskTitle(conn *sql.DB, id int64, title string) error {
+	_, err := conn.Exec("UPDATE tasks SET title = ? WHERE id = ?", title, id)
+	return err
+}
+
 // TaskDescription возвращает описание задачи.
 func TaskDescription(conn *sql.DB, id int64) (string, error) {
 	var desc string
@@ -63,6 +68,11 @@ func TaskDescription(conn *sql.DB, id int64) (string, error) {
 
 func UpdateTaskDescription(conn *sql.DB, id int64, text string) error {
 	_, err := conn.Exec("UPDATE tasks SET description = ? WHERE id = ?", text, id)
+	return err
+}
+
+func UpdateSubtaskTitle(conn *sql.DB, id int64, title string) error {
+	_, err := conn.Exec("UPDATE subtasks SET title = ? WHERE id = ?", title, id)
 	return err
 }
 

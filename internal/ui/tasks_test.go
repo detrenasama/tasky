@@ -468,10 +468,14 @@ func TestTasksDescKeysOnlyInDescFocus(t *testing.T) {
 	m := &model{tasks: s, proj: newProjectsScreen(conn)}
 	runes := func(r rune) tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}} }
 
-	// e в фокусе списка — ничего не открывает
+	// e в фокусе списка открывает модалку изменения названия
 	m.updateTasks(runes('e'))
+	if s.mode != taskTitleEdit {
+		t.Fatal("e в фокусе списка не открыл изменение названия")
+	}
+	m.updateTasks(tea.KeyMsg{Type: tea.KeyEsc})
 	if s.mode != taskBrowse {
-		t.Fatal("e в фокусе списка открыл редактирование")
+		t.Fatal("Esc не закрыл модалку названия")
 	}
 	// ctrl+j в фокусе списка — ничего не открывает
 	before := s.mode
@@ -720,6 +724,93 @@ func TestTaskJournalEditOnlyToday(t *testing.T) {
 	}
 	if s.lastErr == nil {
 		t.Error("для вчерашней записи не выставлена ошибка")
+	}
+}
+
+// TestTasksTitleEdit — e в фокусе списка открывает модалку изменения названия:
+// input префиллен текущим названием, Enter сохраняет (задачи и подзадачи),
+// Esc отменяет, пустое название показывает ошибку и не закрывает модалку.
+
+func TestTasksTitleEdit(t *testing.T) {
+	conn, s, task, st := tasksSeedProject(t)
+	m := &model{tasks: s}
+	runes := func(r rune) tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}} }
+	titleOf := func() string {
+		var title string
+		if err := conn.QueryRow("SELECT title FROM tasks WHERE id = ?", task.ID).Scan(&title); err != nil {
+			t.Fatal(err)
+		}
+		return title
+	}
+	subtitleOf := func() string {
+		var title string
+		if err := conn.QueryRow("SELECT title FROM subtasks WHERE id = ?", st.ID).Scan(&title); err != nil {
+			t.Fatal(err)
+		}
+		return title
+	}
+
+	// e в фокусе списка открывает модалку с префилленным названием
+	s.updateTasksMsg(runes('e'))
+	if s.mode != taskTitleEdit {
+		t.Fatalf("e не открыл изменение названия (mode=%d)", s.mode)
+	}
+	if _, open := s.dialog(); !open {
+		t.Error("изменение названия не рендерится как модалка")
+	}
+	if s.input.Value() != task.Title {
+		t.Errorf("input не префиллен: %q", s.input.Value())
+	}
+
+	// Esc отменяет — название не меняется
+	s.input.SetValue("Не сохранять")
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
+	if s.mode != taskBrowse {
+		t.Fatalf("Esc не закрыл модалку (mode=%d)", s.mode)
+	}
+	if titleOf() != "T" {
+		t.Errorf("Esc сохранил название: %q", titleOf())
+	}
+
+	// пустое название — ошибка, модалка остаётся
+	s.updateTasksMsg(runes('e'))
+	s.input.SetValue("   ")
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEnter})
+	if s.mode != taskTitleEdit {
+		t.Fatalf("Enter с пустым названием закрыл модалку (mode=%d)", s.mode)
+	}
+	if s.lastErr == nil {
+		t.Error("для пустого названия не выставлена ошибка")
+	}
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
+
+	// Enter сохраняет новое название задачи
+	s.updateTasksMsg(runes('e'))
+	s.input.SetValue("Переименованная")
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEnter})
+	if s.mode != taskBrowse {
+		t.Fatalf("Enter не сохранил название (mode=%d)", s.mode)
+	}
+	if titleOf() != "Переименованная" {
+		t.Errorf("название в БД = %q", titleOf())
+	}
+	if !containsString(searchTitles(s), "Переименованная") {
+		t.Errorf("список не обновился: %v", searchTitles(s))
+	}
+
+	// подзадача: раскрыть задачу, на подзадачу, e → Enter
+	selectFirstSubtask(m)
+	s.updateTasksMsg(runes('e'))
+	if s.inputKind != kindSubtask || s.input.Value() != "S" {
+		t.Fatalf("модалка подзадачи: kind=%d value=%q", s.inputKind, s.input.Value())
+	}
+	s.input.SetValue("Переименованная подзадача")
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEnter})
+	if subtitleOf() != "Переименованная подзадача" {
+		t.Errorf("название подзадачи в БД = %q", subtitleOf())
+	}
+	if !containsString(searchTitles(s), "Переименованная подзадача") {
+		t.Errorf("список не обновился: %v", searchTitles(s))
 	}
 }
 

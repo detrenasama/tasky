@@ -54,6 +54,7 @@ func (m *model) paletteGroups() []cmdGroup {
 		groups = append(groups, cmdGroup{name: "Действия", cmds: []cmdItem{
 			{title: "Новая задача", run: func(m *model) { m.tasks.startNewTask() }},
 			{title: "Новая подзадача", run: func(m *model) { m.tasks.startNewSubtask() }},
+			{title: "Изменить название", keys: "e", run: func(m *model) { m.tasks.startEditTitle() }},
 			{title: "Удалить задачу", run: func(m *model) { m.tasks.startDelete() }},
 		}})
 	case screenProjects:
@@ -243,10 +244,10 @@ func (m *model) paletteDialog() (string, bool) {
 		row := m.paletteRows[i]
 		if row.header != "" {
 			var topPadding = ""
-			if (i > 0) {
+			if i > 0 {
 				topPadding = "\n"
 			}
-			lines = append(lines, padW(theme.Faint(topPadding + row.header), pw))
+			lines = append(lines, padW(theme.Faint(topPadding+row.header), pw))
 			continue
 		}
 		lines = append(lines, m.paletteCmdLine(row.cmd, pw, i == m.paletteSel))
@@ -271,7 +272,7 @@ func (m *model) paletteCmdLine(c *cmdItem, pw int, sel bool) string {
 		content = padW(content, pw-2)
 	}
 	if sel {
-		return renderSelectionLine(padW("  " + content, pw))
+		return renderSelectionLine(padW("  "+content, pw))
 	}
 	return "  " + content
 }

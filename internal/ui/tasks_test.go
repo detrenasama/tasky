@@ -1159,3 +1159,177 @@ func TestPaneBgNotClipped(t *testing.T) {
 		t.Errorf("ширина %d, ожидалось 17 (метка + паддинг + хром панели)", got)
 	}
 }
+
+// TestTasksMoveSelected — Ctrl+↑/↓ перемещает выбранную задачу/подзадачу и
+// сохраняет выделение; на границах порядок не меняется.
+func TestTasksMoveSelected(t *testing.T) {
+	conn, err := db.Open(t.TempDir() + "/test.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { conn.Close() })
+	p, err := db.CreateProject(conn, "P")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t1, err := db.CreateTask(conn, p.ID, "T1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.CreateTask(conn, p.ID, "T2"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.CreateTask(conn, p.ID, "T3"); err != nil {
+		t.Fatal(err)
+	}
+	s := newTasksScreen(conn)
+	s.load()
+
+	// первая задача вниз: порядок меняется, выделение сохраняется
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyCtrlDown})
+	if got := searchTitles(s); !equalStrings(got, []string{"T2", "T1", "T3"}) {
+		t.Fatalf("после ctrl+down: %v", got)
+	}
+	if kind, id := s.selectedKindID(); kind != kindTask || id != t1.ID {
+		t.Fatalf("выделение не сохранено: kind=%d id=%d", kind, id)
+	}
+
+	// вверх возвращает на место
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyCtrlUp})
+	if got := searchTitles(s); !equalStrings(got, []string{"T1", "T2", "T3"}) {
+		t.Fatalf("после ctrl+up: %v", got)
+	}
+
+	// граница: первая вверх — no-op
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyCtrlUp})
+	if got := searchTitles(s); !equalStrings(got, []string{"T1", "T2", "T3"}) {
+		t.Fatalf("граница изменила порядок: %v", got)
+	}
+
+	// подзадачи: раскрыть T1, выбрать первую подзадачу и опустить
+	st1, err := db.CreateSubtask(conn, t1.ID, "S1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	st2, err := db.CreateSubtask(conn, t1.ID, "S2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.load()
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEnter}) // раскрыть T1
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyDown})  // на S1
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyCtrlDown})
+	var got []int64
+	for _, st := range s.subs {
+		if st.TaskID == t1.ID {
+			got = append(got, st.ID)
+		}
+	}
+	if len(got) != 2 || got[0] != st2.ID || got[1] != st1.ID {
+		t.Fatalf("порядок подзадач: %v", got)
+	}
+	if kind, id := s.selectedKindID(); kind != kindSubtask || id != st1.ID {
+		t.Fatalf("выделение подзадачи не сохранено: kind=%d id=%d", kind, id)
+	}
+}
+
+// TestTasksMoveSubtaskAfterOtherTasks — подзадачи задачи, стоящей в проекте не
+// первой, перемещаются корректно (индексы в s.subs смещены подзадачами ранних
+// задач; границы считаются только по сиблингам родителя).
+func TestTasksMoveSubtaskAfterOtherTasks(t *testing.T) {
+	conn, err := db.Open(t.TempDir() + "/test.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { conn.Close() })
+	p, err := db.CreateProject(conn, "P")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t0, err := db.CreateTask(conn, p.ID, "T0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.CreateSubtask(conn, t0.ID, "Z"); err != nil {
+		t.Fatal(err)
+	}
+	t1, err := db.CreateTask(conn, p.ID, "T1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s1, err := db.CreateSubtask(conn, t1.ID, "S1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s2, err := db.CreateSubtask(conn, t1.ID, "S2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := newTasksScreen(conn)
+	s.load()
+
+	// T0 → T1, раскрыть, встать на S1, опустить
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyDown})
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEnter})
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyDown})
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyCtrlDown})
+	// s.subs: [Z, S2, S1]; выделение на S1
+	var got []int64
+	for _, st := range s.subs {
+		if st.TaskID == t1.ID {
+			got = append(got, st.ID)
+		}
+	}
+	if len(got) != 2 || got[0] != s2.ID || got[1] != s1.ID {
+		t.Fatalf("после ctrl+down: %v, ожидались S2, S1", got)
+	}
+	if kind, id := s.selectedKindID(); kind != kindSubtask || id != s1.ID {
+		t.Fatalf("выделение не сохранено: kind=%d id=%d", kind, id)
+	}
+	// подзадачи ранней задачи не затронуты
+	var z []int64
+	for _, st := range s.subs {
+		if st.TaskID == t0.ID {
+			z = append(z, st.ID)
+		}
+	}
+	if len(z) != 1 {
+		t.Fatalf("подзадачи T0 изменились: %v", z)
+	}
+
+	// вверх возвращает на место
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyCtrlUp})
+	got = got[:0]
+	for _, st := range s.subs {
+		if st.TaskID == t1.ID {
+			got = append(got, st.ID)
+		}
+	}
+	if len(got) != 2 || got[0] != s1.ID || got[1] != s2.ID {
+		t.Fatalf("после ctrl+up: %v, ожидались S1, S2", got)
+	}
+
+	// границы: первая вверх — no-op
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyCtrlUp})
+	got = got[:0]
+	for _, st := range s.subs {
+		if st.TaskID == t1.ID {
+			got = append(got, st.ID)
+		}
+	}
+	if len(got) != 2 || got[0] != s1.ID || got[1] != s2.ID {
+		t.Fatalf("первая вверх изменила порядок: %v", got)
+	}
+	// опустить S1 в самый низ, затем вниз — no-op
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyCtrlDown})
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyCtrlDown})
+	got = got[:0]
+	for _, st := range s.subs {
+		if st.TaskID == t1.ID {
+			got = append(got, st.ID)
+		}
+	}
+	if len(got) != 2 || got[0] != s2.ID || got[1] != s1.ID {
+		t.Fatalf("последняя вниз изменила порядок: %v", got)
+	}
+}

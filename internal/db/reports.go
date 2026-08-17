@@ -45,8 +45,8 @@ type TaskReport struct {
 // ReportEntries возвращает суммарное время по подзадачам за период [from, to):
 // только завершённые записи, обрезанные по границам (активная сессия не
 // учитывается); подзадачи без времени за период пропускаются. projectID = 0 —
-// все проекты. Порядок — по созданию: задачи по created_at, подзадачи по
-// sort_order.
+// все проекты. Порядок — по ручной сортировке: задачи по sort_order, подзадачи
+// по sort_order.
 func ReportEntries(conn *sql.DB, from, to time.Time, projectID int64) ([]ReportEntry, error) {
 	rows, err := conn.Query(`
 SELECT p.id, p.name, t.id, t.title, s.id, s.title,
@@ -59,7 +59,7 @@ WHERE te.started_at < ? AND te.ended_at > ?
   AND (? = 0 OR t.project_id = ?)
 GROUP BY te.subtask_id
 HAVING secs > 0
-ORDER BY t.created_at, t.id, s.sort_order, s.id`,
+ORDER BY t.sort_order, t.id, s.sort_order, s.id`,
 		to.Unix(), from.Unix(), to.Unix(), from.Unix(), projectID, projectID)
 	if err != nil {
 		return nil, err

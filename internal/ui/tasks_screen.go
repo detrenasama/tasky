@@ -930,6 +930,56 @@ func (s *tasksScreen) switchProject(dir int) {
 	s.loadData()
 }
 
+// moveSelected перемещает выбранную задачу/подзадачу на одну позицию
+// (dir = -1 вверх, +1 вниз) и сохраняет выделение.
+func (s *tasksScreen) moveSelected(dir int) {
+	kind, id := s.selectedKindID()
+	if id == 0 {
+		return
+	}
+	switch kind {
+	case kindTask:
+		idx := -1
+		for i, t := range s.tasks {
+			if t.ID == id {
+				idx = i
+				break
+			}
+		}
+		if idx < 0 || idx+dir < 0 || idx+dir >= len(s.tasks) {
+			return
+		}
+		if err := db.MoveTask(s.db, id, dir); err != nil {
+			s.lastErr = err
+			return
+		}
+	case kindSubtask:
+		parentID := s.selectedTaskID()
+		idx, siblings := -1, 0
+		for _, st := range s.subs {
+			if st.TaskID != parentID {
+				continue
+			}
+			if st.ID == id {
+				idx = siblings
+			}
+			siblings++
+		}
+		if idx < 0 || idx+dir < 0 || idx+dir >= siblings {
+			return
+		}
+		if err := db.MoveSubtask(s.db, id, dir); err != nil {
+			s.lastErr = err
+			return
+		}
+	}
+	s.lastErr = nil
+	s.loadData()
+	s.selectByKindID(kind, id)
+	s.loadInfo()
+	s.loadDesc()
+}
+
 func (s *tasksScreen) toggleTimer() {
 	item, ok := s.list.SelectedItem().(subItem)
 	if !ok {
@@ -1025,7 +1075,7 @@ func (s *tasksScreen) footer(w int) string {
 	if s.focus == taskFocusDesc {
 		return padW(theme.Faint("↑/↓ скролл · e — описание · l — ссылка · o — ссылки · Ctrl+J — запись · j — изменить запись · g — теги · / — поиск · Tab — список"), w)
 	}
-	hint := "↑/↓ выбор · Enter раскрыть · n задача · a подзадача · e изменить · d удалить · Ctrl+L старт/пауза · x/z статус · c — все статусы · g — теги · / — поиск · [ / ] проект · Tab — описание · q выход"
+	hint := "↑/↓ выбор · Enter раскрыть · n задача · a подзадача · e изменить · d удалить · Ctrl+L старт/пауза · Ctrl+↑/↓ переместить · x/z статус · c — все статусы · g — теги · / — поиск · [ / ] проект · Tab — описание · q выход"
 	if s.searchQuery != "" {
 		hint = "Поиск: «" + s.searchQuery + "» — / — изменить · Esc — сбросить"
 	}
@@ -1880,6 +1930,12 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "]":
 		s.switchProject(1)
+		return m, nil
+	case "ctrl+up":
+		s.moveSelected(-1)
+		return m, nil
+	case "ctrl+down":
+		s.moveSelected(1)
 		return m, nil
 	case "n":
 		s.startNewTask()

@@ -9,9 +9,10 @@ func CreateTask(conn *sql.DB, projectID int64, title string) (Task, error) {
 	var t Task
 	now := time.Now().Unix()
 	status, _ := DefaultStatus(conn)
-	res, err := conn.Exec(
-		"INSERT INTO tasks (project_id, title, status, created_at) VALUES (?, ?, ?, ?)",
-		projectID, title, status, now)
+	res, err := conn.Exec(`
+INSERT INTO tasks (project_id, title, status, sort_order, created_at)
+SELECT ?, ?, ?, COALESCE(MAX(sort_order), 0) + 1, ? FROM tasks WHERE project_id = ?`,
+		projectID, title, status, now, projectID)
 	if err != nil {
 		return t, err
 	}
@@ -52,6 +53,78 @@ SELECT ?, ?, ?, COALESCE(MAX(sort_order), 0) + 1, ? FROM subtasks WHERE task_id 
 func DeleteSubtask(conn *sql.DB, id int64) error {
 	_, err := conn.Exec("DELETE FROM subtasks WHERE id = ?", id)
 	return err
+}
+
+// MoveTask перемещает задачу на одну позицию вверх (dir = -1) или вниз
+// (dir = 1) в пределах её проекта. Порядок задаёт sort_order.
+func MoveTask(conn *sql.DB, id int64, dir int) error {
+	return moveOrderedRow(conn, "tasks", "project_id", id, dir)
+}
+
+// MoveSubtask перемещает подзадачу на одну позицию в пределах родительской
+// задачи.
+func MoveSubtask(conn *sql.DB, id int64, dir int) error {
+	return moveOrderedRow(conn, "subtasks", "task_id", id, dir)
+}
+
+// moveOrderedRow двигает строку таблицы table (parentCol — колонка родителя)
+// в списке соседей. Если движение выходит за границы — ничего не делает.
+// Позиции соседей нормализуются к 1..N (устойчиво даже к legacy-нулям), затем
+// сортируемые элементы обмениваются местами.
+func moveOrderedRow(conn *sql.DB, table, parentCol string, id int64, dir int) error {
+	var parentID int64
+	if err := conn.QueryRow(
+		"SELECT "+parentCol+" FROM "+table+" WHERE id = ?", id).Scan(&parentID); err != nil {
+		return err
+	}
+	rows, err := conn.Query(
+		"SELECT id FROM "+table+" WHERE "+parentCol+" = ? ORDER BY sort_order, id", parentID)
+	if err != nil {
+		return err
+	}
+	var ids []int64
+	for rows.Next() {
+		var x int64
+		if err := rows.Scan(&x); err != nil {
+			rows.Close()
+			return err
+		}
+		ids = append(ids, x)
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	idx := -1
+	for i, x := range ids {
+		if x == id {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		return nil
+	}
+	j := idx + dir
+	if j < 0 || j >= len(ids) {
+		return nil
+	}
+	tx, err := conn.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for i, x := range ids {
+		if _, err := tx.Exec("UPDATE "+table+" SET sort_order = ? WHERE id = ?", i+1, x); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.Exec("UPDATE "+table+" SET sort_order = ? WHERE id = ?", j+1, ids[idx]); err != nil {
+		return err
+	}
+	if _, err := tx.Exec("UPDATE "+table+" SET sort_order = ? WHERE id = ?", idx+1, ids[j]); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func UpdateTaskTitle(conn *sql.DB, id int64, title string) error {
@@ -164,7 +237,7 @@ SELECT t.id, t.project_id, t.title, t.description, t.status, t.created_at, t.com
        (SELECT COUNT(*) FROM subtasks s WHERE s.task_id = t.id)
 FROM tasks t
 WHERE t.project_id = ?
-ORDER BY t.created_at, t.id`, projectID)
+ORDER BY t.sort_order, t.id`, projectID)
 	if err != nil {
 		return nil, err
 	}

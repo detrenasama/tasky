@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     title        TEXT    NOT NULL,
     description  TEXT    NOT NULL DEFAULT '',
     status       TEXT    NOT NULL DEFAULT '',
+    sort_order   INTEGER NOT NULL DEFAULT 0,
     created_at   INTEGER NOT NULL,
     completed_at INTEGER
 );
@@ -161,7 +162,36 @@ func migrate(conn *sql.DB) error {
 	if err := ensureColumn(conn, "subtasks", "description", "TEXT NOT NULL DEFAULT ''"); err != nil {
 		return err
 	}
-	return migrateStatuses(conn)
+	if err := migrateStatuses(conn); err != nil {
+		return err
+	}
+	return migrateTasksSortOrder(conn)
+}
+
+// migrateTasksSortOrder добавляет колонку sort_order таблице tasks (для ручной
+// сортировки задач) и, если колонки не было, проставляет существующим задачам
+// позиции в пределах проекта по текущему порядку (created_at, id) — так задачи
+// сохраняют прежний вид списка. Вызывается после migrateStatuses, который
+// пересоздаёт таблицу tasks и затёр бы колонку.
+func migrateTasksSortOrder(conn *sql.DB) error {
+	had, err := hasColumn(conn, "tasks", "sort_order")
+	if err != nil {
+		return err
+	}
+	if err := ensureColumn(conn, "tasks", "sort_order", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+		return err
+	}
+	if had {
+		return nil
+	}
+	_, err = conn.Exec(`
+UPDATE tasks SET sort_order = (
+    SELECT COUNT(*) + 1 FROM tasks t2
+    WHERE t2.project_id = tasks.project_id
+      AND (t2.created_at < tasks.created_at OR
+           (t2.created_at = tasks.created_at AND t2.id < tasks.id))
+)`)
+	return err
 }
 
 // migrateStatuses пересоздаёт tasks/subtasks без CHECK на status (старые
@@ -464,6 +494,27 @@ func statusMappingSQL(m map[string]string) string {
 		b.WriteString("' ")
 	}
 	return b.String()
+}
+
+// hasColumn проверяет наличие колонки в таблице через PRAGMA table_info.
+func hasColumn(conn *sql.DB, table, column string) (bool, error) {
+	rows, err := conn.Query("PRAGMA table_info(" + table + ")")
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid, notnull, pk int
+		var name, ctype string
+		var dflt any
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			return false, err
+		}
+		if name == column {
+			return true, nil
+		}
+	}
+	return false, rows.Err()
 }
 
 // ensureColumn проверяет наличие колонки через PRAGMA table_info и, если её

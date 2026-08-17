@@ -156,6 +156,72 @@ CREATE TABLE subtasks (
 	}
 }
 
+// TestMigrateAddsTasksSortOrder — старая БД без колонки sort_order у задач:
+// CreateSchema добавляет её через ALTER TABLE и проставляет позиции по проектам
+// (порядок created_at, при равенстве — id).
+func TestMigrateAddsTasksSortOrder(t *testing.T) {
+	conn := openTestDB(t)
+	// имитация старой схемы: tasks без sort_order
+	exec(t, conn, "PRAGMA foreign_keys = OFF")
+	exec(t, conn, "DROP TABLE subtasks")
+	exec(t, conn, "DROP TABLE tasks")
+	exec(t, conn, `
+CREATE TABLE tasks (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id   INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    title        TEXT    NOT NULL,
+    description  TEXT    NOT NULL DEFAULT '',
+    status       TEXT    NOT NULL DEFAULT '',
+    created_at   INTEGER NOT NULL,
+    completed_at INTEGER
+)`)
+	exec(t, conn, `
+CREATE TABLE subtasks (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id      INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    title        TEXT    NOT NULL,
+    description  TEXT    NOT NULL DEFAULT '',
+    status       TEXT    NOT NULL DEFAULT 'todo',
+    sort_order   INTEGER NOT NULL DEFAULT 0,
+    created_at   INTEGER NOT NULL,
+    completed_at INTEGER
+)`)
+
+	now := time.Now().Unix()
+	exec(t, conn, "INSERT INTO projects (id, name, created_at) VALUES (1, 'p1', ?)", now)
+	exec(t, conn, "INSERT INTO projects (id, name, created_at) VALUES (2, 'p2', ?)", now)
+	// в p1 порядок created_at обратный порядку id — бэкфилл должен идти по created_at
+	exec(t, conn, "INSERT INTO tasks (id, project_id, title, created_at) VALUES (1, 1, 'a', ?)", now+100)
+	exec(t, conn, "INSERT INTO tasks (id, project_id, title, created_at) VALUES (2, 1, 'b', ?)", now)
+	// в p2 равные created_at — по id
+	exec(t, conn, "INSERT INTO tasks (id, project_id, title, created_at) VALUES (3, 2, 'c', ?)", now+50)
+	exec(t, conn, "INSERT INTO tasks (id, project_id, title, created_at) VALUES (4, 2, 'd', ?)", now+50)
+
+	if err := CreateSchema(conn); err != nil {
+		t.Fatalf("CreateSchema: %v", err)
+	}
+	var n int
+	if err := conn.QueryRow(
+		"SELECT COUNT(*) FROM pragma_table_info('tasks') WHERE name = 'sort_order'").Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Error("колонка sort_order у tasks не добавлена миграцией")
+	}
+
+	// позиции по проектам: p1 — b(now)→1, a(now+100)→2; p2 — c(id 3)→1, d(id 4)→2
+	expect := map[int64]int64{2: 1, 1: 2, 3: 1, 4: 2}
+	for id, want := range expect {
+		var so int64
+		if err := conn.QueryRow("SELECT sort_order FROM tasks WHERE id = ?", id).Scan(&so); err != nil {
+			t.Fatal(err)
+		}
+		if so != want {
+			t.Errorf("task %d sort_order = %d, ожидалось %d", id, so, want)
+		}
+	}
+}
+
 // TestNewLinkTablesCascade — каскадное удаление для task_links, subtask_links
 // и journal_entries.
 func TestNewLinkTablesCascade(t *testing.T) {

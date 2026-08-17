@@ -182,3 +182,59 @@ func TestJournalEntriesByRange(t *testing.T) {
 		t.Errorf("записей в пустом периоде: %d", len(empty))
 	}
 }
+
+// TestReportEntriesSortOrder — задачи в отчёте следуют ручной сортировке
+// (sort_order), а не порядку создания.
+func TestReportEntriesSortOrder(t *testing.T) {
+	conn := openTestDB(t)
+	day := time.Date(2026, 7, 30, 0, 0, 0, 0, time.Local)
+
+	exec(t, conn, "INSERT INTO projects (name, created_at) VALUES ('p', ?)", day.AddDate(0, 0, -1).Unix())
+	var pid int64
+	if err := conn.QueryRow("SELECT id FROM projects").Scan(&pid); err != nil {
+		t.Fatal(err)
+	}
+	// задача A создана раньше, но sort_order 2 (перемещена вниз)
+	exec(t, conn, "INSERT INTO tasks (project_id, title, sort_order, created_at) VALUES (?, 'A', 2, ?)",
+		pid, day.AddDate(0, 0, -1).Unix())
+	var tidA int64
+	if err := conn.QueryRow("SELECT id FROM tasks WHERE title = 'A'").Scan(&tidA); err != nil {
+		t.Fatal(err)
+	}
+	// задача B создана позже, sort_order 1 — в отчёте первой
+	exec(t, conn, "INSERT INTO tasks (project_id, title, sort_order, created_at) VALUES (?, 'B', 1, ?)",
+		pid, day.AddDate(0, 0, -1).Add(2*time.Hour).Unix())
+	var tidB int64
+	if err := conn.QueryRow("SELECT id FROM tasks WHERE title = 'B'").Scan(&tidB); err != nil {
+		t.Fatal(err)
+	}
+	// подзадачи B: созданная второй — первая по sort_order
+	exec(t, conn, "INSERT INTO subtasks (task_id, title, sort_order, created_at) VALUES (?, 'B2', 2, ?)",
+		tidB, day.AddDate(0, 0, -1).Unix())
+	var sidB2 int64
+	if err := conn.QueryRow("SELECT id FROM subtasks WHERE title = 'B2'").Scan(&sidB2); err != nil {
+		t.Fatal(err)
+	}
+	exec(t, conn, "INSERT INTO subtasks (task_id, title, sort_order, created_at) VALUES (?, 'B1', 1, ?)",
+		tidB, day.AddDate(0, 0, -1).Unix())
+	var sidB1 int64
+	if err := conn.QueryRow("SELECT id FROM subtasks WHERE title = 'B1'").Scan(&sidB1); err != nil {
+		t.Fatal(err)
+	}
+	addClosedEntry(t, conn, sidB1, day.Add(10*time.Hour), day.Add(11*time.Hour))
+	addClosedEntry(t, conn, sidB2, day.Add(12*time.Hour), day.Add(13*time.Hour))
+
+	entries, err := ReportEntries(conn, day, day.AddDate(0, 0, 1), 0)
+	if err != nil {
+		t.Fatalf("ReportEntries: %v", err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("записей: %d, ожидалось 2", len(entries))
+	}
+	if entries[0].TaskID != tidB || entries[0].SubtaskID != sidB1 {
+		t.Errorf("первая запись = task %d sub %d, ожидалась B/B1", entries[0].TaskID, entries[0].SubtaskID)
+	}
+	if entries[1].TaskID != tidB || entries[1].SubtaskID != sidB2 {
+		t.Errorf("вторая запись = task %d sub %d, ожидалась B/B2", entries[1].TaskID, entries[1].SubtaskID)
+	}
+}

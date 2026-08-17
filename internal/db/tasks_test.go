@@ -430,3 +430,179 @@ func TestJournalEntries(t *testing.T) {
 		t.Errorf("записей после удаления подзадачи: %d", len(entries))
 	}
 }
+
+// taskIDs собирает id задач проекта в порядке списка.
+func taskIDs(t *testing.T, conn *sql.DB, pid int64) []int64 {
+	t.Helper()
+	tasks, err := TasksByProject(conn, pid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []int64
+	for _, t := range tasks {
+		out = append(out, t.ID)
+	}
+	return out
+}
+
+func equalIDs(a, b []int64) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func TestMoveTask(t *testing.T) {
+	conn := openTestDB(t)
+	pid := seedProject(t, conn)
+	var ids []int64
+	for _, title := range []string{"t1", "t2", "t3"} {
+		tk, err := CreateTask(conn, pid, title)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids = append(ids, tk.ID)
+	}
+	if got := taskIDs(t, conn, pid); !equalIDs(got, ids) {
+		t.Fatalf("начальный порядок %v, ожидался %v", got, ids)
+	}
+
+	// поднять последнюю
+	if err := MoveTask(conn, ids[2], -1); err != nil {
+		t.Fatalf("MoveTask вверх: %v", err)
+	}
+	want := []int64{ids[0], ids[2], ids[1]}
+	if got := taskIDs(t, conn, pid); !equalIDs(got, want) {
+		t.Fatalf("после подъёма %v, ожидался %v", got, want)
+	}
+	// опустить первую
+	if err := MoveTask(conn, ids[0], 1); err != nil {
+		t.Fatalf("MoveTask вниз: %v", err)
+	}
+	want = []int64{ids[2], ids[0], ids[1]}
+	if got := taskIDs(t, conn, pid); !equalIDs(got, want) {
+		t.Fatalf("после опускания %v, ожидался %v", got, want)
+	}
+	// границы: первая вверх и последняя вниз — no-op
+	if err := MoveTask(conn, ids[2], -1); err != nil {
+		t.Fatal(err)
+	}
+	if err := MoveTask(conn, ids[1], 1); err != nil {
+		t.Fatal(err)
+	}
+	if got := taskIDs(t, conn, pid); !equalIDs(got, want) {
+		t.Fatalf("границы изменили порядок: %v", got)
+	}
+
+	// перемещение в одном проекте не затрагивает другой
+	exec(t, conn, "INSERT INTO projects (name, created_at) VALUES ('p2', ?)", time.Now().Unix())
+	var pid2 int64
+	if err := conn.QueryRow("SELECT id FROM projects WHERE name = 'p2'").Scan(&pid2); err != nil {
+		t.Fatal(err)
+	}
+	x1, err := CreateTask(conn, pid2, "x1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	x2, err := CreateTask(conn, pid2, "x2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := MoveTask(conn, ids[1], -1); err != nil {
+		t.Fatal(err)
+	}
+	if got := taskIDs(t, conn, pid2); !equalIDs(got, []int64{x1.ID, x2.ID}) {
+		t.Fatalf("проект 2 изменился: %v", got)
+	}
+}
+
+func TestMoveSubtask(t *testing.T) {
+	conn := openTestDB(t)
+	pid := seedProject(t, conn)
+	t1, err := CreateTask(conn, pid, "t1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t2, err := CreateTask(conn, pid, "t2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	a1, err := CreateSubtask(conn, t1.ID, "a1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	a2, err := CreateSubtask(conn, t1.ID, "a2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b1, err := CreateSubtask(conn, t2.ID, "b1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// опустить первую подзадачу t1 — a2 становится первой
+	if err := MoveSubtask(conn, a1.ID, 1); err != nil {
+		t.Fatalf("MoveSubtask: %v", err)
+	}
+	subs1, err := SubtasksWithTime(conn, t1.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(subs1) != 2 || subs1[0].ID != a2.ID || subs1[1].ID != a1.ID {
+		t.Fatalf("порядок подзадач t1: %+v", subs1)
+	}
+	// подзадачи другой задачи не затронуты
+	subs2, err := SubtasksWithTime(conn, t2.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(subs2) != 1 || subs2[0].ID != b1.ID {
+		t.Fatalf("подзадачи t2 изменились: %+v", subs2)
+	}
+	// граница: последняя вниз — no-op
+	if err := MoveSubtask(conn, a1.ID, 1); err != nil {
+		t.Fatal(err)
+	}
+	subs1, _ = SubtasksWithTime(conn, t1.ID)
+	if subs1[0].ID != a2.ID || subs1[1].ID != a1.ID {
+		t.Fatalf("граница изменила порядок: %+v", subs1)
+	}
+	// порядок всего проекта
+	all, err := SubtasksByProject(conn, pid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(all) != 3 || all[0].ID != a2.ID || all[1].ID != a1.ID || all[2].ID != b1.ID {
+		t.Fatalf("SubtasksByProject: %+v", all)
+	}
+}
+
+func TestCreateTaskSortOrder(t *testing.T) {
+	conn := openTestDB(t)
+	pid := seedProject(t, conn)
+	var ids []int64
+	for _, title := range []string{"t1", "t2", "t3"} {
+		tk, err := CreateTask(conn, pid, title)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids = append(ids, tk.ID)
+	}
+	if err := MoveTask(conn, ids[0], 1); err != nil {
+		t.Fatal(err)
+	}
+	// новая задача — в конец списка
+	t4, err := CreateTask(conn, pid, "t4")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []int64{ids[1], ids[0], ids[2], t4.ID}
+	if got := taskIDs(t, conn, pid); !equalIDs(got, want) {
+		t.Fatalf("порядок %v, ожидался %v", got, want)
+	}
+}

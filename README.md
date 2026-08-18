@@ -58,6 +58,12 @@ tasky status      # JSON: время за сегодня и запущенная
 
 `tasky status` печатает `{"today_seconds":N,"subtask":{"id":I,"title":"..."}}` (без запущенной подзадачи — `"subtask":null`) и выходит с кодом 1, если сервер не запущен. На нём работает GNOME-индикатор [tasky-gnome-indicator](https://github.com/detrenasama/tasky-gnome-indicator).
 
+Основной API — gRPC (унарные RPC 1:1 с методами хранилища). Для внешних интеграций сервер дополнительно слушает HTTP: `GET /status` отдаёт тот же JSON, что и `tasky status`. Адрес по умолчанию — `http://127.0.0.1:9110`, переопределяется `--http-addr ADDR` или `TASKY_HTTP_ADDR`:
+
+```sh
+curl http://127.0.0.1:9110/status
+```
+
 Все процессы одного каталога данных делят одну базу: данные видны из любого клиента. Сокет по умолчанию — `<каталог данных>/tasky.sock`, переопределяется `--socket PATH` или `TASKY_SOCKET`.
 
 ## Данные

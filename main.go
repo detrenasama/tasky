@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -59,6 +60,20 @@ func dataDirPrepare() (string, error) {
 	return dir, nil
 }
 
+// httpAddr выбирает адрес HTTP-эндпоинтов интеграций: --http-addr ADDR,
+// TASKY_HTTP_ADDR или 127.0.0.1:9110 по умолчанию.
+func httpAddr(args []string) string {
+	for i := 0; i < len(args); i++ {
+		if args[i] == "--http-addr" && i+1 < len(args) {
+			return args[i+1]
+		}
+	}
+	if a := os.Getenv("TASKY_HTTP_ADDR"); a != "" {
+		return a
+	}
+	return "127.0.0.1:9110"
+}
+
 // socketPath выбирает адрес сокета: --socket PATH, TASKY_SOCKET или
 // каталог данных по умолчанию.
 func socketPath(args []string) string {
@@ -80,6 +95,19 @@ func openServerDB(dir string) (*store.SQLite, func()) {
 		log.Fatalf("не удалось открыть базу данных: %v", err)
 	}
 	return store.NewSQLite(conn), func() { conn.Close() }
+}
+
+// startHTTP поднимает HTTP-сервер интеграций на httpAddr(args). Если порт
+// занят — печатает предупреждение и продолжает без HTTP (gRPC работает
+// независимо); возвращает nil в этом случае.
+func startHTTP(args []string, st store.Store) *http.Server {
+	addr := httpAddr(args)
+	lis, err := server.ListenHTTP(addr)
+	if err != nil {
+		log.Printf("HTTP-сервер (%s) не запущен: %v", addr, err)
+		return nil
+	}
+	return server.ServeHTTP(lis, st)
 }
 
 // runTUI запускает интерфейс поверх хранилища и возвращает код выхода.
@@ -123,6 +151,11 @@ func runDefault(args []string) int {
 		os.Remove(sp)
 	}()
 
+	// HTTP-эндпоинты для внешних интеграций (GET /status и подобные).
+	if hs := startHTTP(args, st); hs != nil {
+		defer hs.Close()
+	}
+
 	cl, err = client.Dial(sp)
 	if err != nil {
 		log.Fatalf("не удалось подключиться к встроенному серверу: %v", err)
@@ -152,11 +185,17 @@ func runServe(args []string) int {
 	defer os.Remove(sp)
 	gs := server.Serve(lis, st)
 
-	fmt.Printf("Сервер Tasky слушает: %s\nНажмите Ctrl+C, чтобы остановить.\n", sp)
+	hs := startHTTP(args, st)
+	fmt.Printf("Сервер Tasky слушает: %s\n", sp)
+	fmt.Printf("HTTP (интеграции): http://%s\n", httpAddr(args))
+	fmt.Println("Нажмите Ctrl+C, чтобы остановить.")
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 	<-sig
 	gs.GracefulStop()
+	if hs != nil {
+		hs.Close()
+	}
 	return 0
 }
 

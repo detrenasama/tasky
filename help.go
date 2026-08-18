@@ -23,6 +23,10 @@ func buildHelpText() string {
 Сокет сервера (по умолчанию <каталог данных>/tasky.sock):
   --socket PATH       задать путь сокета (то же: TASKY_SOCKET)
 
+HTTP для внешних интеграций (по умолчанию http://127.0.0.1:9110):
+  --http-addr ADDR    задать адрес HTTP-эндпоинтов (то же: TASKY_HTTP_ADDR)
+                      (GET /status — время за сегодня и запущенная подзадача)
+
 Данные: %s (переопределение — TASKY_HOME)
 Версия: %s
 `, xdg.DataDir(), version)

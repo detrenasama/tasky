@@ -11,6 +11,7 @@ import (
 
 	"github.com/detrenasama/tasky/internal/db"
 	"github.com/detrenasama/tasky/internal/server"
+	"github.com/detrenasama/tasky/internal/status"
 	"github.com/detrenasama/tasky/internal/store"
 )
 
@@ -74,7 +75,7 @@ func TestRunStatus(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("код %d, stdout: %q", code, out)
 	}
-	var got statusOut
+	var got status.Out
 	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &got); err != nil {
 		t.Fatalf("JSON: %v, stdout: %q", err, out)
 	}

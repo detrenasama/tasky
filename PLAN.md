@@ -126,9 +126,9 @@
 
 Индикатор в панели GNOME Shell: показывает «время за сегодня» и название запущенной подзадачи (до 16 символов); при недоступном сервере ничего не отображается. Клик открывает меню с деталями (полное название подзадачи и время за сегодня).
 
-Реализация: отдельный репозиторий **`tasky-gnome-indicator`** (расширение GNOME Shell на GJS, `extension.js` + `metadata.json`, установщик `install.sh`). Данные — через новую команду `tasky status` в этом репозитории: `socketPath` → `client.Dial` → `TodayTotal` + `RunningSession`, JSON в stdout (`{"today_seconds":N,"subtask":null}` или с `{"id":I,"title":"..."}`), при недоступном сервере — ничего в stdout и код 1 (GJS gRPC не умеет — HTTP/2 + protobuf недоступны, поэтому мост через CLI).
+Реализация: отдельный репозиторий **`tasky-gnome-indicator`** (расширение GNOME Shell на GJS, `extension.js` + `metadata.json`, установщик `install.sh`). Данные — через JSON-статус этого репозитория: команда `tasky status` (`socketPath` → `client.Dial` → `TodayTotal` + `RunningSession`) и HTTP-эндпоинт сервера `GET /status` (`http.go` в `internal/server`, тот же JSON, по умолчанию `http://127.0.0.1:9110`, оверрайд `--http-addr`/`TASKY_HTTP_ADDR`; GJS gRPC не умеет — HTTP/2 + protobuf недоступны, поэтому HTTP/CLI-мост). Индикатор опрашивает HTTP каждую секунду (раньше — CLI каждые 5 с).
 
-Реализация (здесь): `status.go`, `main.go`/`help.go` (режим `status`), `status_test.go` (сервер на temp-сокете: JSON с активной сессией, `subtask:null` после остановки, код 1 без сервера), `README.md`.
+Реализация (здесь): `status.go`, `main.go`/`help.go` (режим `status`), `status_test.go` (сервер на temp-сокете: JSON с активной сессией, `subtask:null` после остановки, код 1 без сервера), `internal/status` (общий JSON статуса), `internal/server/http.go` + `http_test.go`, `README.md`.
 
 ## Этап 15. Модалка изменения записей времени — [ ] не начат
 

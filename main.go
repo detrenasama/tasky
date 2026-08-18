@@ -33,6 +33,8 @@ func main() {
 			os.Exit(runServe(os.Args[2:]))
 		case "attach":
 			os.Exit(runAttach(os.Args[2:]))
+		case "status":
+			os.Exit(runStatus(os.Args[2:]))
 		case "help", "--help", "-h":
 			os.Exit(runHelp())
 		default:

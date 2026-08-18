@@ -9,7 +9,7 @@ import (
 
 func TestBuildHelpText(t *testing.T) {
 	text := buildHelpText()
-	for _, want := range []string{"tasky upgrade", "tasky --version", "tasky help", "TASKY_HOME", "tasky serve", "tasky attach", "TASKY_SOCKET", "--socket"} {
+	for _, want := range []string{"tasky upgrade", "tasky --version", "tasky help", "TASKY_HOME", "tasky serve", "tasky attach", "tasky status", "TASKY_SOCKET", "--socket"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("справка не содержит %q", want)
 		}

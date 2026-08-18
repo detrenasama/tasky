@@ -12,7 +12,7 @@ TUI-приложение «Tasky» на Go: менеджер задач с уч�
 - `just test` / `just check` — тесты + `go vet` + `gofmt -l`
 - `go run .` — запуск приложения (требуется настоящий TTY)
 - `go build -o dist/tasky .` — ручная сборка (директория `dist/` создаётся автоматически; `go build ./...` НЕ создаёт файл в каталоге)
-- CLI-аргументы: `tasky --version` / `-v` — версия; `tasky upgrade` — самообновление; `tasky serve [--socket PATH]` — сервер в foreground (Ctrl+C — остановка); `tasky attach [--socket PATH]` — интерфейс к уже запущенному серверу (ошибка подключения — подсказка в stderr, код 1); `tasky help` / `--help` / `-h` — справка (`buildHelpText` в `help.go`); неизвестный аргумент — «неизвестная команда» + справка в stderr, код 1; без аргументов — авто-attach к работающему серверу либо встроенный сервер до выхода
+- CLI-аргументы: `tasky --version` / `-v` — версия; `tasky upgrade` — самообновление; `tasky serve [--socket PATH]` — сервер в foreground (Ctrl+C — остановка); `tasky attach [--socket PATH]` — интерфейс к уже запущенному серверу (ошибка подключения — подсказка в stderr, код 1); `tasky status [--socket PATH]` — JSON в stdout (`{"today_seconds":N,"subtask":{"id":I,"title":"..."}|null}`, сервер недоступен — ничего в stdout и код 1; мост для внешних индикаторов, напр. GNOME Shell); `tasky help` / `--help` / `-h` — справка (`buildHelpText` в `help.go`); неизвестный аргумент — «неизвестная команда» + справка в stderr, код 1; без аргументов — авто-attach к работающему серверу либо встроенный сервер до выхода
 - Данные в `~/.local/share/tasky/` (`tasky.db`, `reports/`), переопределение — `TASKY_HOME`; сокет сервера — `<каталог данных>/tasky.sock`, переопределение — `--socket PATH` / `TASKY_SOCKET`
 
 ## Структура и стек

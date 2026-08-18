@@ -53,7 +53,10 @@ tasky upgrade
 ```sh
 tasky serve       # сервер в foreground (Ctrl+C — остановить)
 tasky attach      # интерфейс, подключённый к запущенному серверу
+tasky status      # JSON: время за сегодня и запущенная подзадача (для индикаторов)
 ```
+
+`tasky status` печатает `{"today_seconds":N,"subtask":{"id":I,"title":"..."}}` (без запущенной подзадачи — `"subtask":null`) и выходит с кодом 1, если сервер не запущен. На нём работает GNOME-индикатор [tasky-gnome-indicator](https://github.com/detrenasama/tasky-gnome-indicator).
 
 Все процессы одного каталога данных делят одну базу: данные видны из любого клиента. Сокет по умолчанию — `<каталог данных>/tasky.sock`, переопределяется `--socket PATH` или `TASKY_SOCKET`.
 

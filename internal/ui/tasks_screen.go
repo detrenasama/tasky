@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"database/sql"
 	"fmt"
 	"strings"
 	"time"
@@ -14,6 +13,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/detrenasama/tasky/internal/db"
+	"github.com/detrenasama/tasky/internal/store"
 	"github.com/detrenasama/tasky/internal/ui/theme"
 )
 
@@ -99,7 +99,7 @@ func (i subItem) Description() string {
 }
 
 type tasksScreen struct {
-	db       *sql.DB
+	store    store.Store
 	projects []db.Project
 	projIdx  int
 	tasks    []db.Task
@@ -175,8 +175,8 @@ type tasksScreen struct {
 	tagConfirmID int64
 }
 
-func newTasksScreen(conn *sql.DB) *tasksScreen {
-	s := &tasksScreen{db: conn, expanded: map[int64]bool{}, now: time.Now()}
+func newTasksScreen(st store.Store) *tasksScreen {
+	s := &tasksScreen{store: st, expanded: map[int64]bool{}, now: time.Now()}
 
 	d := list.NewDefaultDelegate()
 	d.ShowDescription = true
@@ -266,18 +266,18 @@ func newTasksScreen(conn *sql.DB) *tasksScreen {
 }
 
 func (s *tasksScreen) load() {
-	s.projects, _ = db.Projects(s.db)
+	s.projects, _ = s.store.Projects()
 	if s.projIdx >= len(s.projects) {
 		s.projIdx = 0
 	}
-	s.statuses, _ = db.Statuses(s.db)
-	s.hideDays = loadHideDays(s.db)
+	s.statuses, _ = s.store.Statuses()
+	s.hideDays = loadHideDays(s.store)
 	items := make([]pickItem, 0, len(s.statuses))
 	for _, st := range s.statuses {
 		items = append(items, pickItem{value: st.ID, label: st.Name})
 	}
 	s.statusPick.items = items
-	s.tagTypes, _ = db.TagTypes(s.db)
+	s.tagTypes, _ = s.store.TagTypes()
 	ttItems := make([]pickItem, 0, len(s.tagTypes))
 	for _, tt := range s.tagTypes {
 		ttItems = append(ttItems, pickItem{value: tt.ID,
@@ -285,8 +285,8 @@ func (s *tasksScreen) load() {
 	}
 	s.tagTypePick.items = ttItems
 	s.loadData()
-	s.today, _ = db.TodayTotal(s.db, s.now)
-	s.weekly, _ = db.WeeklyTotal(s.db, s.now)
+	s.today, _ = s.store.TodayTotal(s.now)
+	s.weekly, _ = s.store.WeeklyTotal(s.now)
 }
 
 func (s *tasksScreen) loadData() {
@@ -298,10 +298,10 @@ func (s *tasksScreen) loadData() {
 		s.loadDesc()
 		return
 	}
-	s.tasks, _ = db.TasksByProject(s.db, s.currentProjectID())
-	s.subs, _ = db.SubtasksByProject(s.db, s.currentProjectID())
-	s.journalTexts, _ = db.JournalTexts(s.db, s.currentProjectID())
-	s.tagsMap, _ = db.TagsByProject(s.db, s.currentProjectID())
+	s.tasks, _ = s.store.TasksByProject(s.currentProjectID())
+	s.subs, _ = s.store.SubtasksByProject(s.currentProjectID())
+	s.journalTexts, _ = s.store.JournalTexts(s.currentProjectID())
+	s.tagsMap, _ = s.store.TagsByProject(s.currentProjectID())
 	s.tagsText = make(map[int64]string, len(s.tagsMap))
 	for taskID, tg := range s.tagsMap {
 		parts := make([]string, 0, len(tg))
@@ -316,7 +316,7 @@ func (s *tasksScreen) loadData() {
 }
 
 func (s *tasksScreen) loadInfo() {
-	s.run, _ = db.RunningSession(s.db)
+	s.run, _ = s.store.RunningSession()
 	s.entries = nil
 	s.history = nil
 	kind, id := s.selectedKindID()
@@ -324,9 +324,9 @@ func (s *tasksScreen) loadInfo() {
 		return
 	}
 	if kind == kindSubtask {
-		s.entries, _ = db.TimeEntriesBySubtask(s.db, id)
+		s.entries, _ = s.store.TimeEntriesBySubtask(id)
 	}
-	s.history, _ = db.StatusHistory(s.db, dbOwner(kind), id)
+	s.history, _ = s.store.StatusHistory(dbOwner(kind), id)
 }
 
 // loadDesc подгружает описание, ссылки и (для подзадачи) записи журнала
@@ -339,14 +339,14 @@ func (s *tasksScreen) loadDesc() {
 	switch kind {
 	case kindTask:
 		if id != 0 {
-			s.desc, _ = db.TaskDescription(s.db, id)
-			s.links, _ = db.TaskLinks(s.db, id)
+			s.desc, _ = s.store.TaskDescription(id)
+			s.links, _ = s.store.TaskLinks(id)
 		}
 	case kindSubtask:
 		if id != 0 {
-			s.desc, _ = db.SubtaskDescription(s.db, id)
-			s.links, _ = db.SubtaskLinks(s.db, id)
-			s.journal, _ = db.JournalEntries(s.db, id)
+			s.desc, _ = s.store.SubtaskDescription(id)
+			s.links, _ = s.store.SubtaskLinks(id)
+			s.journal, _ = s.store.JournalEntries(id)
 		}
 	}
 	items := make([]list.Item, len(s.links))
@@ -657,7 +657,7 @@ func (s *tasksScreen) applyStatus(kind paneKind, id int64, st db.StatusDef) {
 		return
 	}
 	s.statusTarget = nil
-	if err := db.SetStatus(s.db, dbOwner(kind), id, st.Name, "", time.Now()); err == nil {
+	if err := s.store.SetStatus(dbOwner(kind), id, st.Name, "", time.Now()); err == nil {
 		s.now = time.Now()
 		s.loadData()
 	} else {
@@ -758,7 +758,7 @@ func (s *tasksScreen) openTags() {
 
 // loadTags перечитывает теги текущей задачи и собирает список модалки.
 func (s *tasksScreen) loadTags() {
-	s.tags, _ = db.TaskTags(s.db, s.tagTaskID)
+	s.tags, _ = s.store.TaskTags(s.tagTaskID)
 	items := make([]pickItem, 0, len(s.tags))
 	for _, t := range s.tags {
 		label := tagChip(t)
@@ -819,10 +819,10 @@ func (s *tasksScreen) saveTagEdit() {
 	}
 	var err error
 	if s.tagEditID == 0 {
-		_, err = db.CreateTag(s.db, s.tagTaskID, s.tagEditType, text,
+		_, err = s.store.CreateTag(s.tagTaskID, s.tagEditType, text,
 			strings.TrimSpace(s.tagEditURL.Value()))
 	} else {
-		err = db.UpdateTag(s.db, s.tagEditID, s.tagEditType, text,
+		err = s.store.UpdateTag(s.tagEditID, s.tagEditType, text,
 			strings.TrimSpace(s.tagEditURL.Value()))
 	}
 	if err != nil {
@@ -949,7 +949,7 @@ func (s *tasksScreen) moveSelected(dir int) {
 		if idx < 0 || idx+dir < 0 || idx+dir >= len(s.tasks) {
 			return
 		}
-		if err := db.MoveTask(s.db, id, dir); err != nil {
+		if err := s.store.MoveTask(id, dir); err != nil {
 			s.lastErr = err
 			return
 		}
@@ -968,7 +968,7 @@ func (s *tasksScreen) moveSelected(dir int) {
 		if idx < 0 || idx+dir < 0 || idx+dir >= siblings {
 			return
 		}
-		if err := db.MoveSubtask(s.db, id, dir); err != nil {
+		if err := s.store.MoveSubtask(id, dir); err != nil {
 			s.lastErr = err
 			return
 		}
@@ -987,31 +987,31 @@ func (s *tasksScreen) toggleTimer() {
 	}
 	now := time.Now()
 	if item.st.ActiveSince != nil {
-		db.StopSession(s.db, item.st.ID, now)
+		s.store.StopSession(item.st.ID, now)
 	} else {
-		db.StartSession(s.db, item.st.ID, now)
+		s.store.StartSession(item.st.ID, now)
 	}
 	s.now = now
 	s.loadData()
-	s.today, _ = db.TodayTotal(s.db, now)
-	s.weekly, _ = db.WeeklyTotal(s.db, now)
+	s.today, _ = s.store.TodayTotal(now)
+	s.weekly, _ = s.store.WeeklyTotal(now)
 }
 
 func (s *tasksScreen) createItem(kind paneKind, title string) (int64, error) {
 	if kind == kindTask {
-		t, err := db.CreateTask(s.db, s.currentProjectID(), title)
+		t, err := s.store.CreateTask(s.currentProjectID(), title)
 		return t.ID, err
 	}
-	st, err := db.CreateSubtask(s.db, s.selectedTaskID(), title)
+	st, err := s.store.CreateSubtask(s.selectedTaskID(), title)
 	return st.ID, err
 }
 
 func (s *tasksScreen) deleteItem(kind paneKind, id int64) {
 	if kind == kindTask {
-		db.DeleteTask(s.db, id)
+		s.store.DeleteTask(id)
 		return
 	}
-	db.DeleteSubtask(s.db, id)
+	s.store.DeleteSubtask(id)
 }
 
 func (s *tasksScreen) resize(w, h int) {
@@ -1487,9 +1487,9 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			var err error
 			if s.inputKind == kindTask {
-				err = db.UpdateTaskTitle(s.db, s.editID, title)
+				err = s.store.UpdateTaskTitle(s.editID, title)
 			} else {
-				err = db.UpdateSubtaskTitle(s.db, s.editID, title)
+				err = s.store.UpdateSubtaskTitle(s.editID, title)
 			}
 			s.lastErr = err
 			if err == nil {
@@ -1525,9 +1525,9 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "ctrl+s":
 			kind, id := s.selectedKindID()
 			if kind == kindTask {
-				db.UpdateTaskDescription(s.db, id, s.descText.Value())
+				s.store.UpdateTaskDescription(id, s.descText.Value())
 			} else {
-				db.UpdateSubtaskDescription(s.db, id, s.descText.Value())
+				s.store.UpdateSubtaskDescription(id, s.descText.Value())
 			}
 			s.descText.Blur()
 			s.mode = taskBrowse
@@ -1560,9 +1560,9 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					kind, id := s.selectedKindID()
 					var err error
 					if kind == kindTask {
-						_, err = db.CreateTaskLink(s.db, id, strings.TrimSpace(s.linkName.Value()), url)
+						_, err = s.store.CreateTaskLink(id, strings.TrimSpace(s.linkName.Value()), url)
 					} else {
-						_, err = db.CreateSubtaskLink(s.db, id, strings.TrimSpace(s.linkName.Value()), url)
+						_, err = s.store.CreateSubtaskLink(id, strings.TrimSpace(s.linkName.Value()), url)
 					}
 					s.lastErr = err
 					if err == nil {
@@ -1614,9 +1614,9 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "y", "enter":
 			kind, _ := s.selectedKindID()
 			if kind == kindTask {
-				db.DeleteTaskLink(s.db, s.confirmLinkID)
+				s.store.DeleteTaskLink(s.confirmLinkID)
 			} else {
-				db.DeleteSubtaskLink(s.db, s.confirmLinkID)
+				s.store.DeleteSubtaskLink(s.confirmLinkID)
 			}
 			s.mode = taskLinks
 			s.loadDesc()
@@ -1633,9 +1633,9 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			kind, id := s.selectedKindID()
 			if kind == kindSubtask && id != 0 && text != "" {
 				if s.journalEditID != 0 {
-					db.UpdateJournalEntry(s.db, s.journalEditID, text)
+					s.store.UpdateJournalEntry(s.journalEditID, text)
 				} else {
-					db.CreateJournalEntry(s.db, id, text)
+					s.store.CreateJournalEntry(id, text)
 				}
 			}
 			s.journalText.Blur()
@@ -1677,7 +1677,7 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "ctrl+s":
 			note := strings.TrimSpace(s.statusNote.Value())
 			if s.statusTarget != nil {
-				if err := db.SetStatus(s.db, dbOwner(s.statusKind), s.statusID,
+				if err := s.store.SetStatus(dbOwner(s.statusKind), s.statusID,
 					s.statusTarget.Name, note, time.Now()); err == nil {
 					s.now = time.Now()
 					s.loadData()
@@ -1805,7 +1805,7 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case taskTagConfirm:
 		switch msg.String() {
 		case "y", "enter":
-			db.DeleteTag(s.db, s.tagConfirmID)
+			s.store.DeleteTag(s.tagConfirmID)
 			s.loadTags()
 			s.loadData()
 			s.mode = taskTags

@@ -6,7 +6,6 @@ import (
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/detrenasama/tasky/internal/db"
 	"github.com/detrenasama/tasky/internal/ui/theme"
 )
 
@@ -39,7 +38,7 @@ func (m *model) paletteGroups() []cmdGroup {
 		{title: "Задачи", keys: "ctrl+t", run: func(m *model) { m.switchScreen(screenTasks) }},
 		{title: "Проекты", keys: "ctrl+p", run: func(m *model) { m.switchScreen(screenProjects) }},
 		{title: "Отчеты", keys: "ctrl+r", run: func(m *model) {
-			if run, err := db.RunningSession(m.db); err == nil && run != nil {
+			if run, err := m.store.RunningSession(); err == nil && run != nil {
 				m.reportConfirm = true
 				m.reportTitle = run.Title
 				return

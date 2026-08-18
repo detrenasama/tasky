@@ -24,6 +24,11 @@ run:
 clean:
     rm -rf dist
 
+# Перегенерация gRPC-кода из proto/tasky.proto (нужен protoc + protoc-gen-go/go-grpc)
+proto:
+    PATH="{{env("HOME")}}/go/bin:${PATH}" protoc --go_out=. --go_opt=module=github.com/detrenasama/tasky \
+        --go-grpc_out=. --go-grpc_opt=module=github.com/detrenasama/tasky proto/tasky.proto
+
 # Сборка одного таргета: just build-target linux arm64
 build-target os arch:
     CGO_ENABLED=0 GOOS={{os}} GOARCH={{arch}} go build -ldflags "-s -w -X main.version={{VERSION}}" \

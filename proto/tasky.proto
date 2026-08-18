@@ -1,0 +1,466 @@
+syntax = "proto3";
+
+package tasky;
+
+option go_package = "github.com/detrenasama/tasky/internal/rpc;rpc";
+
+// Сообщения зеркалят типы internal/db; время — unix-секунды (как в БД).
+
+message Project {
+  int64 id = 1;
+  string name = 2;
+  string desc = 3;
+  int64 created_at = 4;
+}
+
+message Task {
+  int64 id = 1;
+  int64 project_id = 2;
+  string title = 3;
+  string description = 4;
+  string status = 5;
+  int64 created_at = 6;
+  optional int64 completed_at = 7;
+  int32 sub_count = 8;
+}
+
+message SubtaskWithTime {
+  int64 id = 1;
+  int64 task_id = 2;
+  string title = 3;
+  string description = 4;
+  string status = 5;
+  int64 sort_order = 6;
+  int64 created_at = 7;
+  optional int64 completed_at = 8;
+  int64 total_seconds = 9;
+  optional int64 active_since = 10;
+}
+
+message TimeEntry {
+  int64 id = 1;
+  int64 subtask_id = 2;
+  int64 started_at = 3;
+  optional int64 ended_at = 4;
+  string note = 5;
+}
+
+message Link {
+  int64 id = 1;
+  int64 owner_id = 2;
+  string name = 3;
+  string url = 4;
+  int64 created_at = 5;
+}
+
+message JournalEntry {
+  int64 id = 1;
+  int64 subtask_id = 2;
+  int64 created_at = 3;
+  string text = 4;
+}
+
+message StatusDef {
+  int64 id = 1;
+  string name = 2;
+  string type = 3;
+  string color = 4;
+  string note_prompt = 5;
+  bool is_quick = 6;
+  int32 sort_order = 7;
+}
+
+message StatusHistoryEntry {
+  string from = 1;
+  string to = 2;
+  string note = 3;
+  int64 created_at = 4;
+}
+
+message TagType {
+  int64 id = 1;
+  string name = 2;
+  string kind = 3;
+  string color = 4;
+  int32 sort_order = 5;
+}
+
+message Tag {
+  int64 id = 1;
+  int64 task_id = 2;
+  int64 type_id = 3;
+  string type_name = 4;
+  string kind = 5;
+  string color = 6;
+  string text = 7;
+  string url = 8;
+  int64 created_at = 9;
+}
+
+message ReportEntry {
+  int64 project_id = 1;
+  string project_name = 2;
+  int64 task_id = 3;
+  string task_title = 4;
+  int64 subtask_id = 5;
+  string subtask_title = 6;
+  int64 seconds = 7;
+}
+
+message ReportJournalEntry {
+  int64 subtask_id = 1;
+  int64 created_at = 2;
+  string text = 3;
+}
+
+// TagList — обёртка для map<int64, TagList> (proto не умеет map c repeated).
+message TagList {
+  repeated Tag tags = 1;
+}
+
+// Общие запросы/ответы.
+
+message Empty {}
+
+message IDRequest {
+  int64 id = 1;
+}
+
+message StringResponse {
+  string value = 1;
+}
+
+message BoolResponse {
+  bool ok = 1;
+}
+
+message DurationResponse {
+  int64 seconds = 1;
+}
+
+message ProjectNameRequest {
+  string name = 1;
+}
+
+message ProjectIDRequest {
+  int64 project_id = 1;
+}
+
+message TaskIDRequest {
+  int64 task_id = 1;
+}
+
+message CreateTaskRequest {
+  int64 project_id = 1;
+  string title = 2;
+}
+
+message CreateSubtaskRequest {
+  int64 task_id = 1;
+  string title = 2;
+}
+
+message SubtaskIDRequest {
+  int64 subtask_id = 1;
+}
+
+message LinkNameRequest {
+  int64 id = 1;
+  string name = 2;
+  string url = 3;
+}
+
+message MoveRequest {
+  int64 id = 1;
+  int32 dir = 2;
+}
+
+message TextRequest {
+  int64 id = 1;
+  string text = 2;
+}
+
+message TitleRequest {
+  int64 id = 1;
+  string title = 2;
+}
+
+message JournalTextRequest {
+  int64 id = 1;
+  string text = 2;
+}
+
+message LinkOwnerRequest {
+  int64 owner_id = 1;
+  string name = 2;
+  string url = 3;
+}
+
+message TimeRequest {
+  int64 subtask_id = 1;
+  int64 now = 2;
+}
+
+message RangeRequest {
+  int64 from = 1;
+  int64 to = 2;
+  int64 project_id = 3;
+}
+
+message RangeNoProjectRequest {
+  int64 from = 1;
+  int64 to = 2;
+}
+
+message StatusRequest {
+  string name = 1;
+  string type = 2;
+  string color = 3;
+  string note = 4;
+  bool quick = 5;
+}
+
+message StatusUpdateRequest {
+  int64 id = 1;
+  string name = 2;
+  string type = 3;
+  string color = 4;
+  string note = 5;
+  bool quick = 6;
+}
+
+enum StatusOwner {
+  OWNER_TASK = 0;
+  OWNER_SUBTASK = 1;
+}
+
+message SetStatusRequest {
+  StatusOwner owner = 1;
+  int64 id = 2;
+  string to = 3;
+  string note = 4;
+  int64 now = 5;
+}
+
+message HistoryRequest {
+  StatusOwner owner = 1;
+  int64 id = 2;
+}
+
+message TagTypeRequest {
+  string name = 1;
+  string kind = 2;
+  string color = 3;
+}
+
+message TagTypeUpdateRequest {
+  int64 id = 1;
+  string name = 2;
+  string kind = 3;
+  string color = 4;
+}
+
+message TagRequest {
+  int64 task_id = 1;
+  int64 type_id = 2;
+  string text = 3;
+  string url = 4;
+}
+
+message TagUpdateRequest {
+  int64 id = 1;
+  int64 type_id = 2;
+  string text = 3;
+  string url = 4;
+}
+
+message SettingRequest {
+  string key = 1;
+  string value = 2;
+}
+
+message GetSettingResponse {
+  string value = 1;
+  bool ok = 2;
+}
+
+message JournalTextsResponse {
+  map<int64, string> texts = 1;
+}
+
+message ProjectLinksTextsResponse {
+  map<int64, string> texts = 1;
+}
+
+message TagsMapResponse {
+  map<int64, TagList> tags = 1;
+}
+
+message ProjectListResponse {
+  repeated Project projects = 1;
+}
+
+message ProjectResponse {
+  Project project = 1;
+}
+
+message LinkListResponse {
+  repeated Link links = 1;
+}
+
+message LinkResponse {
+  Link link = 1;
+}
+
+message TaskListResponse {
+  repeated Task tasks = 1;
+}
+
+message SubtaskListResponse {
+  repeated SubtaskWithTime subtasks = 1;
+}
+
+message TaskResponse {
+  Task task = 1;
+}
+
+message SubtaskResponse {
+  SubtaskWithTime subtask = 1;
+}
+
+message TimeEntryListResponse {
+  repeated TimeEntry entries = 1;
+}
+
+message RunningSessionResponse {
+  SubtaskWithTime subtask = 1;
+}
+
+message JournalEntryListResponse {
+  repeated JournalEntry entries = 1;
+}
+
+message JournalEntryResponse {
+  JournalEntry entry = 1;
+}
+
+message StatusListResponse {
+  repeated StatusDef statuses = 1;
+}
+
+message StatusResponse {
+  StatusDef status = 1;
+}
+
+message HistoryListResponse {
+  repeated StatusHistoryEntry entries = 1;
+}
+
+message TagTypeListResponse {
+  repeated TagType tag_types = 1;
+}
+
+message TagTypeResponse {
+  TagType tag_type = 1;
+}
+
+message TagListResponse {
+  repeated Tag tags = 1;
+}
+
+message TagResponse {
+  Tag tag = 1;
+}
+
+message ReportEntryListResponse {
+  repeated ReportEntry entries = 1;
+}
+
+message ReportJournalEntryListResponse {
+  repeated ReportJournalEntry entries = 1;
+}
+
+message TagsByTasksRequest {
+  repeated int64 task_ids = 1;
+}
+
+// Tasky — тонкий CRUD-сервис, зеркало интерфейса store.Store.
+service Tasky {
+  // Проекты.
+  rpc ListProjects(Empty) returns (ProjectListResponse);
+  rpc CreateProject(ProjectNameRequest) returns (ProjectResponse);
+  rpc DeleteProject(IDRequest) returns (Empty);
+  rpc ProjectDescription(IDRequest) returns (StringResponse);
+  rpc UpdateProjectDescription(TextRequest) returns (Empty);
+  rpc ProjectLinks(ProjectIDRequest) returns (LinkListResponse);
+  rpc CreateProjectLink(LinkOwnerRequest) returns (LinkResponse);
+  rpc DeleteProjectLink(IDRequest) returns (Empty);
+  rpc ProjectLinksTexts(Empty) returns (ProjectLinksTextsResponse);
+
+  // Задачи и подзадачи.
+  rpc TasksByProject(ProjectIDRequest) returns (TaskListResponse);
+  rpc SubtasksByProject(ProjectIDRequest) returns (SubtaskListResponse);
+  rpc SubtasksWithTime(TaskIDRequest) returns (SubtaskListResponse);
+  rpc CreateTask(CreateTaskRequest) returns (TaskResponse);
+  rpc DeleteTask(IDRequest) returns (Empty);
+  rpc CreateSubtask(CreateSubtaskRequest) returns (SubtaskResponse);
+  rpc DeleteSubtask(IDRequest) returns (Empty);
+  rpc MoveTask(MoveRequest) returns (Empty);
+  rpc MoveSubtask(MoveRequest) returns (Empty);
+  rpc UpdateTaskTitle(TitleRequest) returns (Empty);
+  rpc UpdateSubtaskTitle(TitleRequest) returns (Empty);
+  rpc TaskDescription(IDRequest) returns (StringResponse);
+  rpc SubtaskDescription(IDRequest) returns (StringResponse);
+  rpc UpdateTaskDescription(TextRequest) returns (Empty);
+  rpc UpdateSubtaskDescription(TextRequest) returns (Empty);
+
+  // Ссылки задач и подзадач.
+  rpc TaskLinks(TaskIDRequest) returns (LinkListResponse);
+  rpc SubtaskLinks(SubtaskIDRequest) returns (LinkListResponse);
+  rpc CreateTaskLink(LinkOwnerRequest) returns (LinkResponse);
+  rpc CreateSubtaskLink(LinkOwnerRequest) returns (LinkResponse);
+  rpc DeleteTaskLink(IDRequest) returns (Empty);
+  rpc DeleteSubtaskLink(IDRequest) returns (Empty);
+
+  // Журнал подзадач.
+  rpc JournalEntries(SubtaskIDRequest) returns (JournalEntryListResponse);
+  rpc CreateJournalEntry(JournalTextRequest) returns (JournalEntryResponse);
+  rpc UpdateJournalEntry(JournalTextRequest) returns (Empty);
+  rpc JournalTexts(ProjectIDRequest) returns (JournalTextsResponse);
+
+  // Учёт времени.
+  rpc StartSession(TimeRequest) returns (Empty);
+  rpc StopSession(TimeRequest) returns (Empty);
+  rpc TimeEntriesBySubtask(SubtaskIDRequest) returns (TimeEntryListResponse);
+  rpc RunningSession(Empty) returns (RunningSessionResponse);
+  rpc TodayTotal(Empty) returns (DurationResponse);
+  rpc WeeklyTotal(Empty) returns (DurationResponse);
+
+  // Отчёты.
+  rpc ReportEntries(RangeRequest) returns (ReportEntryListResponse);
+  rpc JournalEntriesByRange(RangeNoProjectRequest) returns (ReportJournalEntryListResponse);
+  rpc TagsByTasks(TagsByTasksRequest) returns (TagsMapResponse);
+
+  // Каталог статусов и история.
+  rpc ListStatuses(Empty) returns (StatusListResponse);
+  rpc CreateStatus(StatusRequest) returns (StatusResponse);
+  rpc UpdateStatus(StatusUpdateRequest) returns (Empty);
+  rpc DeleteStatus(IDRequest) returns (Empty);
+  rpc SetStatus(SetStatusRequest) returns (Empty);
+  rpc StatusHistory(HistoryRequest) returns (HistoryListResponse);
+
+  // Каталог типов тегов и теги задач.
+  rpc ListTagTypes(Empty) returns (TagTypeListResponse);
+  rpc CreateTagType(TagTypeRequest) returns (TagTypeResponse);
+  rpc UpdateTagType(TagTypeUpdateRequest) returns (Empty);
+  rpc DeleteTagType(IDRequest) returns (Empty);
+  rpc TaskTags(TaskIDRequest) returns (TagListResponse);
+  rpc TagsByProject(ProjectIDRequest) returns (TagsMapResponse);
+  rpc CreateTag(TagRequest) returns (TagResponse);
+  rpc UpdateTag(TagUpdateRequest) returns (Empty);
+  rpc DeleteTag(IDRequest) returns (Empty);
+
+  // Настройки.
+  rpc GetSetting(SettingRequest) returns (GetSettingResponse);
+  rpc SetSetting(SettingRequest) returns (Empty);
+}

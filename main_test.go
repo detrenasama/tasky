@@ -9,10 +9,29 @@ import (
 
 func TestBuildHelpText(t *testing.T) {
 	text := buildHelpText()
-	for _, want := range []string{"tasky upgrade", "tasky --version", "tasky help", "TASKY_HOME"} {
+	for _, want := range []string{"tasky upgrade", "tasky --version", "tasky help", "TASKY_HOME", "tasky serve", "tasky attach", "TASKY_SOCKET", "--socket"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("справка не содержит %q", want)
 		}
+	}
+}
+
+func TestSocketPath(t *testing.T) {
+	t.Setenv("TASKY_HOME", "/tmp/th")
+	t.Setenv("TASKY_SOCKET", "")
+
+	if got := socketPath(nil); got != "/tmp/th/tasky.sock" {
+		t.Errorf("дефолт: %q", got)
+	}
+	t.Setenv("TASKY_SOCKET", "/env/sock")
+	if got := socketPath(nil); got != "/env/sock" {
+		t.Errorf("env: %q", got)
+	}
+	if got := socketPath([]string{"--socket", "/arg/sock"}); got != "/arg/sock" {
+		t.Errorf("флаг: %q", got)
+	}
+	if got := socketPath([]string{"--socket", "/arg/sock", "TASKY_SOCKET=/env/sock"}); got != "/arg/sock" {
+		t.Errorf("флаг приоритетнее env: %q", got)
 	}
 }
 

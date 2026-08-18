@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/detrenasama/tasky/internal/db"
+	"github.com/detrenasama/tasky/internal/store"
 )
 
 func TestProjectsResizeColumns(t *testing.T) {
@@ -18,7 +19,7 @@ func TestProjectsResizeColumns(t *testing.T) {
 	if _, err := db.CreateProject(conn, "P"); err != nil {
 		t.Fatal(err)
 	}
-	s := newProjectsScreen(conn)
+	s := newProjectsScreen(store.NewSQLite(conn))
 	s.load()
 	cases := []struct{ w, list, desc, info int }{
 		{150, 30, 87, 29},
@@ -45,7 +46,7 @@ func TestProjectsViewFillsWidth(t *testing.T) {
 	if _, err := db.CreateProject(conn, "P"); err != nil {
 		t.Fatal(err)
 	}
-	s := newProjectsScreen(conn)
+	s := newProjectsScreen(store.NewSQLite(conn))
 	s.load()
 	for _, w := range []int{150, 90, 60} {
 		s.resize(w, 26)
@@ -78,7 +79,7 @@ func TestProjectsDescBox(t *testing.T) {
 	if _, err := db.CreateProjectLink(conn, p.ID, "Доки", "https://example.com"); err != nil {
 		t.Fatal(err)
 	}
-	s := newProjectsScreen(conn)
+	s := newProjectsScreen(store.NewSQLite(conn))
 	s.load()
 	s.resize(150, 26)
 
@@ -109,7 +110,7 @@ func TestProjectsFocusTab(t *testing.T) {
 	if _, err := db.CreateProject(conn, "P"); err != nil {
 		t.Fatal(err)
 	}
-	m := model{proj: newProjectsScreen(conn)}
+	m := model{proj: newProjectsScreen(store.NewSQLite(conn))}
 	m.proj.load()
 	m.proj.resize(150, 26)
 	key := func(t tea.KeyType) tea.KeyMsg { return tea.KeyMsg{Type: t} }
@@ -140,7 +141,7 @@ func TestProjectsDescKeysOnlyInDescFocus(t *testing.T) {
 	if err := db.UpdateProjectDescription(conn, p.ID, strings.Repeat("строка длинного описания ", 100)); err != nil {
 		t.Fatal(err)
 	}
-	m := model{proj: newProjectsScreen(conn)}
+	m := model{proj: newProjectsScreen(store.NewSQLite(conn))}
 	m.proj.load()
 	m.proj.resize(150, 26)
 	key := func(t tea.KeyType) tea.KeyMsg { return tea.KeyMsg{Type: t} }
@@ -221,7 +222,7 @@ func TestProjectLinksEscDoesNotQuit(t *testing.T) {
 	if _, err := db.CreateProjectLink(conn, p.ID, "", "https://example.com"); err != nil {
 		t.Fatal(err)
 	}
-	m := model{proj: newProjectsScreen(conn), tasks: newTasksScreen(conn), screen: screenProjects}
+	m := model{proj: newProjectsScreen(store.NewSQLite(conn)), tasks: newTasksScreen(store.NewSQLite(conn)), screen: screenProjects}
 	m.proj.load()
 	m.proj.resize(150, 26)
 
@@ -253,7 +254,7 @@ func TestProjectLinkAddFlow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := model{proj: newProjectsScreen(conn)}
+	m := model{proj: newProjectsScreen(store.NewSQLite(conn))}
 	m.proj.load()
 	m.proj.resize(150, 26)
 	runes := func(r rune) tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}} }
@@ -338,7 +339,7 @@ func TestProjectLinkDeleteConfirm(t *testing.T) {
 	if _, err := db.CreateProjectLink(conn, p.ID, "Доки", "https://example.com"); err != nil {
 		t.Fatal(err)
 	}
-	m := model{proj: newProjectsScreen(conn)}
+	m := model{proj: newProjectsScreen(store.NewSQLite(conn))}
 	m.proj.load()
 	m.proj.resize(150, 26)
 
@@ -398,7 +399,7 @@ func TestProjectsDescBoxTruncatesLongLink(t *testing.T) {
 	if _, err := db.CreateProjectLink(conn, p.ID, strings.Repeat("оченьдлинноеназвание", 10), "https://example.com"); err != nil {
 		t.Fatal(err)
 	}
-	s := newProjectsScreen(conn)
+	s := newProjectsScreen(store.NewSQLite(conn))
 	s.load()
 	s.resize(150, 26)
 
@@ -432,7 +433,7 @@ func TestProjectSearch(t *testing.T) {
 	if _, err := db.CreateProjectLink(conn, p1.ID, "Доки", "https://example.com"); err != nil {
 		t.Fatal(err)
 	}
-	s := newProjectsScreen(conn)
+	s := newProjectsScreen(store.NewSQLite(conn))
 	s.load()
 	m := &model{proj: s}
 	runes := func(r rune) tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}} }
@@ -498,7 +499,7 @@ func TestProjectSearch(t *testing.T) {
 	// esc в браузе при активном поиске: сброс через main.go, экран не меняется
 	s.searchQuery = "верст"
 	s.buildItems()
-	m2 := model{db: conn, tasks: newTasksScreen(conn), proj: s, screen: screenProjects}
+	m2 := model{store: store.NewSQLite(conn), tasks: newTasksScreen(store.NewSQLite(conn)), proj: s, screen: screenProjects}
 	m2.tasks.load()
 	mm, _ := m2.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	m2 = mm.(model)

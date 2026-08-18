@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"database/sql"
 	"fmt"
 	"strconv"
 	"strings"
@@ -11,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbletea"
 
 	"github.com/detrenasama/tasky/internal/db"
+	"github.com/detrenasama/tasky/internal/store"
 	"github.com/detrenasama/tasky/internal/ui/theme"
 )
 
@@ -43,7 +43,7 @@ var tagKindCodes = []string{"text", "task_id"}
 // проекта, журнал, каталог сохранения), скрытие завершённых задач и каталог
 // статусов. Значения отчёта пишутся в общий reportConfig экрана отчётов.
 type settingsScreen struct {
-	db          *sql.DB
+	store       store.Store
 	cfg         *reportConfig
 	mode        settingsMode
 	sel         int
@@ -80,13 +80,13 @@ type settingsScreen struct {
 	midH int
 }
 
-func newSettingsScreen(conn *sql.DB, cfg *reportConfig) *settingsScreen {
+func newSettingsScreen(st store.Store, cfg *reportConfig) *settingsScreen {
 	ti := textinput.New()
 	ti.Placeholder = "reports"
 	pi := textinput.New()
 	pi.Placeholder = "02.08.2026 или 01.08.2026-05.08.2026"
 
-	s := &settingsScreen{db: conn, cfg: cfg, dirInput: ti, periodInput: pi}
+	s := &settingsScreen{store: st, cfg: cfg, dirInput: ti, periodInput: pi}
 	s.hideInput = textinput.New()
 	s.hideInput.Placeholder = "7"
 	s.hideInput.Prompt = "> "
@@ -121,7 +121,7 @@ func newSettingsScreen(conn *sql.DB, cfg *reportConfig) *settingsScreen {
 }
 
 func (s *settingsScreen) load() {
-	s.projects, _ = db.Projects(s.db)
+	s.projects, _ = s.store.Projects()
 	if s.cfg.projectID != 0 {
 		found := false
 		for _, p := range s.projects {
@@ -139,24 +139,24 @@ func (s *settingsScreen) load() {
 		items = append(items, pickItem{value: p.ID, label: p.Name})
 	}
 	s.projPick.items = items
-	s.statuses, _ = db.Statuses(s.db)
+	s.statuses, _ = s.store.Statuses()
 	sItems := make([]pickItem, 0, len(s.statuses))
 	for _, st := range s.statuses {
 		sItems = append(sItems, pickItem{value: st.ID, label: st.Name})
 	}
 	s.statusPick.items = sItems
-	s.tagTypes, _ = db.TagTypes(s.db)
+	s.tagTypes, _ = s.store.TagTypes()
 	tItems := make([]pickItem, 0, len(s.tagTypes))
 	for _, tt := range s.tagTypes {
 		tItems = append(tItems, pickItem{value: tt.ID, label: tt.Name})
 	}
 	s.tagTypePick.items = tItems
-	s.hideDays = loadHideDays(s.db)
+	s.hideDays = loadHideDays(s.store)
 }
 
 // loadHideDays читает порог скрытия завершённых задач из БД (по умолчанию 7).
-func loadHideDays(conn *sql.DB) int {
-	v, ok, err := db.GetSetting(conn, "hide_days")
+func loadHideDays(st store.Store) int {
+	v, ok, err := st.GetSetting("hide_days")
 	if err != nil || !ok {
 		return 7
 	}
@@ -571,7 +571,7 @@ func (m *model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				s.lastErr = err
 				return m, nil
 			}
-			if err := db.SetSetting(s.db, "hide_days", strconv.Itoa(n)); err != nil {
+			if err := s.store.SetSetting("hide_days", strconv.Itoa(n)); err != nil {
 				s.lastErr = err
 				return m, nil
 			}
@@ -677,7 +677,7 @@ func (m *model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case settingsStatusConfirm:
 		switch msg.String() {
 		case "y", "enter":
-			if err := db.DeleteStatus(s.db, s.statusDelID); err != nil {
+			if err := s.store.DeleteStatus(s.statusDelID); err != nil {
 				s.lastErr = err
 			} else {
 				s.lastErr = nil
@@ -749,7 +749,7 @@ func (m *model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case settingsTagTypeConfirm:
 		switch msg.String() {
 		case "y", "enter":
-			if err := db.DeleteTagType(s.db, s.tagTypeDelID); err != nil {
+			if err := s.store.DeleteTagType(s.tagTypeDelID); err != nil {
 				s.lastErr = err
 			} else {
 				s.lastErr = nil
@@ -776,7 +776,7 @@ func (m *model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					s.lastErr = err
 				} else {
 					s.lastErr = nil
-					db.SetSetting(s.db, "theme", it.label)
+					s.store.SetSetting("theme", it.label)
 					m.retheme()
 				}
 			}
@@ -889,10 +889,10 @@ func (s *settingsScreen) saveStatusEdit() {
 	}
 	var err error
 	if s.statusEditID == 0 {
-		_, err = db.CreateStatus(s.db, name, statusTypeCodes[s.editType],
+		_, err = s.store.CreateStatus(name, statusTypeCodes[s.editType],
 			theme.StatusPalette[s.editColor], strings.TrimSpace(s.editNote.Value()), s.editQuick)
 	} else {
-		err = db.UpdateStatus(s.db, s.statusEditID, name, statusTypeCodes[s.editType],
+		err = s.store.UpdateStatus(s.statusEditID, name, statusTypeCodes[s.editType],
 			theme.StatusPalette[s.editColor], strings.TrimSpace(s.editNote.Value()), s.editQuick)
 	}
 	if err != nil {
@@ -949,10 +949,10 @@ func (s *settingsScreen) saveTagTypeEdit() {
 	}
 	var err error
 	if s.tagTypeEditID == 0 {
-		_, err = db.CreateTagType(s.db, name, tagKindCodes[s.editKind],
+		_, err = s.store.CreateTagType(name, tagKindCodes[s.editKind],
 			theme.StatusPalette[s.editColor])
 	} else {
-		err = db.UpdateTagType(s.db, s.tagTypeEditID, name, tagKindCodes[s.editKind],
+		err = s.store.UpdateTagType(s.tagTypeEditID, name, tagKindCodes[s.editKind],
 			theme.StatusPalette[s.editColor])
 	}
 	if err != nil {

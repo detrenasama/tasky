@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"database/sql"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -10,7 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbletea"
 
-	"github.com/detrenasama/tasky/internal/db"
+	"github.com/detrenasama/tasky/internal/store"
 	"github.com/detrenasama/tasky/internal/ui/theme"
 	"github.com/detrenasama/tasky/internal/update"
 )
@@ -54,7 +53,7 @@ func tabsLine(cur screen, w int) string {
 // model — корневая модель приложения: переключение экранов (вкладки),
 // тик 1с, хром (шапка/подвал/вкладки) и общие диалоги выхода/отчётов.
 type model struct {
-	db     *sql.DB
+	store  store.Store
 	screen screen
 	width  int
 	height int
@@ -89,18 +88,18 @@ type model struct {
 // New создаёт корневую модель: экраны, общий конфиг отчётов, первичная
 // загрузка данных. dataDir — корень данных (база, отчёты по умолчанию);
 // version — версия сборки.
-func New(conn *sql.DB, dataDir, version string) *model {
-	m := &model{db: conn, version: version}
-	m.tasks = newTasksScreen(conn)
+func New(st store.Store, dataDir, version string) *model {
+	m := &model{store: st, version: version}
+	m.tasks = newTasksScreen(st)
 	m.tasks.version = version
 	m.tasks.now = time.Now()
 	m.tasks.load()
-	m.proj = newProjectsScreen(conn)
+	m.proj = newProjectsScreen(st)
 	m.proj.load()
 	repCfg := &reportConfig{period: periodToday, saveDir: filepath.Join(dataDir, "reports")}
-	m.reports = newReportsScreen(conn, repCfg)
+	m.reports = newReportsScreen(st, repCfg)
 	m.reports.load()
-	m.settings = newSettingsScreen(conn, repCfg)
+	m.settings = newSettingsScreen(st, repCfg)
 	pi := textinput.New()
 	pi.Placeholder = "поиск команд…"
 	pi.Prompt = "> "
@@ -147,8 +146,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.quitting {
 			switch msg.String() {
 			case "y", "enter":
-				if run, err := db.RunningSession(m.db); err == nil && run != nil {
-					db.StopSession(m.db, run.ID, time.Now())
+				if run, err := m.store.RunningSession(); err == nil && run != nil {
+					m.store.StopSession(run.ID, time.Now())
 				}
 				return m, tea.Quit
 			case "n", "esc", "q", "ctrl+c":
@@ -159,8 +158,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.reportConfirm {
 			switch msg.String() {
 			case "y", "enter":
-				if run, err := db.RunningSession(m.db); err == nil && run != nil {
-					db.StopSession(m.db, run.ID, time.Now())
+				if run, err := m.store.RunningSession(); err == nil && run != nil {
+					m.store.StopSession(run.ID, time.Now())
 				}
 				m.reportConfirm = false
 				m.switchScreen(screenReports)
@@ -203,7 +202,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		switch msg.String() {
 		case "q", "ctrl+c":
-			if run, err := db.RunningSession(m.db); err == nil && run != nil {
+			if run, err := m.store.RunningSession(); err == nil && run != nil {
 				m.quitting = true
 				m.quitTitle = run.Title
 				return m, nil
@@ -228,7 +227,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.switchScreen(screenProjects)
 				return m, nil
 			case "r":
-				if run, err := db.RunningSession(m.db); err == nil && run != nil {
+				if run, err := m.store.RunningSession(); err == nil && run != nil {
 					m.reportConfirm = true
 					m.reportTitle = run.Title
 					return m, nil
@@ -259,8 +258,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		now := time.Time(msg)
 		m.tasks.now = now
 		if m.screen == screenTasks {
-			m.tasks.today, _ = db.TodayTotal(m.db, now)
-			m.tasks.weekly, _ = db.WeeklyTotal(m.db, now)
+			m.tasks.today, _ = m.store.TodayTotal(now)
+			m.tasks.weekly, _ = m.store.WeeklyTotal(now)
 		}
 		return m, tea.Tick(time.Second, tickCmd)
 	case updateMsg:

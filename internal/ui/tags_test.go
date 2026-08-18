@@ -8,6 +8,7 @@ import (
 
 	"github.com/charmbracelet/bubbletea"
 	"github.com/detrenasama/tasky/internal/db"
+	"github.com/detrenasama/tasky/internal/store"
 )
 
 // TestTaskTagsFlow — клавиша g открывает модалку тегов задачи, n создаёт тег
@@ -160,7 +161,7 @@ func TestTaskSearchByTag(t *testing.T) {
 	if _, err := db.CreateTag(conn, t1.ID, types[0].ID, "GW-567", ""); err != nil {
 		t.Fatal(err)
 	}
-	s := newTasksScreen(conn)
+	s := newTasksScreen(store.NewSQLite(conn))
 	s.load()
 	runes := func(r rune) tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}} }
 

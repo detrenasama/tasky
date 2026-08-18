@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/detrenasama/tasky/internal/db"
+	"github.com/detrenasama/tasky/internal/store"
 	"github.com/detrenasama/tasky/internal/ui/theme"
 	"github.com/muesli/termenv"
 )
@@ -62,7 +63,7 @@ func TestViewColumnsWithTasks(t *testing.T) {
 	if _, err := db.CreateTask(conn, p.ID, "T"); err != nil {
 		t.Fatal(err)
 	}
-	s := newTasksScreen(conn)
+	s := newTasksScreen(store.NewSQLite(conn))
 	s.load()
 	s.resize(150, 26)
 	// три колонки: 59 + 2 + 58 + 2 + 29 = 150; каждая панель ровно своей
@@ -133,7 +134,7 @@ func TestInfoBottomVisible(t *testing.T) {
 	if err := db.StopSession(conn, st.ID, now.Add(2*time.Second)); err != nil {
 		t.Fatal(err)
 	}
-	s := newTasksScreen(conn)
+	s := newTasksScreen(store.NewSQLite(conn))
 	s.load()
 	s.resize(150, 26)
 	rows := strings.Split(s.view(150, 26), "\n")
@@ -208,7 +209,7 @@ func TestHideCompletedTasks(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s := newTasksScreen(conn)
+	s := newTasksScreen(store.NewSQLite(conn))
 	s.now = now
 	s.load()
 	byID := map[int64]db.Task{}
@@ -337,7 +338,7 @@ func TestTaskSearch(t *testing.T) {
 	if err := db.UpdateTaskDescription(conn, t2.ID, "ежемесячная сводка"); err != nil {
 		t.Fatal(err)
 	}
-	s := newTasksScreen(conn)
+	s := newTasksScreen(store.NewSQLite(conn))
 	s.load()
 	runes := func(r rune) tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}} }
 
@@ -465,7 +466,7 @@ func TestTasksDescBox(t *testing.T) {
 
 func TestTasksDescKeysOnlyInDescFocus(t *testing.T) {
 	conn, s, task, _ := tasksSeedProject(t)
-	m := &model{tasks: s, proj: newProjectsScreen(conn)}
+	m := &model{tasks: s, proj: newProjectsScreen(store.NewSQLite(conn))}
 	runes := func(r rune) tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}} }
 
 	// e в фокусе списка открывает модалку изменения названия
@@ -1182,7 +1183,7 @@ func TestTasksMoveSelected(t *testing.T) {
 	if _, err := db.CreateTask(conn, p.ID, "T3"); err != nil {
 		t.Fatal(err)
 	}
-	s := newTasksScreen(conn)
+	s := newTasksScreen(store.NewSQLite(conn))
 	s.load()
 
 	// первая задача вниз: порядок меняется, выделение сохраняется
@@ -1265,7 +1266,7 @@ func TestTasksMoveSubtaskAfterOtherTasks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := newTasksScreen(conn)
+	s := newTasksScreen(store.NewSQLite(conn))
 	s.load()
 
 	// T0 → T1, раскрыть, встать на S1, опустить

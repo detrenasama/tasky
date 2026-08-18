@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/bubbletea"
 	"github.com/detrenasama/tasky/internal/db"
+	"github.com/detrenasama/tasky/internal/store"
 )
 
 func newTestTasksScreen(t *testing.T) *tasksScreen {
@@ -16,7 +17,7 @@ func newTestTasksScreen(t *testing.T) *tasksScreen {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { conn.Close() })
-	s := newTasksScreen(conn)
+	s := newTasksScreen(store.NewSQLite(conn))
 	s.load()
 	return s
 }
@@ -55,7 +56,7 @@ func tasksSeedProject(t *testing.T) (*sql.DB, *tasksScreen, db.Task, db.SubtaskW
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := newTasksScreen(conn)
+	s := newTasksScreen(store.NewSQLite(conn))
 	s.load()
 	s.resize(150, 26)
 	return conn, s, task, st
@@ -143,12 +144,13 @@ func reportsSeedProject(t *testing.T) (*sql.DB, db.Task, db.SubtaskWithTime) {
 // тестов клавиатуры.
 
 func newReportsModel(conn *sql.DB) model {
-	m := model{db: conn, screen: screenTasks}
-	m.tasks = newTasksScreen(conn)
-	m.proj = newProjectsScreen(conn)
+	st := store.NewSQLite(conn)
+	m := model{store: st, screen: screenTasks}
+	m.tasks = newTasksScreen(st)
+	m.proj = newProjectsScreen(st)
 	repCfg := &reportConfig{period: periodToday, saveDir: "reports"}
-	m.reports = newReportsScreen(conn, repCfg)
-	m.settings = newSettingsScreen(conn, repCfg)
+	m.reports = newReportsScreen(st, repCfg)
+	m.settings = newSettingsScreen(st, repCfg)
 	m.tasks.load()
 	m.proj.load()
 	m.reports.load()

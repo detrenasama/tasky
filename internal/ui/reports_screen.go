@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 
 	"github.com/detrenasama/tasky/internal/db"
+	"github.com/detrenasama/tasky/internal/store"
 	"github.com/detrenasama/tasky/internal/ui/theme"
 )
 
@@ -45,7 +45,7 @@ var monthNames = []string{
 // reportsScreen — страница «Отчеты»: общее время за период, задачи и
 // подзадачи с учтённым временем (только завершённые записи).
 type reportsScreen struct {
-	db       *sql.DB
+	store    store.Store
 	cfg      *reportConfig
 	now      time.Time
 	rep      []db.TaskReport
@@ -56,8 +56,8 @@ type reportsScreen struct {
 	lastSave string
 }
 
-func newReportsScreen(conn *sql.DB, cfg *reportConfig) *reportsScreen {
-	s := &reportsScreen{db: conn, cfg: cfg, now: time.Now()}
+func newReportsScreen(st store.Store, cfg *reportConfig) *reportsScreen {
+	s := &reportsScreen{store: st, cfg: cfg, now: time.Now()}
 	s.repV = viewport.New(1, 1)
 	return s
 }
@@ -67,7 +67,7 @@ func (s *reportsScreen) load() {
 	s.lastErr = nil
 	s.lastSave = ""
 	from, to := s.periodRange()
-	entries, err := db.ReportEntries(s.db, from, to, s.cfg.projectID)
+	entries, err := s.store.ReportEntries(from, to, s.cfg.projectID)
 	if err != nil {
 		s.rep = nil
 		s.total = 0
@@ -81,7 +81,7 @@ func (s *reportsScreen) load() {
 	for _, t := range s.rep {
 		taskIDs = append(taskIDs, t.TaskID)
 	}
-	if tags, err := db.TagsByTasks(s.db, taskIDs); err == nil {
+	if tags, err := s.store.TagsByTasks(taskIDs); err == nil {
 		for i := range s.rep {
 			s.rep[i].Tags = tags[s.rep[i].TaskID]
 		}
@@ -93,7 +93,7 @@ func (s *reportsScreen) load() {
 	s.total = time.Duration(total) * time.Second
 	if s.cfg.includeJournal {
 		s.journal = map[int64][]db.ReportJournalEntry{}
-		jl, err := db.JournalEntriesByRange(s.db, from, to)
+		jl, err := s.store.JournalEntriesByRange(from, to)
 		if err == nil {
 			for _, e := range jl {
 				s.journal[e.SubtaskID] = append(s.journal[e.SubtaskID], e)

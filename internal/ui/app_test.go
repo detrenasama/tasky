@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/detrenasama/tasky/internal/db"
+	"github.com/detrenasama/tasky/internal/store"
 	"github.com/detrenasama/tasky/internal/ui/theme"
 	"github.com/muesli/termenv"
 )
@@ -61,7 +62,7 @@ func TestQuitConfirmRunningSession(t *testing.T) {
 	if err := db.StartSession(conn, st.ID, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	m := model{db: conn, tasks: newTasksScreen(conn), proj: newProjectsScreen(conn), screen: screenTasks}
+	m := model{store: store.NewSQLite(conn), tasks: newTasksScreen(store.NewSQLite(conn)), proj: newProjectsScreen(store.NewSQLite(conn)), screen: screenTasks}
 	m.tasks.load()
 	m.tasks.resize(150, 27)
 	m.proj.resize(150, 27)
@@ -123,7 +124,7 @@ func TestQuitNoSession(t *testing.T) {
 	if _, err := db.CreateTask(conn, p.ID, "T"); err != nil {
 		t.Fatal(err)
 	}
-	m := model{db: conn, tasks: newTasksScreen(conn), proj: newProjectsScreen(conn), screen: screenTasks}
+	m := model{store: store.NewSQLite(conn), tasks: newTasksScreen(store.NewSQLite(conn)), proj: newProjectsScreen(store.NewSQLite(conn)), screen: screenTasks}
 	m.tasks.load()
 
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})

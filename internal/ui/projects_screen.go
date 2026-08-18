@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"database/sql"
 	"fmt"
 	"strings"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/detrenasama/tasky/internal/db"
+	"github.com/detrenasama/tasky/internal/store"
 	"github.com/detrenasama/tasky/internal/ui/theme"
 )
 
@@ -47,7 +47,7 @@ func (i projectItem) Description() string {
 }
 
 type projectsScreen struct {
-	db            *sql.DB
+	store         store.Store
 	projects      []db.Project
 	list          list.Model
 	mode          projMode
@@ -79,8 +79,8 @@ type projectsScreen struct {
 	linkDelegate *list.DefaultDelegate
 }
 
-func newProjectsScreen(conn *sql.DB) *projectsScreen {
-	s := &projectsScreen{db: conn, mode: projBrowse, focus: projFocusList}
+func newProjectsScreen(st store.Store) *projectsScreen {
+	s := &projectsScreen{store: st, mode: projBrowse, focus: projFocusList}
 	d := list.NewDefaultDelegate()
 	d.ShowDescription = true
 	theme.ApplyToDelegate(&d)
@@ -141,8 +141,8 @@ func newProjectsScreen(conn *sql.DB) *projectsScreen {
 }
 
 func (s *projectsScreen) load() {
-	s.projects, _ = db.Projects(s.db)
-	s.linkTexts, _ = db.ProjectLinksTexts(s.db)
+	s.projects, _ = s.store.Projects()
+	s.linkTexts, _ = s.store.ProjectLinksTexts()
 	s.buildItems()
 	s.lastErr = nil
 	s.loadDesc()
@@ -186,8 +186,8 @@ func (s *projectsScreen) buildItems() {
 // контент колонки описания.
 func (s *projectsScreen) loadDesc() {
 	pid := s.selectedProjectID()
-	s.desc, _ = db.ProjectDescription(s.db, pid)
-	s.links, _ = db.ProjectLinks(s.db, pid)
+	s.desc, _ = s.store.ProjectDescription(pid)
+	s.links, _ = s.store.ProjectLinks(pid)
 	items := make([]list.Item, len(s.links))
 	for i, l := range s.links {
 		items[i] = linkItem{l}
@@ -423,7 +423,7 @@ func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "enter":
 			name := strings.TrimSpace(s.input.Value())
 			if name != "" {
-				_, err := db.CreateProject(s.db, name)
+				_, err := s.store.CreateProject(name)
 				s.lastErr = err
 				if err == nil {
 					s.load()
@@ -441,7 +441,7 @@ func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case projConfirm:
 		switch msg.String() {
 		case "y", "enter":
-			db.DeleteProject(s.db, s.confirmID)
+			s.store.DeleteProject(s.confirmID)
 			s.mode = projBrowse
 			s.load()
 		case "n", "esc":
@@ -453,7 +453,7 @@ func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		s.descText, cmd = s.descText.Update(msg)
 		switch msg.String() {
 		case "ctrl+s":
-			db.UpdateProjectDescription(s.db, s.selectedProjectID(), s.descText.Value())
+			s.store.UpdateProjectDescription(s.selectedProjectID(), s.descText.Value())
 			s.descText.Blur()
 			s.mode = projBrowse
 			s.loadDesc()
@@ -482,7 +482,7 @@ func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if s.linkInput.Focused() {
 				url := strings.TrimSpace(s.linkInput.Value())
 				if url != "" {
-					_, err := db.CreateProjectLink(s.db, s.selectedProjectID(),
+					_, err := s.store.CreateProjectLink(s.selectedProjectID(),
 						strings.TrimSpace(s.linkName.Value()), url)
 					s.lastErr = err
 					if err == nil {
@@ -532,7 +532,7 @@ func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case projLinkConfirm:
 		switch msg.String() {
 		case "y", "enter":
-			db.DeleteProjectLink(s.db, s.confirmLinkID)
+			s.store.DeleteProjectLink(s.confirmLinkID)
 			s.mode = projLinks
 			s.loadDesc()
 		case "n", "esc":

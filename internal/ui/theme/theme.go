@@ -49,6 +49,22 @@ var ModalStyle = lipgloss.NewStyle().
 	BorderForeground(lipgloss.Color("#3c3c3c")).
 	Padding(1, 2)
 
+// SidebarInactive — неактивная вкладка левой вертикальной панели и фон
+// самой панели: фон Panel, приглушённый текст.
+func SidebarInactive() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Background(lipgloss.Color(active.Colors.Panel)).
+		Foreground(lipgloss.Color(active.Colors.Muted))
+}
+
+// SidebarActive — активная вкладка левой вертикальной панели: фон Selection,
+// акцентный текст (консистентно с выделением в палитре команд).
+func SidebarActive() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Background(lipgloss.Color(active.Colors.Selection)).
+		Foreground(lipgloss.Color(active.Colors.Accent))
+}
+
 func Faint(s string) string { return MutedStyle.Render(s) }
 
 // Muted — вторичный текст цветом muted темы (подсказки, штампы, метки).

@@ -183,16 +183,14 @@ func TestReportsTagsShown(t *testing.T) {
 		t.Fatal(err)
 	}
 	m := newReportsModel(conn)
-	mm, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
-	m = mm.(model)
+	m = paletteNav(t, m, tea.KeyCtrlR)
 	if !strings.Contains(m.View(), "[GW-567]") {
 		t.Error("в строке отчёта нет метки тега")
 	}
 
 	dir := t.TempDir()
 	m.settings.cfg.saveDir = dir
-	mm, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
-	m = mm.(model)
+	m = upd(m, tea.KeyMsg{Type: tea.KeyCtrlS})
 	data, err := os.ReadFile(filepath.Join(dir, m.reports.saveFileName()))
 	if err != nil {
 		t.Fatalf("файл отчёта не создан: %v", err)
@@ -215,8 +213,7 @@ func TestSettingsTagTypesManage(t *testing.T) {
 		t.Fatalf("сид типов по умолчанию: %d, ожидалось 2", len(m.settings.tagTypes))
 	}
 
-	mm, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
-	m = mm.(model)
+	m = paletteNav(t, m, tea.KeyCtrlS)
 	if !strings.Contains(m.View(), "Типы тегов: 2") {
 		t.Error("нет строки «Типы тегов» в настройках")
 	}

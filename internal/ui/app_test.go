@@ -13,31 +13,39 @@ import (
 	"github.com/muesli/termenv"
 )
 
-func TestTabsLine(t *testing.T) {
+func TestSidebarView(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.ANSI256)
-	line := tabsLine(screenProjects, 100)
-	if got := lipgloss.Width(line); got != 100 {
-		t.Errorf("видимая ширина %d, ожидалось 100", got)
+	const h = 30
+	view := sidebarView(screenProjects, h)
+	lines := strings.Split(view, "\n")
+	if len(lines) != h {
+		t.Errorf("строк %d, ожидалось %d", len(lines), h)
 	}
-	plain := stripANSI(line)
-	for _, tb := range tabs {
-		label := tb.title + " <" + tb.key + ">"
-		if !strings.Contains(plain, label) {
-			t.Errorf("вкладка %q отсутствует в %q", label, plain)
+	for i, l := range lines {
+		if w := lipgloss.Width(l); w != 5 {
+			t.Errorf("строка %d: видимая ширина %d, ожидалось 5", i, w)
 		}
 	}
-	active := theme.HeaderStyle.Render("Проекты <p>")
-	if !strings.Contains(line, active) {
-		t.Error("текущая вкладка не выделена (HeaderStyle)")
+	plain := stripANSI(view)
+	for _, it := range sidebarItems {
+		if !strings.Contains(plain, it.glyph) {
+			t.Errorf("значок вкладки %v отсутствует в панели", it.scr)
+		}
 	}
-	if n := strings.Count(line, theme.Faint("Задачи <t>")); n != 1 {
-		t.Errorf("muted-вкладка «Задачи»: %d, ожидалась 1", n)
+	// активная вкладка (Проекты) залита фоном Selection, неактивные — Panel
+	var activeGlyph string
+	for _, it := range sidebarItems {
+		if it.scr == screenProjects {
+			activeGlyph = it.glyph
+		}
 	}
-	if n := strings.Count(line, theme.Faint("Отчеты <r>")); n != 1 {
-		t.Errorf("muted-вкладка «Отчеты»: %d, ожидалась 1", n)
+	activeLine := theme.SidebarActive().Render("  " + activeGlyph + "  ")
+	if !strings.Contains(view, activeLine) {
+		t.Error("активная вкладка не выделена (SidebarActive)")
 	}
-	if n := strings.Count(line, theme.Faint("Настройки <s>")); n != 1 {
-		t.Errorf("muted-вкладка «Настройки»: %d, ожидалась 1", n)
+	inactiveLine := theme.SidebarInactive().Render("     ")
+	if !strings.Contains(view, inactiveLine) {
+		t.Error("панель не содержит фон неактивной вкладки (SidebarInactive)")
 	}
 }
 

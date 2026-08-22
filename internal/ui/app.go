@@ -23,31 +23,73 @@ const (
 	screenSettings
 )
 
-type tab struct {
-	title string
-	key   string
+// sidebarItem — вкладка левой вертикальной панели: страница и значок
+// (Nerd Font, одинарной ширины).
+type sidebarItem struct {
 	scr   screen
+	glyph string
 }
 
-var tabs = []tab{
-	{"Задачи", "t", screenTasks},
-	{"Проекты", "p", screenProjects},
-	{"Отчеты", "r", screenReports},
-	{"Настройки", "s", screenSettings},
+// sidebarItems — порядок вкладок слева направо сверху вниз. Значки требуют
+// патченый шрифт Nerd Font; при его отсутствии glyph можно заменить на
+// буквы T/P/R/S.
+var sidebarItems = []sidebarItem{
+	{screenTasks, "\uf0ae"},    // nf-fa-tasks
+	{screenProjects, "\uf07b"}, // nf-fa-folder
+	{screenReports, "\uf080"},  // nf-fa-bar_chart
+	{screenSettings, "\uf013"}, // nf-fa-cog
 }
 
-// tabsLine — строка вкладок страниц: текущая выделена цветом, остальные dim.
-func tabsLine(cur screen, w int) string {
-	parts := make([]string, 0, len(tabs))
-	for _, t := range tabs {
-		label := t.title + " <" + t.key + ">"
-		if t.scr == cur {
-			parts = append(parts, theme.HeaderStyle.Render(label))
-		} else {
-			parts = append(parts, theme.Faint(label))
+// sidebarView рендерит левую вертикальную панель вкладок: ширина 3, высота h.
+// Каждая вкладка — блок 5×3 со значком по центру (по 2 пробела с каждой
+// стороны от одноширинного значка); активная залита фоном Selection,
+// остальные — фоном Panel; строки ниже последней вкладки продолжают панель
+// тем же фоном.
+func sidebarView(cur screen, h int) string {
+	const sideW = 5
+	lines := make([]string, max(h, 0))
+	for i := range lines {
+		lines[i] = theme.SidebarInactive().Render(strings.Repeat(" ", sideW))
+	}
+	for k, it := range sidebarItems {
+		top := k * 3
+		if top >= h {
+			break
+		}
+		st := theme.SidebarInactive()
+		if it.scr == cur {
+			st = theme.SidebarActive()
+		}
+		end := min(top+3, h)
+		for r := top; r < end; r++ {
+			cell := strings.Repeat(" ", sideW)
+			if r == top+1 {
+				cell = "  " + it.glyph + "  "
+			}
+			lines[r] = st.Render(cell)
 		}
 	}
-	return padW(strings.Join(parts, "  "), w)
+	return strings.Join(lines, "\n")
+}
+
+// joinSidebar склеивает левую панель (ширина 5) и контент построчно.
+func joinSidebar(sidebar, content string, w, h int) string {
+	const sideW = 5
+	cw := w - sideW
+	sLines := strings.Split(sidebar, "\n")
+	cLines := strings.Split(content, "\n")
+	out := make([]string, max(h, 0))
+	for i := 0; i < h; i++ {
+		var s, c string
+		if i < len(sLines) {
+			s = sLines[i]
+		}
+		if i < len(cLines) {
+			c = cLines[i]
+		}
+		out[i] = padW(s, sideW) + padW(c, cw)
+	}
+	return strings.Join(out, "\n")
 }
 
 // model — корневая модель приложения: переключение экранов (вкладки),
@@ -137,10 +179,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.height < 4 {
 			m.height = 4
 		}
-		m.tasks.resize(m.width, m.height-3)
-		m.proj.resize(m.width, m.height-3)
-		m.reports.resize(m.width, m.height-3)
-		m.settings.resize(m.width, m.height-3)
+		m.tasks.resize(m.width-5, m.height-2)
+		m.proj.resize(m.width-5, m.height-2)
+		m.reports.resize(m.width-5, m.height-2)
+		m.settings.resize(m.width-5, m.height-2)
 		return m, nil
 	case tea.KeyMsg:
 		if m.quitting {
@@ -221,28 +263,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "ctrl+p":
 				m.openPalette()
 				return m, nil
-			case "t":
-				m.switchScreen(screenTasks)
-				return m, nil
-			case "p":
-				m.switchScreen(screenProjects)
-				return m, nil
-			case "r":
-				if run, err := m.store.RunningSession(); err == nil && run != nil {
-					m.reportConfirm = true
-					m.reportTitle = run.Title
-					return m, nil
-				}
-				m.switchScreen(screenReports)
-				return m, nil
-			case "s":
-				m.switchScreen(screenSettings)
-				return m, nil
-			case "esc":
-				if m.screen != screenTasks {
-					m.switchScreen(screenTasks)
-					return m, nil
-				}
 			}
 		}
 		if m.screen == screenTasks {
@@ -304,35 +324,41 @@ func (m *model) switchScreen(s screen) {
 }
 
 func (m model) View() string {
+	sideW := 5
 	w, h := m.width, m.height
+	if w < sideW+1 {
+		w = sideW + 1
+	}
 	if h < 4 {
 		h = 4
 	}
-	midH := h - 3
+	cw := w - sideW
+	midH := h - 2
 
 	var header, mid, footer string
 	var dlg string
 	var modalOpen bool
 	switch m.screen {
 	case screenProjects:
-		header, footer = m.proj.header(w), m.proj.footer(w)
-		mid = m.proj.view(w, midH)
+		header, footer = m.proj.header(cw), m.proj.footer(cw)
+		mid = m.proj.view(cw, midH)
 		dlg, modalOpen = m.proj.dialog()
 	case screenReports:
-		header, footer = m.reports.header(w), m.reports.footer(w)
-		mid = m.reports.view(w, midH)
+		header, footer = m.reports.header(cw), m.reports.footer(cw)
+		mid = m.reports.view(cw, midH)
 		dlg, modalOpen = m.reports.dialog()
 	case screenSettings:
-		header, footer = m.settings.header(w), m.settings.footer(w)
-		mid = m.settings.view(w, midH)
+		header, footer = m.settings.header(cw), m.settings.footer(cw)
+		mid = m.settings.view(cw, midH)
 		dlg, modalOpen = m.settings.dialog()
 	default:
-		header, footer = m.tasks.header(w), m.tasks.footer(w)
-		mid = m.tasks.view(w, midH)
+		header, footer = m.tasks.header(cw), m.tasks.footer(cw)
+		mid = m.tasks.view(cw, midH)
 		dlg, modalOpen = m.tasks.dialog()
 	}
 
-	full := tabsLine(m.screen, w) + "\n" + header + "\n" + mid + "\n" + footer
+	content := header + "\n" + mid + "\n" + footer
+	full := joinSidebar(sidebarView(m.screen, h), content, w, h)
 	if modalOpen {
 		full = overlay(full, dlg, w, h)
 	}

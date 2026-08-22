@@ -194,7 +194,7 @@ func (m *model) closePalette() {
 // updatePalette обрабатывает клавиши палитры: навигация по списку, Enter —
 // выполнить, Esc — закрыть, ctrl+t/p/r/s — выполнить команду навигации сразу;
 // все остальные клавиши уходят в поисковую строку (живой фильтр).
-func (m *model) updatePalette(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m model) updatePalette(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "up":
 		m.paletteMove(-1)

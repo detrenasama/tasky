@@ -15,11 +15,7 @@ func TestReportsScreenRender(t *testing.T) {
 	conn, task, _ := reportsSeedProject(t)
 	m := newReportsModel(conn)
 
-	mm, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
-	m = mm.(model)
-	if cmd != nil {
-		t.Fatal("переход на отчёты не должен возвращать команду")
-	}
+	m = paletteNav(t, m, tea.KeyCtrlR)
 	if m.screen != screenReports {
 		t.Fatalf("экран %d, ожидался screenReports", m.screen)
 	}
@@ -41,8 +37,7 @@ func TestReportsEmptyDay(t *testing.T) {
 	defer conn.Close()
 	m := newReportsModel(conn)
 
-	mm, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
-	m = mm.(model)
+	m = paletteNav(t, m, tea.KeyCtrlR)
 	if !strings.Contains(m.View(), "Времени за период ещё не учтено") {
 		t.Error("пустой отчёт не показывает подсказку")
 	}
@@ -74,13 +69,8 @@ func TestReportsSwitchWithRunningSession(t *testing.T) {
 		t.Fatal(err)
 	}
 	m := newReportsModel(conn)
-	r := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}}
 
-	mm, cmd := m.Update(r)
-	m = mm.(model)
-	if cmd != nil {
-		t.Fatal("r с запущенной сессией не должен переключать сразу")
-	}
+	m = paletteNav(t, m, tea.KeyCtrlR)
 	if !m.reportConfirm || m.screen != screenTasks {
 		t.Errorf("предупреждение не выставлено: confirm=%v screen=%d", m.reportConfirm, m.screen)
 	}
@@ -88,8 +78,7 @@ func TestReportsSwitchWithRunningSession(t *testing.T) {
 		t.Error("в предупреждении нет вопроса о формировании отчёта")
 	}
 
-	mm, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	m = mm.(model)
+	m = upd(m, tea.KeyMsg{Type: tea.KeyEsc})
 	if m.reportConfirm {
 		t.Error("Esc не отменил предупреждение")
 	}
@@ -97,13 +86,11 @@ func TestReportsSwitchWithRunningSession(t *testing.T) {
 		t.Error("отмена остановила сессию")
 	}
 
-	mm, _ = m.Update(r)
-	m = mm.(model)
+	m = paletteNav(t, m, tea.KeyCtrlR)
 	if !m.reportConfirm {
 		t.Fatal("r не показал предупреждение повторно")
 	}
-	mm, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	m = mm.(model)
+	m = upd(m, tea.KeyMsg{Type: tea.KeyEnter})
 	if m.reportConfirm || m.screen != screenReports {
 		t.Errorf("Enter не перешёл к отчётам: confirm=%v screen=%d", m.reportConfirm, m.screen)
 	}
@@ -144,19 +131,16 @@ func TestReportsPeriods(t *testing.T) {
 		t.Fatal(err)
 	}
 	m := newReportsModel(conn)
-	r := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}}
 
 	// сегодня: записей нет
-	mm, _ := m.Update(r)
-	m = mm.(model)
+	m = paletteNav(t, m, tea.KeyCtrlR)
 	if !strings.Contains(m.View(), "Времени за период ещё не учтено") {
 		t.Error("за сегодня отчёт не пуст")
 	}
 
 	// вчера
 	m.reports.cfg.period = periodYesterday
-	mm, _ = m.Update(r)
-	m = mm.(model)
+	m = paletteNav(t, m, tea.KeyCtrlR)
 	view := m.View()
 	for _, want := range []string{"Отчет за вчера", "T вчера", "S вчера"} {
 		if !strings.Contains(view, want) {
@@ -166,14 +150,12 @@ func TestReportsPeriods(t *testing.T) {
 
 	// неделя и месяц — заголовки
 	m.reports.cfg.period = periodWeek
-	mm, _ = m.Update(r)
-	m = mm.(model)
+	m = paletteNav(t, m, tea.KeyCtrlR)
 	if !strings.Contains(m.View(), "Отчет за неделю") {
 		t.Error("нет заголовка недели")
 	}
 	m.reports.cfg.period = periodMonth
-	mm, _ = m.Update(r)
-	m = mm.(model)
+	m = paletteNav(t, m, tea.KeyCtrlR)
 	if !strings.Contains(m.View(), "Отчет за "+monthNames[time.Now().Month()-1]) {
 		t.Error("нет заголовка месяца")
 	}
@@ -187,13 +169,10 @@ func TestReportsSave(t *testing.T) {
 	m := newReportsModel(conn)
 	dir := t.TempDir()
 	m.settings.cfg.saveDir = dir
-	r := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}}
 	sv := tea.KeyMsg{Type: tea.KeyCtrlS}
 
-	mm, _ := m.Update(r)
-	m = mm.(model)
-	mm, _ = m.Update(sv)
-	m = mm.(model)
+	m = paletteNav(t, m, tea.KeyCtrlR)
+	m = upd(m, sv)
 
 	name := m.reports.saveFileName()
 	data, err := os.ReadFile(filepath.Join(dir, name))
@@ -218,10 +197,8 @@ func TestReportsSaveCreatesDir(t *testing.T) {
 	dir := t.TempDir() + "/deep/reports"
 	m.settings.cfg.saveDir = dir
 
-	mm, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
-	m = mm.(model)
-	mm, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
-	m = mm.(model)
+	m = paletteNav(t, m, tea.KeyCtrlR)
+	m = upd(m, tea.KeyMsg{Type: tea.KeyCtrlS})
 
 	if _, err := os.Stat(filepath.Join(dir, m.reports.saveFileName())); err != nil {
 		t.Fatalf("файл в созданном каталоге: %v", err)
@@ -241,14 +218,12 @@ func TestReportsJournalInReport(t *testing.T) {
 	dir := t.TempDir()
 	m.settings.cfg.saveDir = dir
 
-	mm, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
-	m = mm.(model)
+	m = paletteNav(t, m, tea.KeyCtrlR)
 	if !strings.Contains(m.View(), "запись в журнале") {
 		t.Error("запись журнала не показана в отчёте")
 	}
 
-	mm, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
-	m = mm.(model)
+	m = upd(m, tea.KeyMsg{Type: tea.KeyCtrlS})
 	data, err := os.ReadFile(filepath.Join(dir, m.reports.saveFileName()))
 	if err != nil {
 		t.Fatalf("файл отчёта не создан: %v", err)
@@ -296,8 +271,7 @@ func TestReportsChecklist(t *testing.T) {
 	}
 
 	m := newReportsModel(conn)
-	mm, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
-	m = mm.(model)
+	m = paletteNav(t, m, tea.KeyCtrlR)
 	view := m.View()
 	for _, want := range []string{"Выполнены:", "сделано сегодня", "В работе:", "в работе"} {
 		if !strings.Contains(view, want) {
@@ -312,8 +286,7 @@ func TestReportsChecklist(t *testing.T) {
 
 	dir := t.TempDir()
 	m.settings.cfg.saveDir = dir
-	mm, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
-	m = mm.(model)
+	m = upd(m, tea.KeyMsg{Type: tea.KeyCtrlS})
 	data, err := os.ReadFile(filepath.Join(dir, m.reports.saveFileName()))
 	if err != nil {
 		t.Fatalf("файл отчёта не создан: %v", err)

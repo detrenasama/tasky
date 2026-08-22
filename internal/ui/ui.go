@@ -11,8 +11,11 @@ import (
 // padW обрезает строку до width (по видимой ширине, с учётом ANSI-кодов)
 // и дополняет пробелами.
 func padW(line string, width int) string {
+	if width < 0 {
+		width = 0
+	}
 	line = truncateW(line, width)
-	return line + strings.Repeat(" ", width-lipgloss.Width(line))
+	return line + strings.Repeat(" ", max(width-lipgloss.Width(line), 0))
 }
 
 // truncateW обрезает строку до видимой ширины width, сохраняя ANSI-коды

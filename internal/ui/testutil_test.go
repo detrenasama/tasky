@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbletea"
 	"github.com/detrenasama/tasky/internal/db"
 	"github.com/detrenasama/tasky/internal/store"
@@ -146,6 +147,7 @@ func reportsSeedProject(t *testing.T) (*sql.DB, db.Task, db.SubtaskWithTime) {
 func newReportsModel(conn *sql.DB) model {
 	st := store.NewSQLite(conn)
 	m := model{store: st, screen: screenTasks}
+	m.paletteInput = textinput.New()
 	m.tasks = newTasksScreen(st)
 	m.proj = newProjectsScreen(st)
 	repCfg := &reportConfig{period: periodToday, saveDir: "reports"}
@@ -159,6 +161,32 @@ func newReportsModel(conn *sql.DB) model {
 	m.reports.resize(150, 27)
 	m.width, m.height = 150, 30
 	return m
+}
+
+// paletteNav открывает палитру команд (Ctrl+P) и выполняет навигацию по
+// сочетанию клавиш (напр. tea.KeyCtrlR → «Отчеты»), имитируя переход между
+// страницами, который теперь доступен только из палитры. Возвращает tea.Model,
+// совместимо с последующим m = mm.(model) в тестах.
+func paletteNav(t *testing.T, m model, ctrlKey tea.KeyType) model {
+	t.Helper()
+	mm, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
+	m2, ok := mm.(model)
+	if !ok || !m2.paletteOpen {
+		t.Fatal("палитра не открылась по Ctrl+P")
+	}
+	mm2, _ := m2.Update(tea.KeyMsg{Type: ctrlKey})
+	m3, ok := mm2.(model)
+	if !ok {
+		t.Fatal("навигация через палитру не вернула модель")
+	}
+	return m3
+}
+
+// upd — вспомогательная отправка KeyMsg модели в тестах: возвращает модель
+// без лишних промежуточных переменных.
+func upd(m model, msg tea.KeyMsg) model {
+	mm, _ := m.Update(msg)
+	return mm.(model)
 }
 
 // TestReportsScreenRender — отчёт за сегодня: переход по r, заголовок

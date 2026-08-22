@@ -25,8 +25,7 @@ func TestSettingsForm(t *testing.T) {
 	}
 	m := newReportsModel(conn)
 
-	mm, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
-	m = mm.(model)
+	m = paletteNav(t, m, tea.KeyCtrlS)
 	if m.screen != screenSettings {
 		t.Fatalf("s не открыл настройки (screen=%d)", m.screen)
 	}
@@ -187,8 +186,7 @@ func TestSettingsListScroll(t *testing.T) {
 	m := newReportsModel(conn)
 	m.settings.resize(100, 27) // visible = 12
 
-	mm, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
-	m = mm.(model)
+	m = paletteNav(t, m, tea.KeyCtrlS)
 	m.updateSettings(tea.KeyMsg{Type: tea.KeyDown}) // строка «Проект»
 	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
 	if m.settings.mode != settingsProjList {

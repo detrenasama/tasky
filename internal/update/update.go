@@ -35,6 +35,29 @@ func apiBaseURL() string {
 
 var client = &http.Client{Timeout: 15 * time.Second}
 
+// Step описывает этап процесса обновления.
+type Step int
+
+const (
+	StepDownload Step = iota
+	StepChecksum
+	StepExtract
+	StepInstall
+	StepDone
+)
+
+// Reporter получает уведомления о ходе обновления. frac — доля загрузки
+// (0..1) для StepDownload, либо -1, если размер неизвестен или этап не
+// предполагает прогресса.
+type Reporter func(step Step, msg string, frac float64)
+
+// report вызывает rep, если он задан (nil-safe).
+func report(rep Reporter, step Step, msg string, frac float64) {
+	if rep != nil {
+		rep(step, msg, frac)
+	}
+}
+
 // release — минимальная модель ответа GitHub API.
 type release struct {
 	TagName string `json:"tag_name"`
@@ -105,6 +128,16 @@ func LatestVersion() (string, error) {
 	return rel.TagName, nil
 }
 
+// CheckUpdate возвращает последний тег и признак необходимости обновления
+// (needed=true, если опубликованная версия новее текущей).
+func CheckUpdate(current string) (latest string, needed bool, err error) {
+	rel, err := latestRelease()
+	if err != nil {
+		return "", false, err
+	}
+	return rel.TagName, Compare(rel.TagName, current) > 0, nil
+}
+
 // assetName — имя ассета с бинарником для текущей платформы.
 func assetName() string {
 	return fmt.Sprintf("tasky-%s-%s.tar.gz", runtime.GOOS, runtime.GOARCH)
@@ -121,8 +154,8 @@ func assetURL(rel *release, name string) (string, error) {
 
 // Upgrade скачивает последний релиз, проверяет SHA256 и атомарно заменяет
 // текущий бинарник. Возвращает новую версию; replaced=false, если версия уже
-// актуальна.
-func Upgrade(current string) (newVersion string, replaced bool, err error) {
+// актуальна. rep получает уведомления о ходе обновления (может быть nil).
+func Upgrade(current string, rep Reporter) (newVersion string, replaced bool, err error) {
 	exe, err := os.Executable()
 	if err != nil {
 		return "", false, err
@@ -131,12 +164,12 @@ func Upgrade(current string) (newVersion string, replaced bool, err error) {
 	if err != nil {
 		return "", false, err
 	}
-	return upgradeTo(current, exe)
+	return upgradeTo(current, exe, rep)
 }
 
 // upgradeTo — как Upgrade, но заменяет бинарник по заданному пути (exePath
 // переопределяется в тестах).
-func upgradeTo(current, exePath string) (newVersion string, replaced bool, err error) {
+func upgradeTo(current, exePath string, rep Reporter) (newVersion string, replaced bool, err error) {
 	if TrimV(current) == "" {
 		return "", false, fmt.Errorf("неизвестная версия сборки")
 	}
@@ -165,9 +198,13 @@ func upgradeTo(current, exePath string) (newVersion string, replaced bool, err e
 	defer os.RemoveAll(tmp)
 
 	tarPath := filepath.Join(tmp, assetName())
-	if err := download(binURL, tarPath); err != nil {
+	report(rep, StepDownload, "Загрузка "+binURL, 0)
+	if err := download(binURL, tarPath, rep); err != nil {
 		return "", false, err
 	}
+	report(rep, StepDownload, "Загружено.", 1)
+
+	report(rep, StepChecksum, "Проверка контрольной суммы…", -1)
 	want, err := fetchChecksum(tmp, sumsURL, assetName())
 	if err != nil {
 		return "", false, err
@@ -175,7 +212,9 @@ func upgradeTo(current, exePath string) (newVersion string, replaced bool, err e
 	if got := fileSHA256(tarPath); got != want {
 		return "", false, fmt.Errorf("контрольная сумма не совпадает (ожидалось %s)", want)
 	}
+	report(rep, StepChecksum, "Контрольная сумма совпадает.", -1)
 
+	report(rep, StepExtract, "Распаковка…", -1)
 	newBin := filepath.Join(filepath.Dir(exePath), ".tasky.new")
 	if err := extractTar(tarPath, newBin); err != nil {
 		return "", false, err
@@ -184,14 +223,41 @@ func upgradeTo(current, exePath string) (newVersion string, replaced bool, err e
 		os.Remove(newBin)
 		return "", false, err
 	}
+
+	report(rep, StepInstall, "Установка…", -1)
 	if err := os.Rename(newBin, exePath); err != nil {
 		os.Remove(newBin)
 		return "", false, err
 	}
+	report(rep, StepDone, "Готово.", -1)
 	return latest, true, nil
 }
 
-func download(url, dst string) error {
+// progressReader обёртывает io.Reader и сообщает о доле прочитанных данных.
+type progressReader struct {
+	r     io.Reader
+	n     int64
+	total int64
+	rep   Reporter
+	last  int
+}
+
+func (p *progressReader) Read(b []byte) (int, error) {
+	n, err := p.r.Read(b)
+	p.n += int64(n)
+	if p.total > 0 {
+		pct := int(p.n * 100 / p.total)
+		if pct != p.last {
+			p.last = pct
+			report(p.rep, StepDownload, "", float64(p.n)/float64(p.total))
+		}
+	} else {
+		report(p.rep, StepDownload, "", -1)
+	}
+	return n, err
+}
+
+func download(url, dst string, rep Reporter) error {
 	resp, err := client.Get(url)
 	if err != nil {
 		return err
@@ -204,7 +270,8 @@ func download(url, dst string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := io.Copy(out, resp.Body); err != nil {
+	reader := &progressReader{r: resp.Body, total: resp.ContentLength, rep: rep}
+	if _, err := io.Copy(out, reader); err != nil {
 		out.Close()
 		return err
 	}
@@ -214,7 +281,7 @@ func download(url, dst string) error {
 // fetchChecksum скачивает SHA256SUMS и возвращает хеш для файла name.
 func fetchChecksum(dir, url, name string) (string, error) {
 	sumsPath := filepath.Join(dir, "SHA256SUMS")
-	if err := download(url, sumsPath); err != nil {
+	if err := download(url, sumsPath, nil); err != nil {
 		return "", err
 	}
 	data, err := os.ReadFile(sumsPath)

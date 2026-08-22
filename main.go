@@ -28,7 +28,7 @@ func main() {
 			fmt.Println(version)
 			return
 		case "upgrade":
-			os.Exit(runUpgrade())
+			os.Exit(runUpgrade(os.Args[2:]))
 		case "serve":
 			os.Exit(runServe(os.Args[2:]))
 		case "attach":

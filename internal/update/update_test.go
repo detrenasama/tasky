@@ -104,7 +104,7 @@ func TestUpgradeTo(t *testing.T) {
 		if err := os.WriteFile(exe, []byte("old"), 0o755); err != nil {
 			t.Fatal(err)
 		}
-		next, replaced, err := upgradeTo("v1.0.0", exe)
+		next, replaced, err := upgradeTo("v1.0.0", exe, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -128,7 +128,7 @@ func TestUpgradeTo(t *testing.T) {
 		fakeServer(t, "v1.0.0", binData, false)
 		exe := filepath.Join(t.TempDir(), "tasky")
 		os.WriteFile(exe, []byte("old"), 0o755)
-		next, replaced, err := upgradeTo("v1.0.0", exe)
+		next, replaced, err := upgradeTo("v1.0.0", exe, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -145,7 +145,7 @@ func TestUpgradeTo(t *testing.T) {
 		fakeServer(t, "v2.0.0", binData, true)
 		exe := filepath.Join(t.TempDir(), "tasky")
 		os.WriteFile(exe, []byte("old"), 0o755)
-		_, _, err := upgradeTo("v1.0.0", exe)
+		_, _, err := upgradeTo("v1.0.0", exe, nil)
 		if err == nil {
 			t.Fatal("ожидалась ошибка контрольной суммы")
 		}
@@ -166,16 +166,61 @@ func TestUpgradeTo(t *testing.T) {
 		}()
 		exe := filepath.Join(t.TempDir(), "tasky")
 		os.WriteFile(exe, []byte("old"), 0o755)
-		if _, _, err := upgradeTo("v1.0.0", exe); err == nil {
+		if _, _, err := upgradeTo("v1.0.0", exe, nil); err == nil {
 			t.Fatal("ожидалась ошибка отсутствия ассета")
 		}
 	})
 
 	t.Run("пустая версия", func(t *testing.T) {
-		if _, _, err := upgradeTo("", filepath.Join(t.TempDir(), "tasky")); err == nil {
+		if _, _, err := upgradeTo("", filepath.Join(t.TempDir(), "tasky"), nil); err == nil {
 			t.Fatal("ожидалась ошибка пустой версии")
 		}
 	})
+}
+
+func TestUpgradeReporter(t *testing.T) {
+	binData := []byte("#!/bin/sh\necho fake tasky\n")
+	fakeServer(t, "v2.0.0", binData, false)
+	exe := filepath.Join(t.TempDir(), "tasky")
+	os.WriteFile(exe, []byte("old"), 0o755)
+
+	var steps []Step
+	var sawDownloadFrac bool
+	rep := func(step Step, msg string, frac float64) {
+		steps = append(steps, step)
+		if step == StepDownload && frac > 0 {
+			sawDownloadFrac = true
+		}
+	}
+	if _, _, err := upgradeTo("v1.0.0", exe, rep); err != nil {
+		t.Fatal(err)
+	}
+	if len(steps) == 0 {
+		t.Fatal("репортер не вызывался")
+	}
+	if steps[0] != StepDownload {
+		t.Fatalf("первый шаг = %v, ожидался StepDownload", steps[0])
+	}
+	lastDownload := -1
+	for i, s := range steps {
+		if s == StepDownload {
+			lastDownload = i
+		}
+	}
+	// После всех сообщений загрузки должны идти остальные этапы в порядке.
+	rest := steps[lastDownload+1:]
+	want := []Step{StepChecksum, StepChecksum, StepExtract, StepInstall, StepDone}
+	if len(rest) != len(want) {
+		t.Fatalf("этапы после загрузки %v, ожидалось %v (все шаги: %v)", rest, want, steps)
+	}
+	for i := range want {
+		if rest[i] != want[i] {
+			t.Fatalf("этап %d = %v, ожидалось %v (все шаги: %v)", i, rest[i], want[i], steps)
+		}
+	}
+	if !sawDownloadFrac {
+		t.Error("репортер не получил прогресс загрузки с frac>0")
+	}
 }
 
 func TestLatestVersion(t *testing.T) {

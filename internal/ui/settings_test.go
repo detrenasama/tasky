@@ -30,7 +30,7 @@ func TestSettingsForm(t *testing.T) {
 		t.Fatalf("s не открыл настройки (screen=%d)", m.screen)
 	}
 	view := m.View()
-	for _, want := range []string{"Настройки отчёта", "Период:  сегодня", "все проекты", "Журнал:  выкл", "Каталог: reports"} {
+	for _, want := range []string{"Настройки", "Период:  сегодня", "все проекты", "Журнал:  выкл", "Каталог: reports"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("в настройках нет %q", want)
 		}

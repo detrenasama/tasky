@@ -51,16 +51,35 @@ func (m *model) paletteGroups() []cmdGroup {
 	switch m.screen {
 	case screenTasks:
 		groups = append(groups, cmdGroup{name: "Действия", cmds: []cmdItem{
-			{title: "Новая задача", run: func(m *model) { m.tasks.startNewTask() }},
-			{title: "Новая подзадача", run: func(m *model) { m.tasks.startNewSubtask() }},
+			{title: "Новая задача", keys: "n", run: func(m *model) { m.tasks.startNewTask() }},
+			{title: "Новая подзадача", keys: "a", run: func(m *model) { m.tasks.startNewSubtask() }},
 			{title: "Изменить название", keys: "e", run: func(m *model) { m.tasks.startEditTitle() }},
-			{title: "Удалить задачу", run: func(m *model) { m.tasks.startDelete() }},
+			{title: "Изменить описание", keys: "enter", run: func(m *model) { m.tasks.startEditDescription() }},
+			{title: "Удалить задачу", keys: "d", run: func(m *model) { m.tasks.startDelete() }},
 			{title: "Чеклист", keys: "i", run: func(m *model) { m.tasks.openChecklist() }},
+			{title: "Статус: следующий", keys: "x", run: func(m *model) { m.tasks.shiftStatus(1) }},
+			{title: "Статус: предыдущий", keys: "z", run: func(m *model) { m.tasks.shiftStatus(-1) }},
+			{title: "Статус: выбрать", keys: "c", run: func(m *model) { m.tasks.openStatusPick() }},
+			{title: "Запустить/пауза", keys: "ctrl+l", run: func(m *model) { m.tasks.toggleTimer() }},
+			{title: "Проект ←", keys: "[", run: func(m *model) { m.tasks.switchProject(-1) }},
+			{title: "Проект →", keys: "]", run: func(m *model) { m.tasks.switchProject(1) }},
+			{title: "Переместить вверх", keys: "ctrl+up", run: func(m *model) { m.tasks.moveSelected(-1) }},
+			{title: "Переместить вниз", keys: "ctrl+down", run: func(m *model) { m.tasks.moveSelected(1) }},
+			{title: "Теги", keys: "g", run: func(m *model) { m.tasks.openTags() }},
+			{title: "Добавить ссылку", keys: "l", run: func(m *model) { m.tasks.startLinkInput() }},
+			{title: "Открыть ссылки", keys: "o", run: func(m *model) { m.tasks.openLinks() }},
+			{title: "Запись журнала", keys: "ctrl+j", run: func(m *model) { m.tasks.startJournal() }},
+			{title: "Изменить запись", keys: "j", run: func(m *model) { m.tasks.editTodayJournal() }},
+			{title: "Поиск", keys: "/", run: func(m *model) { m.tasks.startSearch() }},
 		}})
 	case screenProjects:
 		groups = append(groups, cmdGroup{name: "Действия", cmds: []cmdItem{
-			{title: "Новый проект", run: func(m *model) { m.proj.startNew() }},
-			{title: "Удалить проект", run: func(m *model) { m.proj.startDelete() }},
+			{title: "Новый проект", keys: "n", run: func(m *model) { m.proj.startNew() }},
+			{title: "Изменить описание", keys: "enter", run: func(m *model) { m.proj.startEditDescription() }},
+			{title: "Удалить проект", keys: "d", run: func(m *model) { m.proj.startDelete() }},
+			{title: "Добавить ссылку", keys: "l", run: func(m *model) { m.proj.startLinkInput() }},
+			{title: "Открыть ссылки", keys: "o", run: func(m *model) { m.proj.openLinks() }},
+			{title: "Поиск", keys: "/", run: func(m *model) { m.proj.startSearch() }},
 		}})
 	}
 	return groups

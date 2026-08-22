@@ -120,7 +120,6 @@ type tasksScreen struct {
 	listDelegate *list.DefaultDelegate
 	linkDelegate *list.DefaultDelegate
 
-	version   string
 	updateVer string
 
 	entries []db.TimeEntry
@@ -129,7 +128,6 @@ type tasksScreen struct {
 	midH  int
 	listW int
 	descW int
-	infoW int
 
 	mode        taskMode
 	input       textinput.Model
@@ -197,7 +195,7 @@ func newTasksScreen(st store.Store) *tasksScreen {
 	theme.ApplyToDelegate(&d)
 	s.listDelegate = &d
 	s.list = list.New(nil, &d, 80, 20)
-	s.list.Title = "Задачи"
+	s.list.SetShowTitle(false)
 	s.list.SetShowHelp(false)
 	s.list.SetShowPagination(false)
 	s.list.SetShowStatusBar(false)
@@ -422,7 +420,7 @@ func (s *tasksScreen) descBody(w int) []string {
 	var body []string
 	desc := strings.TrimSpace(s.desc)
 	if desc == "" {
-		body = append(body, theme.Faint("Описание пустое. Нажмите e (в колонке описания), чтобы добавить."))
+		body = append(body, theme.Faint("Описание пустое. Нажмите Enter, чтобы добавить."))
 	} else {
 		body = append(body, wrapText(desc, w))
 	}
@@ -1099,12 +1097,14 @@ func (s *tasksScreen) saveTagEdit() {
 	s.mode = taskTags
 }
 
-func (s *tasksScreen) toggleExpand() {
+// expandTask раскрывает выбранную задачу (→). Сворачивание — только по ←,
+// поэтому здесь всегда ставим true, а не переключаем.
+func (s *tasksScreen) expandTask() {
 	item, ok := s.list.SelectedItem().(taskItem)
 	if !ok {
 		return
 	}
-	s.expanded[item.t.ID] = !s.expanded[item.t.ID]
+	s.expanded[item.t.ID] = true
 	s.buildItems()
 }
 
@@ -1184,6 +1184,96 @@ func (s *tasksScreen) startEditTitle() {
 	s.input.CursorEnd()
 	s.mode = taskTitleEdit
 	s.input.Focus()
+}
+
+// startEditDescription открывает инлайн-редактирование описания выбранной
+// задачи/подзадачи (Enter в списке — то же, что раньше «e» в колонке описания).
+func (s *tasksScreen) startEditDescription() {
+	s.lastErr = nil
+	s.descText.SetValue(s.desc)
+	s.mode = taskDescEdit
+	s.descText.Focus()
+}
+
+// startLinkInput открывает модалку добавления ссылки к выбранному элементу.
+func (s *tasksScreen) startLinkInput() {
+	s.lastErr = nil
+	s.linkName.SetValue("")
+	s.linkInput.SetValue("")
+	s.mode = taskLinkInput
+	s.linkName.Focus()
+	s.linkInput.Blur()
+}
+
+// openLinks открывает список ссылок выбранного элемента.
+func (s *tasksScreen) openLinks() {
+	s.lastErr = nil
+	s.mode = taskLinks
+}
+
+// startJournal открывает модалку новой записи журнала выбранной подзадачи.
+func (s *tasksScreen) startJournal() {
+	kind, id := s.selectedKindID()
+	if kind != kindSubtask || id == 0 {
+		return
+	}
+	s.lastErr = nil
+	s.journalText.SetValue("")
+	s.journalEditID = 0
+	s.mode = taskJournal
+	s.journalText.Focus()
+}
+
+// editTodayJournal открывает модалку редактирования самой свежей записи
+// журнала текущего дня выбранной подзадачи.
+func (s *tasksScreen) editTodayJournal() {
+	kind, id := s.selectedKindID()
+	if kind != kindSubtask || id == 0 {
+		return
+	}
+	var target *db.JournalEntry
+	for i := range s.journal {
+		e := &s.journal[i]
+		if sameDay(e.CreatedAt, s.now) {
+			target = e
+		}
+	}
+	if target == nil {
+		s.lastErr = fmt.Errorf("редактировать можно только записи текущего дня")
+		return
+	}
+	s.lastErr = nil
+	s.journalEditID = target.ID
+	s.journalText.SetValue(target.Text)
+	s.journalText.CursorEnd()
+	s.mode = taskJournal
+	s.journalText.Focus()
+}
+
+// openStatusPick открывает модалку выбора статуса для выбранного элемента.
+func (s *tasksScreen) openStatusPick() {
+	kind, id := s.selectedKindID()
+	if id == 0 {
+		return
+	}
+	cur := s.currentStatusName(kind, id)
+	s.statusKind, s.statusID = kind, id
+	s.statusPick.sel = 0
+	for i, it := range s.statusPick.items {
+		if it.label == cur {
+			s.statusPick.sel = i
+		}
+	}
+	s.statusPick.clampScroll()
+	s.mode = taskStatusPick
+}
+
+// startSearch открывает модалку поиска по проекту.
+func (s *tasksScreen) startSearch() {
+	s.lastErr = nil
+	s.searchInput.SetValue(s.searchQuery)
+	s.searchInput.Focus()
+	s.mode = taskSearch
 }
 
 func (s *tasksScreen) switchProject(dir int) {
@@ -1280,27 +1370,27 @@ func (s *tasksScreen) deleteItem(kind paneKind, id int64) {
 
 func (s *tasksScreen) resize(w, h int) {
 	s.midH = max(h, 3)
-	listW, descW, infoW := 0, 0, 0
-	if w >= 110 {
-		// три колонки 2:2:1 на всю ширину
-		u := (w - 4) / 5
-		listW, descW, infoW = 2*u, 2*u, u
-		listW += (w - 4) - 5*u
-	} else if w >= 70 {
-		// list + info (2:1)
-		listW = (w - 2) * 2 / 3
-		infoW = w - 2 - listW
+	// вся ширина w (центральная область) — под список и описание; правая
+	// колонка рендерится отдельно в app.rightRail.
+	avail := w
+	listW, descW := 0, 0
+	if avail >= 100 {
+		// список и описание равной ширины (1:1) с разделителем 2 пробела
+		listW = (avail - 2) / 2
+		descW = avail - 2 - listW
 	} else {
-		listW = w
+		listW = avail
 	}
-	s.listW, s.descW, s.infoW = listW, descW, infoW
+	s.listW, s.descW = listW, descW
 	frame := theme.Pane(false).GetHorizontalFrameSize()
+	// 1 строка сверху — название страницы над списком
 	s.list.SetWidth(listW - frame)
-	s.list.SetHeight(s.midH)
+	// 2 строки сверху — название страницы + отступ
+	s.list.SetHeight(max(s.midH-2, 1))
 	s.descV.Width = max(descW-frame, 1)
-	s.descV.Height = max(s.midH, 1)
+	s.descV.Height = max(s.midH-1, 1)
 	s.descText.SetWidth(max(descW-frame, 1))
-	s.descText.SetHeight(max(s.midH, 1))
+	s.descText.SetHeight(max(s.midH-1, 1))
 	s.journalText.SetWidth(max(descW-frame, 1))
 	s.journalText.SetHeight(10)
 	s.checklistPick.setVisible(max(4, min(h-8, 12)))
@@ -1315,61 +1405,53 @@ func (s *tasksScreen) retheme() {
 	s.linkList.SetDelegate(s.linkDelegate)
 }
 
-func (s *tasksScreen) header(w int) string {
-	h := theme.HeaderStyle.Render("Tasky")
-	if s.version != "" {
-		h += " " + theme.Faint("v"+strings.TrimPrefix(s.version, "v"))
-	}
-	if s.projIdx >= 0 && s.projIdx < len(s.projects) {
-		h += "  " + theme.Faint("проект: ") + s.projects[s.projIdx].Name
-	}
-	if s.searchQuery != "" {
-		h += "  " + theme.Faint("поиск: ") + s.searchQuery
-	}
-	if s.updateVer != "" {
-		h += "  " + theme.HeaderStyle.Render("обновление: v"+strings.TrimPrefix(s.updateVer, "v")) +
-			theme.Faint(" — tasky upgrade")
-	}
-	return padW(h, w)
-}
-
 func (s *tasksScreen) footer(w int) string {
 	if s.mode == taskDescEdit {
-		return padW(theme.Faint("Ctrl+S — сохранить · Esc — отмена"), w)
+		return "Ctrl+S — сохранить · Esc — отмена"
 	}
-	if s.focus == taskFocusDesc {
-		return padW(theme.Faint("↑/↓ скролл · e — описание · l — ссылка · o — ссылки · Ctrl+J — запись · j — изменить запись · g — теги · / — поиск · Tab — список"), w)
-	}
-	hint := "↑/↓ выбор · Enter раскрыть · n задача · a подзадача · e изменить · d удалить · Ctrl+L старт/пауза · Ctrl+↑/↓ переместить · x/z статус · c — все статусы · g — теги · / — поиск · [ / ] проект · Tab — описание · q выход"
-	if s.searchQuery != "" {
-		hint = "Поиск: «" + s.searchQuery + "» — / — изменить · Esc — сбросить"
-	}
-	return padW(theme.Faint(hint), w)
+	// подсказки действий перенесены в палитру команд (Ctrl+P); здесь не выводим
+	return ""
 }
 
 func (s *tasksScreen) view(w, h int) string {
-	leftStyle := theme.Pane(s.focus == taskFocusList)
-	var left string
-	if len(s.projects) == 0 {
-		left = fixedBox(theme.Pane(false), "Нет проектов.\nНажмите p и создайте проект.", s.listW, s.midH)
-	} else if s.searchQuery != "" && len(s.items) == 0 {
-		left = fixedBox(theme.Pane(false), "Ничего не найдено по запросу\n«"+s.searchQuery+"».", s.listW, s.midH)
-	} else if len(s.tasks) == 0 {
-		left = fixedBox(theme.Pane(false), "Задач в проекте нет.", s.listW, s.midH)
-	} else {
+	leftStyle := theme.Pane(false)
+	W := max(s.listW-leftStyle.GetHorizontalFrameSize(), 0)
+	H := max(s.midH, 1)
+	titleTxt := theme.HeaderStyle.Render("Задачи")
+	var body string
+	switch {
+	case len(s.projects) == 0:
+		body = "Нет проектов.\nНажмите p и создайте проект."
+	case s.searchQuery != "" && len(s.items) == 0:
+		body = "Ничего не найдено по запросу\n«" + s.searchQuery + "»."
+	case len(s.tasks) == 0:
+		body = "Задач в проекте нет."
+	default:
 		// bubbles/list не дополняет строки до ширины — паддинг вручную
-		left = renderPane(leftStyle, padLines(s.list.View(), max(s.listW-leftStyle.GetHorizontalFrameSize(), 0), max(s.midH-leftStyle.GetVerticalFrameSize(), 0)))
+		body = s.list.View()
 	}
+	// заголовок страницы + нижний отступ 1 строка, затем тело — единая панель
+	leftContent := titleTxt + "\n" + padW("", W) + "\n" + body
+	left := renderPane(leftStyle, padLines(leftContent, W, H))
 
 	cols := []string{left}
 	if s.descW > 0 {
 		cols = append(cols, "  ", s.descBox())
 	}
-	if s.infoW > 0 {
-		cols = append(cols, "  ", s.infoBox())
+	bodyOut := lipgloss.JoinHorizontal(lipgloss.Top, cols...)
+	return padH(bodyOut, w, h)
+}
+
+// rightContent возвращает содержимое правой колонки (без панели) заданной
+// высоты; панель и «Tasky vX» снизу добавляет app.rightRail.
+func (s *tasksScreen) rightContent(h int) string {
+	bot := s.infoBottom()
+	botH := len(strings.Split(bot, "\n"))
+	topH := h - botH - 1
+	if topH < 3 {
+		topH = 3
 	}
-	body := lipgloss.JoinHorizontal(lipgloss.Top, cols...)
-	return padH(body, w, h)
+	return s.infoTop(topH) + "\n\n" + bot
 }
 
 func (s *tasksScreen) dialog() (string, bool) {
@@ -1599,25 +1681,16 @@ func (s *tasksScreen) dialog() (string, bool) {
 // (прокручиваемый viewport); при редактировании описания вместо контента —
 // textarea.
 func (s *tasksScreen) descBox() string {
-	style := theme.Pane(s.focus == taskFocusDesc)
+	style := theme.Pane(false)
 	if s.mode == taskDescEdit {
 		return renderPane(style, padLines(s.descText.View(), max(s.descW-style.GetHorizontalFrameSize(), 0), max(s.midH-style.GetVerticalFrameSize(), 0)))
 	}
 	return renderPane(style, s.descV.View())
 }
 
-// infoBox — правая колонка: выбранный элемент (на всю высоту) + общая
-// информация (по высоте контента).
-func (s *tasksScreen) infoBox() string {
-	bot := s.infoBottom()
-	botH := len(strings.Split(bot, "\n"))
-	topH := s.midH - botH - 1
-	if topH < 3 {
-		topH = 3
-	}
-	return s.infoTop(topH) + "\n\n" + bot
-}
-
+// infoTop — верхняя часть правой колонки (выбранный элемент): статус,
+// записи времени/подзадачи, теги, история статусов. Без панели — обёртку
+// добавляет rightRail.
 func (s *tasksScreen) infoTop(topH int) string {
 	kind, id := s.selectedKindID()
 	var body []string
@@ -1702,8 +1775,8 @@ func (s *tasksScreen) infoTop(topH int) string {
 		body = append(body, theme.Faint("Выберите задачу или подзадачу."))
 	}
 	inner := strings.Join(body, "\n")
-	inner = padLines(inner, max(s.infoW-2, 1), topH)
-	return renderPane(theme.Pane(false), inner)
+	inner = padLines(inner, max(rightW-4, 1), topH)
+	return inner
 }
 
 // historyLines — последние 6 переходов статусов выбранного элемента: штамп
@@ -1718,7 +1791,7 @@ func (s *tasksScreen) historyLines() []string {
 	if len(s.history) > 6 {
 		start = len(s.history) - 6
 	}
-	w := max(s.infoW-2, 1)
+	w := max(rightW-4, 1)
 	for _, h := range s.history[start:] {
 		body = append(body, theme.Faint(h.CreatedAt.Format("2006-01-02 15:04")))
 		body = append(body, wrapText(h.From+" → "+h.To, w))
@@ -1751,9 +1824,9 @@ func (s *tasksScreen) infoBottom() string {
 		body = append(body, theme.Faint("Ничего не запущено."))
 	}
 	for i := range body {
-		body[i] = padW(body[i], max(s.infoW-2, 1))
+		body[i] = padW(body[i], max(rightW-4, 1))
 	}
-	return renderPane(theme.Pane(false), strings.Join(body, "\n"))
+	return strings.Join(body, "\n")
 }
 
 func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -2147,79 +2220,43 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	switch msg.String() {
 	case "tab":
-		if s.descW > 0 {
-			if s.focus == taskFocusList {
-				s.focus = taskFocusDesc
-			} else {
-				s.focus = taskFocusList
-			}
+		// переключение фокуса между панелями упразднено
+		return m, nil
+	case "enter":
+		s.startEditDescription()
+		return m, nil
+	case "right":
+		s.expandTask()
+		return m, nil
+	case "left":
+		kind, id := s.selectedKindID()
+		if kind == kindSubtask {
+			s.selectByKindID(kindTask, s.selectedTaskID())
+		} else if id != 0 {
+			s.expanded[id] = false
+			s.buildItems()
 		}
+		s.loadInfo()
+		s.loadDesc()
+		return m, nil
+	case "pgup", "pgdown":
+		s.descV, _ = s.descV.Update(msg)
 		return m, nil
 	case "e":
-		if s.focus == taskFocusList {
-			s.startEditTitle()
-			return m, nil
-		}
-		if s.focus == taskFocusDesc {
-			s.lastErr = nil
-			s.descText.SetValue(s.desc)
-			s.mode = taskDescEdit
-			s.descText.Focus()
-			return m, nil
-		}
+		s.startEditTitle()
+		return m, nil
 	case "l":
-		if s.focus == taskFocusDesc {
-			s.lastErr = nil
-			s.linkName.SetValue("")
-			s.linkInput.SetValue("")
-			s.mode = taskLinkInput
-			s.linkName.Focus()
-			s.linkInput.Blur()
-			return m, nil
-		}
+		s.startLinkInput()
+		return m, nil
 	case "o":
-		if s.focus == taskFocusDesc {
-			s.lastErr = nil
-			s.mode = taskLinks
-			return m, nil
-		}
+		s.openLinks()
+		return m, nil
 	case "ctrl+j":
-		if s.focus == taskFocusDesc {
-			kind, id := s.selectedKindID()
-			if kind == kindSubtask && id != 0 {
-				s.lastErr = nil
-				s.journalText.SetValue("")
-				s.journalEditID = 0
-				s.mode = taskJournal
-				s.journalText.Focus()
-			}
-			return m, nil
-		}
+		s.startJournal()
+		return m, nil
 	case "j":
-		if s.focus == taskFocusDesc {
-			kind, id := s.selectedKindID()
-			if kind == kindSubtask && id != 0 {
-				// редактировать можно самую свежую запись текущего дня
-				var target *db.JournalEntry
-				for i := range s.journal {
-					e := &s.journal[i]
-					if sameDay(e.CreatedAt, s.now) {
-						target = e
-					}
-				}
-				if target == nil {
-					s.lastErr = fmt.Errorf("редактировать можно только записи текущего дня")
-					return m, nil
-				}
-				s.lastErr = nil
-				s.journalEditID = target.ID
-				s.journalText.SetValue(target.Text)
-				s.journalText.CursorEnd()
-				s.mode = taskJournal
-				s.journalText.Focus()
-			}
-			return m, nil
-		}
+		s.editTodayJournal()
+		return m, nil
 	case "/":
 		s.lastErr = nil
 		s.searchInput.SetValue(s.searchQuery)
@@ -2234,19 +2271,10 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if s.focus == taskFocusDesc {
-		switch msg.String() {
-		case "up", "down", "pgup", "pgdown", "home", "end":
-			s.descV, _ = s.descV.Update(msg)
-			return m, nil
-		}
-		return m, nil
-	}
+	// стрелки вверх/вниз — навигация по списку (через s.list.Update ниже);
+	// прокрутка описания — PgUp/PgDn (независимо от фокуса, см. выше).
 
 	switch msg.String() {
-	case "enter", "right":
-		s.toggleExpand()
-		return m, nil
 	case "esc":
 		if s.searchQuery != "" {
 			s.searchQuery = ""
@@ -2286,20 +2314,7 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		s.shiftStatus(-1)
 		return m, nil
 	case "c":
-		kind, id := s.selectedKindID()
-		if id == 0 {
-			return m, nil
-		}
-		cur := s.currentStatusName(kind, id)
-		s.statusKind, s.statusID = kind, id
-		s.statusPick.sel = 0
-		for i, it := range s.statusPick.items {
-			if it.label == cur {
-				s.statusPick.sel = i
-			}
-		}
-		s.statusPick.clampScroll()
-		s.mode = taskStatusPick
+		s.openStatusPick()
 		return m, nil
 	}
 	var cmd tea.Cmd

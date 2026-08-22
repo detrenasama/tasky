@@ -30,6 +30,8 @@ type Colors struct {
 	Muted        string `json:"muted"`
 	Background   string `json:"background"`
 	Panel        string `json:"panel"`
+	Tabs         string `json:"tabs"`
+	Content      string `json:"content"`
 	Element      string `json:"element"`
 	Selection    string `json:"selection"`
 	Border       string `json:"border"`
@@ -73,7 +75,9 @@ func defaultColors() Colors {
 		Text:         "#eeeeee",
 		Muted:        "#808080",
 		Background:   "#0a0a0a",
-		Panel:        "#141414",
+		Panel:        "#1e1e1e",
+		Tabs:         "#141414",
+		Content:      "#141414",
 		Element:      "#1e1e1e",
 		Selection:    "#282828",
 		Border:       "#484848",
@@ -219,8 +223,22 @@ func parseTheme(data []byte, fileBase string) (Theme, bool) {
 	if v := f.Colors.Panel; v != "" {
 		c.Panel = v
 	}
+	if v := f.Colors.Tabs; v != "" {
+		c.Tabs = v
+	}
+	if v := f.Colors.Content; v != "" {
+		c.Content = v
+	}
 	if v := f.Colors.Element; v != "" {
 		c.Element = v
+	}
+	// tabs/content по умолчанию наследуют цвет panel (правая панель),
+	// если явно не заданы в теме.
+	if f.Colors.Tabs == "" {
+		c.Tabs = c.Panel
+	}
+	if f.Colors.Content == "" {
+		c.Content = c.Panel
 	}
 	if v := f.Colors.Selection; v != "" {
 		c.Selection = v
@@ -246,6 +264,7 @@ func applyTheme(t Theme) {
 	DimStyle = lipgloss.NewStyle().Faint(true)
 	ErrorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(t.Colors.Error))
 	SaveOKStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(t.Colors.Success))
+	TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(t.Colors.Text))
 	SelectionStyle = lipgloss.NewStyle().
 		Background(lipgloss.Color(t.Colors.Selection)).
 		Foreground(lipgloss.Color(t.Colors.Accent))

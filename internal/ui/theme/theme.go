@@ -21,6 +21,9 @@ var (
 	DimStyle    = lipgloss.NewStyle().Faint(true)
 	ErrorStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
 	SaveOKStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
+	// TextStyle — основной (белый) цвет текста: явный foreground, чтобы
+	// сочетания клавиш в подсказках были белыми независимо от умолчаний терминала.
+	TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(active.Colors.Text))
 	// SelectionStyle — выделенная строка списка: фон Selection + акцентный
 	// текст (используется в палитре команд).
 	SelectionStyle = lipgloss.NewStyle().
@@ -29,18 +32,16 @@ var (
 	linkStyle = lipgloss.NewStyle().Underline(true).Foreground(Accent)
 )
 
-// Pane возвращает стиль плоской панели без рамок: неактивная — фон-заливка
-// панели; активная (в фокусе) — светлее + левая акцентная полоса.
+// Pane возвращает стиль плоской панели без рамок для контента: фон content.
+// Фокуса на панелях контента больше нет, поэтому стиль одинаков для обеих
+// колонок (список и описание) независимо от аргумента focused.
 func Pane(focused bool) lipgloss.Style {
-	s := lipgloss.NewStyle().Padding(0, 1)
-	if focused {
-		return s.
-			Background(lipgloss.Color(active.Colors.Element)).
-			Border(lipgloss.NormalBorder(), false, false, false, true).
-			BorderForeground(lipgloss.Color(active.Colors.Accent))
-	}
-	return s.Background(lipgloss.Color(active.Colors.Panel))
+	_ = focused
+	return lipgloss.NewStyle().Padding(0, 1).Background(lipgloss.Color(active.Colors.Content))
 }
+
+// PanelColor — цвет фона правой панели (panel).
+func PanelColor() lipgloss.Color { return lipgloss.Color(active.Colors.Panel) }
 
 // ModalStyle — стиль модального диалога: плоская панель с лёгкой рамкой.
 var ModalStyle = lipgloss.NewStyle().
@@ -50,10 +51,10 @@ var ModalStyle = lipgloss.NewStyle().
 	Padding(1, 2)
 
 // SidebarInactive — неактивная вкладка левой вертикальной панели и фон
-// самой панели: фон Panel, приглушённый текст.
+// самой панели: фон tabs, приглушённый текст.
 func SidebarInactive() lipgloss.Style {
 	return lipgloss.NewStyle().
-		Background(lipgloss.Color(active.Colors.Panel)).
+		Background(lipgloss.Color(active.Colors.Tabs)).
 		Foreground(lipgloss.Color(active.Colors.Muted))
 }
 
@@ -66,6 +67,10 @@ func SidebarActive() lipgloss.Style {
 }
 
 func Faint(s string) string { return MutedStyle.Render(s) }
+
+// Text — основной (белый) цвет текста: явный foreground, чтобы сочетания
+// клавиш в подсказках были белыми независимо от умолчаний терминала.
+func Text(s string) string { return TextStyle.Render(s) }
 
 // Muted — вторичный текст цветом muted темы (подсказки, штампы, метки).
 func Muted(s string) string { return MutedStyle.Render(s) }

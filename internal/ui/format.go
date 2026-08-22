@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/mattn/go-runewidth"
+
+	"github.com/detrenasama/tasky/internal/ui/theme"
 )
 
 // fmtDur форматирует длительность в «Чч Мм» / «Мм Сс» / «Сс».
@@ -110,4 +112,25 @@ func wrapText(s string, w int) string {
 		}
 	}
 	return strings.Join(out, "\n")
+}
+
+// styleHints форматирует строку подсказок: сочетание клавиш — белым
+// (основной цвет терминала), название — серым (faint, как раньше),
+// разделитель « · » — серым. Каждый фрагмент имеет вид «КЛАВИША название»;
+// граница — первый пробел.
+func styleHints(s string) string {
+	if s == "" {
+		return ""
+	}
+	parts := strings.Split(s, " · ")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		i := strings.Index(p, " ")
+		if i < 0 {
+			out = append(out, theme.Faint(p))
+			continue
+		}
+		out = append(out, theme.Text(p[:i])+theme.Faint(p[i:]))
+	}
+	return strings.Join(out, theme.Faint(" · "))
 }

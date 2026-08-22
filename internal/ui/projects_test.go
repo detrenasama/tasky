@@ -21,18 +21,18 @@ func TestProjectsResizeColumns(t *testing.T) {
 	}
 	s := newProjectsScreen(store.NewSQLite(conn))
 	s.load()
-	cases := []struct{ w, list, desc, info int }{
-		{150, 30, 87, 29},
-		{110, 22, 63, 21},
-		{109, 53, 54, 0},
-		{60, 29, 29, 0},
-		{59, 59, 0, 0},
+	cases := []struct{ w, list, desc int }{
+		{150, 74, 74},
+		{110, 54, 54},
+		{109, 53, 54},
+		{60, 60, 0},
+		{59, 59, 0},
 	}
 	for _, c := range cases {
 		s.resize(c.w, 26)
-		if s.listW != c.list || s.descW != c.desc || s.infoW != c.info {
-			t.Errorf("w=%d: list=%d desc=%d info=%d, ожидались %d/%d/%d",
-				c.w, s.listW, s.descW, s.infoW, c.list, c.desc, c.info)
+		if s.listW != c.list || s.descW != c.desc {
+			t.Errorf("w=%d: list=%d desc=%d, ожидались %d/%d",
+				c.w, s.listW, s.descW, c.list, c.desc)
 		}
 	}
 }
@@ -101,34 +101,7 @@ func TestProjectsDescBox(t *testing.T) {
 	}
 }
 
-func TestProjectsFocusTab(t *testing.T) {
-	conn, err := db.Open(t.TempDir() + "/test.db")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer conn.Close()
-	if _, err := db.CreateProject(conn, "P"); err != nil {
-		t.Fatal(err)
-	}
-	m := model{proj: newProjectsScreen(store.NewSQLite(conn))}
-	m.proj.load()
-	m.proj.resize(150, 26)
-	key := func(t tea.KeyType) tea.KeyMsg { return tea.KeyMsg{Type: t} }
-
-	if m.proj.focus != projFocusList {
-		t.Fatalf("начальный фокус %d, ожидался список", m.proj.focus)
-	}
-	m.updateProjects(key(tea.KeyTab))
-	if m.proj.focus != projFocusDesc {
-		t.Fatal("Tab не переключил фокус на описание")
-	}
-	m.updateProjects(key(tea.KeyTab))
-	if m.proj.focus != projFocusList {
-		t.Fatal("Tab не вернул фокус на список")
-	}
-}
-
-func TestProjectsDescKeysOnlyInDescFocus(t *testing.T) {
+func TestProjectsDescEdit(t *testing.T) {
 	conn, err := db.Open(t.TempDir() + "/test.db")
 	if err != nil {
 		t.Fatal(err)
@@ -144,21 +117,18 @@ func TestProjectsDescKeysOnlyInDescFocus(t *testing.T) {
 	m := model{proj: newProjectsScreen(store.NewSQLite(conn))}
 	m.proj.load()
 	m.proj.resize(150, 26)
-	key := func(t tea.KeyType) tea.KeyMsg { return tea.KeyMsg{Type: t} }
-	_ = key
 
-	// e в фокусе списка: режим остаётся browse
+	// e — без действия (описание теперь открывается по Enter)
 	before := m.proj.mode
 	m.updateProjects(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
 	if m.proj.mode != before {
-		t.Error("e в фокусе списка не должен открывать редактирование")
+		t.Error("e не должен открывать редактирование")
 	}
 
-	// e в фокусе описания открывает редактирование
-	m.updateProjects(tea.KeyMsg{Type: tea.KeyTab})
-	m.updateProjects(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+	// Enter открывает инлайн-редактирование описания
+	m.updateProjects(tea.KeyMsg{Type: tea.KeyEnter})
 	if m.proj.mode != projDescEdit {
-		t.Error("e в фокусе описания должен открыть редактирование")
+		t.Error("Enter должен открыть редактирование описания")
 	}
 
 	// редактирование инлайн: колонка показывает textarea, модалки нет
@@ -182,7 +152,7 @@ func TestProjectsDescKeysOnlyInDescFocus(t *testing.T) {
 	}
 
 	// Esc отменяет без сохранения
-	m.updateProjects(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+	m.updateProjects(tea.KeyMsg{Type: tea.KeyEnter})
 	m.proj.descText.SetValue("не сохранять")
 	m.updateProjects(tea.KeyMsg{Type: tea.KeyEsc})
 	if m.proj.mode != projBrowse {
@@ -192,16 +162,16 @@ func TestProjectsDescKeysOnlyInDescFocus(t *testing.T) {
 		t.Errorf("Esc сохранил изменения: %q", got)
 	}
 
-	// снова длинное описание, чтобы был скролл: e → SetValue → Ctrl+S
-	m.updateProjects(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
-	m.proj.descText.SetValue(strings.Repeat("строка длинного описания ", 100))
+	// снова длинное описание, чтобы был скролл: Enter → SetValue → Ctrl+S
+	m.updateProjects(tea.KeyMsg{Type: tea.KeyEnter})
+	m.proj.descText.SetValue(strings.Repeat("строка длинного описание ", 100))
 	m.updateProjects(tea.KeyMsg{Type: tea.KeyCtrlS})
 
-	// скролл: после Ctrl+S фокус остался на описании, down скроллит viewport
+	// скролл описания по PgDn в browse
 	y0 := m.proj.descV.YOffset
-	m.updateProjects(tea.KeyMsg{Type: tea.KeyDown})
-	if m.proj.descV.YOffset != y0+1 {
-		t.Errorf("down не проскроллил описание: %d → %d", y0, m.proj.descV.YOffset)
+	m.updateProjects(tea.KeyMsg{Type: tea.KeyPgDown})
+	if m.proj.descV.YOffset <= y0 {
+		t.Errorf("PgDn не проскроллил описание: %d → %d", y0, m.proj.descV.YOffset)
 	}
 }
 

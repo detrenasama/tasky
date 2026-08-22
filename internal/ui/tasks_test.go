@@ -16,18 +16,18 @@ import (
 
 func TestResizeColumns(t *testing.T) {
 	s := newTestTasksScreen(t)
-	cases := []struct{ w, list, desc, info int }{
-		{150, 59, 58, 29},
-		{110, 43, 42, 21},
-		{109, 71, 0, 36},
-		{90, 58, 0, 30},
-		{69, 69, 0, 0},
+	cases := []struct{ w, list, desc int }{
+		{150, 74, 74},
+		{110, 54, 54},
+		{109, 53, 54},
+		{90, 90, 0},
+		{69, 69, 0},
 	}
 	for _, c := range cases {
 		s.resize(c.w, 26)
-		if s.listW != c.list || s.descW != c.desc || s.infoW != c.info {
-			t.Errorf("w=%d: list=%d desc=%d info=%d, ожидались %d/%d/%d",
-				c.w, s.listW, s.descW, s.infoW, c.list, c.desc, c.info)
+		if s.listW != c.list || s.descW != c.desc {
+			t.Errorf("w=%d: list=%d desc=%d, ожидались %d/%d",
+				c.w, s.listW, s.descW, c.list, c.desc)
 		}
 	}
 }
@@ -66,46 +66,23 @@ func TestViewColumnsWithTasks(t *testing.T) {
 	s := newTasksScreen(store.NewSQLite(conn))
 	s.load()
 	s.resize(150, 26)
-	// три колонки: 59 + 2 + 58 + 2 + 29 = 150; каждая панель ровно своей
-	// ширины, разделители — 2 пробела
-	row := strings.Split(s.view(150, 26), "\n")[0]
-	if got := lipgloss.Width(row); got != 150 {
-		t.Fatalf("ширина строки %d, ожидалось 150", got)
+	// две колонки равной ширины: 74 + 2 + 74 = 150; заголовок страницы «Задачи»
+	// сверху слева, каждая панель ровно своей ширины, разделитель — 2 пробела.
+	out := s.view(150, 26)
+	rows := strings.Split(out, "\n")
+	if len(rows) != 26 {
+		t.Fatalf("строк %d, ожидалось 26", len(rows))
 	}
-	// граница панели: сброс ANSI + восстановленный фон, 2 пробела-разделителя,
-	// фон следующей панели
-	probe := lipgloss.NewStyle().Background(theme.Pane(false).GetBackground()).Render("§")
-	bgSeq := strings.Split(probe, "§")[0]
-	if bgSeq == "" {
-		t.Fatal("фон панели не эмитит ANSI (нужен цветовой профиль)")
-	}
-	sep := bgSeq + "  " + bgSeq
-	var idx []int
-	from := 0
-	for {
-		i := strings.Index(row[from:], sep)
-		if i < 0 {
-			break
-		}
-		idx = append(idx, from+i)
-		from += i + len(sep)
-	}
-	if len(idx) != 2 {
-		t.Fatalf("границ панелей: %d, ожидалось 2", len(idx))
-	}
-	segs := []string{
-		row[:idx[0]],
-		row[idx[0]+len(bgSeq)+2 : idx[1]],
-		row[idx[1]+len(bgSeq)+2:],
-	}
-	want := []int{s.listW, s.descW, s.infoW}
-	for i, seg := range segs {
-		if got := lipgloss.Width(seg); got != want[i] {
-			t.Errorf("колонка %d: ширина %d, ожидалось %d", i, got, want[i])
+	for i, r := range rows {
+		if lipgloss.Width(r) != 150 {
+			t.Errorf("строка %d шириной %d, ожидалось 150", i, lipgloss.Width(r))
 		}
 	}
-	if s.listW+s.descW+s.infoW+4 != 150 {
-		t.Errorf("сумма колонок %d, ожидалось 150", s.listW+s.descW+s.infoW+4)
+	if !strings.Contains(out, "Задачи") {
+		t.Error("нет заголовка страницы «Задачи»")
+	}
+	if s.listW+s.descW+2 != 150 {
+		t.Errorf("сумма колонок %d, ожидалось 150", s.listW+s.descW+2)
 	}
 }
 
@@ -137,37 +114,16 @@ func TestInfoBottomVisible(t *testing.T) {
 	s := newTasksScreen(store.NewSQLite(conn))
 	s.load()
 	s.resize(150, 26)
-	rows := strings.Split(s.view(150, 26), "\n")
-	if len(rows) != 26 {
-		t.Fatalf("строк %d, ожидалось 26", len(rows))
-	}
-	if got := lipgloss.Width(rows[25]); got != 150 {
-		t.Errorf("последняя строка шириной %d, ожидалось 150", got)
-	}
-	// подвал info-колонки (состояние запущенной подзадачи) виден внизу
-	tail := stripANSI(strings.Join(rows[len(rows)-4:], "\n"))
-	if !strings.Contains(tail, "Ничего не запущено.") {
-		t.Error("в info-колонке внизу нет строки о запущенной подзадаче")
+	// правая колонка (ранее info-колонка) рендерится отдельно через
+	// rightContent; проверяем её содержимое непосредственно.
+	rc := s.rightContent(24)
+	if !strings.Contains(stripANSI(rc), "Ничего не запущено.") {
+		t.Error("в правой колонке внизу нет строки о запущенной подзадаче")
 	}
 }
 
 // tasksSeedProject создаёт проект с задачей и подзадачей и возвращает
 // инициализированный tasksScreen.
-
-func TestTasksFocusTab(t *testing.T) {
-	_, s, _, _ := tasksSeedProject(t)
-	if s.focus != taskFocusList {
-		t.Fatalf("начальный фокус %d, ожидался список", s.focus)
-	}
-	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyTab})
-	if s.focus != taskFocusDesc {
-		t.Fatal("Tab не переключил фокус на описание")
-	}
-	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyTab})
-	if s.focus != taskFocusList {
-		t.Fatal("Tab не вернул фокус на список")
-	}
-}
 
 // TestTasksDescBox — колонка описания: для задачи описание и ссылки, для
 // подзадачи — блоки «Описание» и «Журнал» с записью.
@@ -445,7 +401,7 @@ func TestTasksDescBox(t *testing.T) {
 
 	// подзадача: описание + ссылка + журнал
 	m := &model{tasks: s}
-	m.updateTasks(tea.KeyMsg{Type: tea.KeyEnter}) // раскрыть задачу
+	m.updateTasks(tea.KeyMsg{Type: tea.KeyRight}) // раскрыть задачу
 	m.updateTasks(tea.KeyMsg{Type: tea.KeyDown})  // на подзадачу
 	plain = stripANSI(s.descBox())
 	for _, want := range []string{"описание подзадачи", "https://example.org",
@@ -461,35 +417,54 @@ func TestTasksDescBox(t *testing.T) {
 	}
 }
 
+// TestTasksExpandCollapse — → раскрывает задачу (видна подзадача), ← сворачивает.
+
+func TestTasksExpandCollapse(t *testing.T) {
+	_, s, _, _ := tasksSeedProject(t)
+
+	if containsString(searchTitles(s), "S") {
+		t.Fatal("подзадача видна до раскрытия")
+	}
+	// → раскрывает
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyRight})
+	if !containsString(searchTitles(s), "S") {
+		t.Fatal("→ не раскрыл задачу (нет подзадачи в списке)")
+	}
+	// ← сворачивает
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyLeft})
+	if containsString(searchTitles(s), "S") {
+		t.Fatal("← не свернул задачу (подзадача осталась в списке)")
+	}
+}
+
 // TestTasksDescKeysOnlyInDescFocus — e/ctrl+j/l/o работают только в фокусе
 // описания; инлайн-редактирование сохраняется по Ctrl+S, отменяется по Esc.
 
-func TestTasksDescKeysOnlyInDescFocus(t *testing.T) {
+func TestTasksDescEdit(t *testing.T) {
 	conn, s, task, _ := tasksSeedProject(t)
 	m := &model{tasks: s, proj: newProjectsScreen(store.NewSQLite(conn))}
 	runes := func(r rune) tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}} }
 
-	// e в фокусе списка открывает модалку изменения названия
+	// e открывает модалку изменения названия (из списка, без фокуса)
 	m.updateTasks(runes('e'))
 	if s.mode != taskTitleEdit {
-		t.Fatal("e в фокусе списка не открыл изменение названия")
+		t.Fatal("e не открыл изменение названия")
 	}
 	m.updateTasks(tea.KeyMsg{Type: tea.KeyEsc})
 	if s.mode != taskBrowse {
 		t.Fatal("Esc не закрыл модалку названия")
 	}
-	// ctrl+j в фокусе списка — ничего не открывает
+	// ctrl+j для выбранной задачи (не подзадачи) — ничего не открывает
 	before := s.mode
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlJ})
 	if cmd != nil || s.mode != before {
-		t.Error("ctrl+j в фокусе списка открыл модалку или вернул команду")
+		t.Error("ctrl+j для задачи открыл модалку или вернул команду")
 	}
 
-	// e в фокусе описания открывает инлайн-редактирование
-	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyTab})
-	s.updateTasksMsg(runes('e'))
+	// Enter открывает инлайн-редактирование описания
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEnter})
 	if s.mode != taskDescEdit {
-		t.Fatal("e в фокусе описания не открыл редактирование")
+		t.Fatal("Enter не открыл редактирование описания")
 	}
 	s.descText.SetValue("новое описание")
 	if !strings.Contains(s.descBox(), "новое описание") {
@@ -507,21 +482,21 @@ func TestTasksDescKeysOnlyInDescFocus(t *testing.T) {
 	}
 
 	// Esc отменяет
-	s.updateTasksMsg(runes('e'))
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEnter})
 	s.descText.SetValue("не сохранять")
 	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
 	if got, _ := db.TaskDescription(conn, task.ID); got != "новое описание" {
 		t.Errorf("Esc сохранил изменения: %q", got)
 	}
 
-	// скролл viewport в фокусе описания
-	s.updateTasksMsg(runes('e'))
+	// скролл viewport описания по PgDn в browse
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEnter})
 	s.descText.SetValue(strings.Repeat("строка длинного описания ", 100))
 	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyCtrlS})
 	y0 := s.descV.YOffset
-	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyDown})
-	if s.descV.YOffset != y0+1 {
-		t.Errorf("down не проскроллил описание: %d → %d", y0, s.descV.YOffset)
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyPgDown})
+	if s.descV.YOffset <= y0 {
+		t.Errorf("PgDn не проскроллил описание: %d → %d", y0, s.descV.YOffset)
 	}
 }
 
@@ -1217,7 +1192,7 @@ func TestTasksMoveSelected(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.load()
-	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEnter}) // раскрыть T1
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyRight}) // раскрыть T1
 	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyDown})  // на S1
 	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyCtrlDown})
 	var got []int64
@@ -1271,7 +1246,7 @@ func TestTasksMoveSubtaskAfterOtherTasks(t *testing.T) {
 
 	// T0 → T1, раскрыть, встать на S1, опустить
 	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyDown})
-	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEnter})
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyRight})
 	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyDown})
 	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyCtrlDown})
 	// s.subs: [Z, S2, S1]; выделение на S1

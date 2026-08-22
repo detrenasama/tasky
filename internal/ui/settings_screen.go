@@ -178,12 +178,13 @@ func (s *settingsScreen) resize(w, h int) {
 	s.themePick.setVisible(visible)
 }
 
-func (s *settingsScreen) header(w int) string {
-	return padW(theme.HeaderStyle.Render("Tasky")+"  "+theme.Faint("Настройки"), w)
+func (s *settingsScreen) footer(w int) string {
+	return "↑/↓ — выбор · Enter — изменить · esc — назад"
 }
 
-func (s *settingsScreen) footer(w int) string {
-	return padW(theme.Faint("↑/↓ — выбор · Enter — изменить · esc — назад"), w)
+// rightContent — для настроек правая колонка пока пустая (только «Tasky vX» снизу).
+func (s *settingsScreen) rightContent(h int) string {
+	return ""
 }
 
 // projectName — название проекта фильтра или «все проекты».
@@ -247,12 +248,14 @@ func (s *settingsScreen) view(w, h int) string {
 			lines = append(lines, "  "+r)
 		}
 	}
-	inner := theme.HeaderStyle.Render("Настройки отчёта") + "\n\n" +
-		strings.Join(lines, "\n") + "\n\n" +
+	inner := strings.Join(lines, "\n") + "\n\n" +
 		theme.Faint("Enter — выбор из списка (журнал — вкл/выкл,")
 	inner += "\n" + theme.Faint("каталог — ввод пути, скрытие — дни, статусы и типы тегов, тема — каталоги)")
+	// название страницы + нижний отступ 1 строка
+	title := renderPane(theme.Pane(false), padLines(theme.HeaderStyle.Render("Настройки"), max(w-2, 1), 2))
 	style := theme.Pane(false)
-	return renderPane(style, padLines(inner, max(w-style.GetHorizontalFrameSize(), 1), max(h-style.GetVerticalFrameSize(), 1)))
+	body := title + "\n" + renderPane(style, padLines(inner, max(w-2, 1), max(h-2-style.GetVerticalFrameSize(), 1)))
+	return padH(body, w, h)
 }
 
 func (s *settingsScreen) dialog() (string, bool) {

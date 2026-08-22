@@ -8,6 +8,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/detrenasama/tasky/internal/store"
 	"github.com/detrenasama/tasky/internal/ui/theme"
@@ -22,6 +23,11 @@ const (
 	screenReports
 	screenSettings
 )
+
+// sideW — ширина левой вертикальной панели вкладок; rightW — ширина правой
+// колонки (всегда видима на всех экранах).
+const sideW = 5
+const rightW = 42
 
 // sidebarItem — вкладка левой вертикальной панели: страница и значок
 // (Nerd Font, одинарной ширины).
@@ -72,26 +78,6 @@ func sidebarView(cur screen, h int) string {
 	return strings.Join(lines, "\n")
 }
 
-// joinSidebar склеивает левую панель (ширина 5) и контент построчно.
-func joinSidebar(sidebar, content string, w, h int) string {
-	const sideW = 5
-	cw := w - sideW
-	sLines := strings.Split(sidebar, "\n")
-	cLines := strings.Split(content, "\n")
-	out := make([]string, max(h, 0))
-	for i := 0; i < h; i++ {
-		var s, c string
-		if i < len(sLines) {
-			s = sLines[i]
-		}
-		if i < len(cLines) {
-			c = cLines[i]
-		}
-		out[i] = padW(s, sideW) + padW(c, cw)
-	}
-	return strings.Join(out, "\n")
-}
-
 // model — корневая модель приложения: переключение экранов (вкладки),
 // тик 1с, хром (шапка/подвал/вкладки) и общие диалоги выхода/отчётов.
 type model struct {
@@ -133,7 +119,6 @@ type model struct {
 func New(st store.Store, dataDir, version string) *model {
 	m := &model{store: st, version: version}
 	m.tasks = newTasksScreen(st)
-	m.tasks.version = version
 	m.tasks.now = time.Now()
 	m.tasks.load()
 	m.proj = newProjectsScreen(st)
@@ -179,10 +164,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.height < 4 {
 			m.height = 4
 		}
-		m.tasks.resize(m.width-5, m.height-2)
-		m.proj.resize(m.width-5, m.height-2)
-		m.reports.resize(m.width-5, m.height-2)
-		m.settings.resize(m.width-5, m.height-2)
+		m.tasks.resize(m.width-sideW-rightW, m.height-1)
+		m.proj.resize(m.width-sideW-rightW, m.height-1)
+		m.reports.resize(m.width-sideW-rightW, m.height-1)
+		m.settings.resize(m.width-sideW-rightW, m.height-1)
 		return m, nil
 	case tea.KeyMsg:
 		if m.quitting {
@@ -324,41 +309,79 @@ func (m *model) switchScreen(s screen) {
 }
 
 func (m model) View() string {
-	sideW := 5
 	w, h := m.width, m.height
-	if w < sideW+1 {
-		w = sideW + 1
+	if w < sideW+rightW+20 {
+		w = sideW + rightW + 20
 	}
-	if h < 4 {
-		h = 4
+	if h < 8 {
+		h = 8
 	}
-	cw := w - sideW
-	midH := h - 2
+	centralW := w - sideW - rightW
+	midH := h - 1
 
-	var header, mid, footer string
+	var mid, footer, rightMid string
 	var dlg string
 	var modalOpen bool
 	switch m.screen {
 	case screenProjects:
-		header, footer = m.proj.header(cw), m.proj.footer(cw)
-		mid = m.proj.view(cw, midH)
+		mid = m.proj.view(centralW-4, midH-4)
+		footer = m.proj.footer(centralW)
+		rightMid = m.proj.rightContent(midH - 1)
 		dlg, modalOpen = m.proj.dialog()
 	case screenReports:
-		header, footer = m.reports.header(cw), m.reports.footer(cw)
-		mid = m.reports.view(cw, midH)
+		mid = m.reports.view(centralW-4, midH-4)
+		footer = m.reports.footer(centralW)
+		rightMid = m.reports.rightContent(midH - 1)
 		dlg, modalOpen = m.reports.dialog()
 	case screenSettings:
-		header, footer = m.settings.header(cw), m.settings.footer(cw)
-		mid = m.settings.view(cw, midH)
+		mid = m.settings.view(centralW-4, midH-4)
+		footer = m.settings.footer(centralW)
+		rightMid = m.settings.rightContent(midH - 1)
 		dlg, modalOpen = m.settings.dialog()
 	default:
-		header, footer = m.tasks.header(cw), m.tasks.footer(cw)
-		mid = m.tasks.view(cw, midH)
+		mid = m.tasks.view(centralW-4, midH-4)
+		footer = m.tasks.footer(centralW)
+		rightMid = m.tasks.rightContent(midH - 1)
 		dlg, modalOpen = m.tasks.dialog()
 	}
 
-	content := header + "\n" + mid + "\n" + footer
-	full := joinSidebar(sidebarView(m.screen, h), content, w, h)
+	// центральная часть и нижняя панель подсказок — единый паддинг
+	// (вертикальный 1, горизонтальный 2), фон panel, как у правой колонки.
+	boxStyle := lipgloss.NewStyle().Padding(1, 2).Background(theme.Pane(false).GetBackground())
+	mid = renderPane(boxStyle, padLines(mid, max(centralW-4, 1), max(midH-4, 1)))
+
+	// нижняя панель подсказок: клавиши белым, названия серым (как сейчас);
+	// справа — «ctrl+p команды» с отступом 2, чтобы подсказки не перекрывались.
+	footInnerW := max(centralW-4, 1)
+	footRight := "  " + styleHints("ctrl+p команды")
+	footLeftW := max(footInnerW-lipgloss.Width(footRight), 0)
+	footLine := padW(truncateW(styleHints(footer), footLeftW), footLeftW) + footRight
+	footPanel := renderPane(boxStyle, padLines(footLine, footInnerW, 1))
+
+	sbLines := strings.Split(sidebarView(m.screen, h), "\n")
+	railLines := strings.Split(rightRail(m.version, rightW, h, rightMid), "\n")
+	midLines := strings.Split(mid, "\n")
+	footLines := strings.Split(footPanel, "\n")
+
+	out := make([]string, h)
+	for i := 0; i < h; i++ {
+		s := padW(sbLines[i], sideW)
+		var c string
+		if i < len(midLines) {
+			c = padW(midLines[i], centralW)
+		} else {
+			idx := i - len(midLines)
+			if idx < len(footLines) {
+				c = padW(footLines[idx], centralW)
+			} else {
+				c = padW("", centralW)
+			}
+		}
+		r := padW(railLines[i], rightW)
+		out[i] = s + c + r
+	}
+	full := strings.Join(out, "\n")
+
 	if modalOpen {
 		full = overlay(full, dlg, w, h)
 	}
@@ -387,4 +410,26 @@ func (m model) View() string {
 		full = overlay(full, d.render(), w, h)
 	}
 	return full
+}
+
+// rightRail — правая колонка (шириной rightW, высотой height) с общим
+// паддингом (вертикальный 1, горизонтальный 2): сверху содержимое экрана
+// (middle), снизу — «Tasky vX».
+func rightRail(version string, width, height int, middle string) string {
+	innerW := max(width-4, 1)  // 2 пробела слева и справа
+	innerH := max(height-2, 1) // 1 строка сверху и снизу
+	midLines := strings.Split(middle, "\n")
+	lines := make([]string, innerH)
+	for i := 0; i < innerH-2; i++ {
+		if i < len(midLines) {
+			lines[i] = midLines[i]
+		} else {
+			lines[i] = ""
+		}
+	}
+	lines[innerH-2] = ""
+	lines[innerH-1] = theme.HeaderStyle.Render("Tasky") + " " + theme.Faint("v"+strings.TrimPrefix(version, "v"))
+	inner := strings.Join(lines, "\n")
+	style := lipgloss.NewStyle().Padding(1, 2).Background(theme.PanelColor())
+	return renderPane(style, padLines(inner, innerW, innerH))
 }

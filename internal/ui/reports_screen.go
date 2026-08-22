@@ -283,27 +283,30 @@ func (s *reportsScreen) save() {
 
 func (s *reportsScreen) resize(w, h int) {
 	s.repV.Width = max(w-2, 1)
-	s.repV.Height = max(h-3, 1)
-}
-
-func (s *reportsScreen) header(w int) string {
-	return padW(theme.HeaderStyle.Render("Tasky")+"  "+theme.Faint("Отчеты"), w)
+	s.repV.Height = max(h-4, 1)
 }
 
 func (s *reportsScreen) footer(w int) string {
-	return padW(theme.Faint("↑/↓ скролл · ctrl+s — сохранить · esc — назад · q — выход"), w)
+	return "↑/↓ скролл · ctrl+s — сохранить · esc — назад · q — выход"
 }
 
-// view — фикс-шапка с периодом и общим временем + статус + скроллируемый
-// список задач с подзадачами.
+// rightContent — для отчётов правая колонка пока пустая (только «Tasky vX» снизу).
+func (s *reportsScreen) rightContent(h int) string {
+	return ""
+}
+
+// view — название страницы + фикс-шапка с периодом и общим временем + статус
+// + скроллируемый список задач с подзадачами.
 func (s *reportsScreen) view(w, h int) string {
 	status := s.statusLine(w)
 	statusH := 0
 	if status != "" {
 		statusH = 1
 	}
-	s.repV.Height = max(h-3-statusH, 1)
-	parts := []string{s.topBox(w)}
+	s.repV.Height = max(h-5-statusH, 1)
+	// заголовок страницы + нижний отступ 1 строка
+	title := renderPane(theme.Pane(false), padLines(theme.HeaderStyle.Render("Отчеты"), max(w-2, 1), 2))
+	parts := []string{title, s.topBox(w)}
 	if status != "" {
 		parts = append(parts, "", status)
 	}

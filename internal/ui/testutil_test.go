@@ -63,11 +63,11 @@ func tasksSeedProject(t *testing.T) (*sql.DB, *tasksScreen, db.Task, db.SubtaskW
 	return conn, s, task, st
 }
 
-// selectFirstSubtask раскрывает первую задачу и переводит курсор на первую
-// подзадачу.
+// selectFirstSubtask раскрывает первую задачу (→) и переводит курсор на
+// первую подзадачу.
 
 func selectFirstSubtask(m *model) {
-	m.updateTasks(tea.KeyMsg{Type: tea.KeyEnter})
+	m.updateTasks(tea.KeyMsg{Type: tea.KeyRight})
 	m.updateTasks(tea.KeyMsg{Type: tea.KeyDown})
 }
 

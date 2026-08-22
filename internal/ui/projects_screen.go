@@ -73,7 +73,6 @@ type projectsScreen struct {
 	midH  int
 	listW int
 	descW int
-	infoW int
 
 	listDelegate *list.DefaultDelegate
 	linkDelegate *list.DefaultDelegate
@@ -86,7 +85,7 @@ func newProjectsScreen(st store.Store) *projectsScreen {
 	theme.ApplyToDelegate(&d)
 	s.listDelegate = &d
 	s.list = list.New(nil, &d, 40, 20)
-	s.list.Title = "Проекты"
+	s.list.SetShowTitle(false)
 	s.list.SetShowHelp(false)
 	s.list.SetShowPagination(false)
 	s.list.SetShowStatusBar(false)
@@ -226,6 +225,38 @@ func (s *projectsScreen) startDelete() {
 	s.mode = projConfirm
 }
 
+// startEditDescription открывает инлайн-редактирование описания проекта
+// (Enter в списке — то же, что раньше «e» в колонке описания).
+func (s *projectsScreen) startEditDescription() {
+	s.descText.SetValue(s.desc)
+	s.mode = projDescEdit
+	s.descText.Focus()
+}
+
+// startLinkInput открывает модалку добавления ссылки к проекту.
+func (s *projectsScreen) startLinkInput() {
+	s.lastErr = nil
+	s.linkName.SetValue("")
+	s.linkInput.SetValue("")
+	s.mode = projLinkInput
+	s.linkName.Focus()
+	s.linkInput.Blur()
+}
+
+// openLinks открывает список ссылок проекта.
+func (s *projectsScreen) openLinks() {
+	s.lastErr = nil
+	s.mode = projLinks
+}
+
+// startSearch открывает модалку поиска по проектам.
+func (s *projectsScreen) startSearch() {
+	s.lastErr = nil
+	s.searchInput.SetValue(s.searchQuery)
+	s.searchInput.Focus()
+	s.mode = projSearch
+}
+
 // refreshDesc собирает контент viewport колонки описания.
 func (s *projectsScreen) refreshDesc() {
 	w := max(s.descV.Width, 1)
@@ -235,7 +266,7 @@ func (s *projectsScreen) refreshDesc() {
 	} else {
 		desc := strings.TrimSpace(s.desc)
 		if desc == "" {
-			body = append(body, theme.Faint("Описание пустое. Нажмите e (в колонке описания), чтобы добавить."))
+			body = append(body, theme.Faint("Описание пустое. Нажмите Enter, чтобы добавить."))
 		} else {
 			body = append(body, wrapText(desc, w))
 		}
@@ -255,27 +286,27 @@ func (s *projectsScreen) refreshDesc() {
 
 func (s *projectsScreen) resize(w, h int) {
 	s.midH = max(h, 3)
-	listW, descW, infoW := 0, 0, 0
-	if w >= 110 {
-		// три колонки 1:3:1 на всю ширину
-		u := (w - 4) / 5
-		listW, descW, infoW = u, 3*u, u
-		listW += (w - 4) - 5*u
-	} else if w >= 60 {
-		// list + описание (1:1)
-		listW = (w - 2) / 2
-		descW = w - 2 - listW
+	// вся ширина w (центральная область) — под список и описание; правая
+	// колонка рендерится отдельно в app.rightRail.
+	avail := w
+	listW, descW := 0, 0
+	if avail >= 100 {
+		// список и описание равной ширины (1:1) с разделителем 2 пробела
+		listW = (avail - 2) / 2
+		descW = avail - 2 - listW
 	} else {
-		listW = w
+		listW = avail
 	}
-	s.listW, s.descW, s.infoW = listW, descW, infoW
+	s.listW, s.descW = listW, descW
 	frame := theme.Pane(false).GetHorizontalFrameSize()
+	// 1 строка сверху — название страницы над списком
 	s.list.SetWidth(listW - frame)
-	s.list.SetHeight(s.midH)
+	// 2 строки сверху — название страницы + отступ
+	s.list.SetHeight(max(s.midH-2, 1))
 	s.descV.Width = max(descW-frame, 1)
-	s.descV.Height = max(s.midH, 1)
+	s.descV.Height = max(s.midH-1, 1)
 	s.descText.SetWidth(max(descW-frame, 1))
-	s.descText.SetHeight(max(s.midH, 1))
+	s.descText.SetHeight(max(s.midH-1, 1))
 	s.refreshDesc()
 }
 
@@ -287,65 +318,58 @@ func (s *projectsScreen) retheme() {
 	s.linkList.SetDelegate(s.linkDelegate)
 }
 
-func (s *projectsScreen) header(w int) string {
-	h := theme.HeaderStyle.Render("Tasky") + "  " + theme.Faint("Проекты")
-	if s.searchQuery != "" {
-		h += "  " + theme.Faint("поиск: ") + s.searchQuery
-	}
-	return padW(h, w)
-}
-
 func (s *projectsScreen) footer(w int) string {
 	if s.mode == projDescEdit {
-		return padW(theme.Faint("Ctrl+S — сохранить · Esc — отмена"), w)
+		return "Ctrl+S — сохранить · Esc — отмена"
 	}
-	if s.focus == projFocusDesc {
-		return padW(theme.Faint("↑/↓ скролл · e — редактировать · l — ссылка · o — ссылки · / — поиск · Tab — список"), w)
-	}
-	if s.searchQuery != "" {
-		return padW(theme.Faint("Поиск: «"+s.searchQuery+"» — / — изменить · Esc — сбросить"), w)
-	}
-	return padW(theme.Faint("↑/↓ выбор · n — создать · d — удалить · / — поиск · Tab — описание · esc — назад · q — выход"), w)
+	// подсказки действий перенесены в палитру команд (Ctrl+P); здесь не выводим
+	return ""
 }
 
 func (s *projectsScreen) view(w, h int) string {
-	leftStyle := theme.Pane(s.focus == projFocusList)
-	var left string
-	if len(s.projects) == 0 && s.mode == projBrowse {
-		left = fixedBox(theme.Pane(false), "Проектов нет.\nНажмите n для создания.", s.listW, s.midH)
-	} else if s.searchQuery != "" && len(s.items) == 0 {
-		left = fixedBox(theme.Pane(false), "Ничего не найдено по запросу\n«"+s.searchQuery+"».", s.listW, s.midH)
-	} else {
+	leftStyle := theme.Pane(false)
+	W := max(s.listW-leftStyle.GetHorizontalFrameSize(), 0)
+	H := max(s.midH, 1)
+	titleTxt := theme.HeaderStyle.Render("Проекты")
+	var body string
+	switch {
+	case len(s.projects) == 0 && s.mode == projBrowse:
+		body = "Проектов нет.\nНажмите n для создания."
+	case s.searchQuery != "" && len(s.items) == 0:
+		body = "Ничего не найдено по запросу\n«" + s.searchQuery + "»."
+	default:
 		// bubbles/list не дополняет строки до ширины — паддинг вручную
-		left = renderPane(leftStyle, padLines(s.list.View(), max(s.listW-leftStyle.GetHorizontalFrameSize(), 0), max(s.midH-leftStyle.GetVerticalFrameSize(), 0)))
+		body = s.list.View()
 	}
+	// заголовок страницы + нижний отступ 1 строка, затем тело — единая панель
+	leftContent := titleTxt + "\n" + padW("", W) + "\n" + body
+	left := renderPane(leftStyle, padLines(leftContent, W, H))
 
 	cols := []string{left}
 	if s.descW > 0 {
 		cols = append(cols, "  ", s.descBox())
 	}
-	if s.infoW > 0 {
-		cols = append(cols, "  ", s.infoBox())
-	}
-	body := lipgloss.JoinHorizontal(lipgloss.Top, cols...)
-	return padH(body, w, h)
+	bodyOut := lipgloss.JoinHorizontal(lipgloss.Top, cols...)
+	return padH(bodyOut, w, h)
+}
+
+// rightContent возвращает содержимое правой колонки (без панели); панель и
+// «Tasky vX» снизу добавляет app.rightRail.
+func (s *projectsScreen) rightContent(h int) string {
+	return "Сводка и настройки\n\nКоэффициент времени:\n1.0"
 }
 
 // descBox — средняя колонка: описание проекта (переносимое, прокручиваемое)
 // и блок «Ссылки»; при редактировании вместо контента — textarea.
 func (s *projectsScreen) descBox() string {
-	style := theme.Pane(s.focus == projFocusDesc)
+	style := theme.Pane(false)
 	if s.mode == projDescEdit {
 		return renderPane(style, padLines(s.descText.View(), max(s.descW-style.GetHorizontalFrameSize(), 0), max(s.midH-style.GetVerticalFrameSize(), 0)))
 	}
 	return renderPane(style, s.descV.View())
 }
 
-// infoBox — правая колонка: сводка и настройки проекта (коэффициент времени
-// и т.п.) — dim-заглушка.
-func (s *projectsScreen) infoBox() string {
-	return fixedBox(theme.Pane(false), "Сводка и настройки\n\nКоэффициент времени:\n1.0", s.infoW, s.midH)
-}
+// infoBox removed: правая колонка рендерится через rightRail/rightContent.
 
 func (s *projectsScreen) dialog() (string, bool) {
 	switch s.mode {
@@ -566,57 +590,33 @@ func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	switch msg.String() {
 	case "tab":
-		if s.descW > 0 {
-			if s.focus == projFocusList {
-				s.focus = projFocusDesc
-			} else {
-				s.focus = projFocusList
-			}
-		}
+		// переключение фокуса между панелями упразднено
+		return m, nil
+	case "enter":
+		s.startEditDescription()
+		return m, nil
+	case "pgup", "pgdown":
+		s.descV, _ = s.descV.Update(msg)
+		return m, nil
+	case "left", "right":
 		return m, nil
 	case "e":
-		if s.focus == projFocusDesc {
-			s.descText.SetValue(s.desc)
-			s.mode = projDescEdit
-			s.descText.Focus()
-			return m, nil
-		}
+		// описание теперь открывается по Enter; «e» оставляем без действия
+		return m, nil
 	case "l":
-		if s.focus == projFocusDesc {
-			s.lastErr = nil
-			s.linkName.SetValue("")
-			s.linkInput.SetValue("")
-			s.mode = projLinkInput
-			s.linkName.Focus()
-			s.linkInput.Blur()
-			return m, nil
-		}
+		s.startLinkInput()
+		return m, nil
 	case "o":
-		if s.focus == projFocusDesc {
-			s.lastErr = nil
-			s.mode = projLinks
-			return m, nil
-		}
+		s.openLinks()
+		return m, nil
 	case "/":
-		s.lastErr = nil
-		s.searchInput.SetValue(s.searchQuery)
-		s.searchInput.Focus()
-		s.mode = projSearch
+		s.startSearch()
 		return m, nil
 	case "n":
 		s.startNew()
 		return m, nil
 	case "d":
 		s.startDelete()
-		return m, nil
-	}
-
-	if s.focus == projFocusDesc {
-		switch msg.String() {
-		case "up", "down", "pgup", "pgdown", "home", "end":
-			s.descV, _ = s.descV.Update(msg)
-			return m, nil
-		}
 		return m, nil
 	}
 

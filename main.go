@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -47,15 +46,13 @@ func main() {
 	os.Exit(runDefault(os.Args[1:]))
 }
 
-// dataDirPrepare создаёт каталог данных и переносит старую базу из рабочего
-// каталога (только серверные режимы: default и serve).
+// dataDirPrepare создаёт каталог данных (только серверные режимы: default и
+// serve). TASKY_HOME просто переключает используемый каталог, никакого
+// копирования данных не выполняется.
 func dataDirPrepare() (string, error) {
 	dir := xdg.DataDir()
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("не удалось создать каталог данных %s: %w", dir, err)
-	}
-	if err := migrateDataDir(dir); err != nil {
-		log.Printf("миграция данных: %v", err)
 	}
 	return dir, nil
 }
@@ -212,41 +209,4 @@ func runAttach(args []string) int {
 	}
 	defer cl.Close()
 	return runTUI(cl, dir, version)
-}
-
-// migrateDataDir переносит старую базу из рабочего каталога в dataDir при
-// первом запуске новой версии: копирует tasky.db и tasky.db-wal/-shm.
-func migrateDataDir(dir string) error {
-	dst := filepath.Join(dir, "tasky.db")
-	if _, err := os.Stat(dst); err == nil {
-		return nil // новая база уже на месте
-	}
-	for _, name := range []string{"tasky.db", "tasky.db-wal", "tasky.db-shm"} {
-		src := filepath.Join(".", name)
-		if _, err := os.Stat(src); err != nil {
-			continue
-		}
-		if err := copyFile(src, filepath.Join(dir, name)); err != nil {
-			return fmt.Errorf("%s: %w", name, err)
-		}
-	}
-	log.Printf("перенесена база из рабочего каталога в %s", dir)
-	return nil
-}
-
-func copyFile(src, dst string) error {
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
-	if err != nil {
-		return err
-	}
-	if _, err := io.Copy(out, in); err != nil {
-		out.Close()
-		return err
-	}
-	return out.Close()
 }

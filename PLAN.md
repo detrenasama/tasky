@@ -90,7 +90,7 @@
 
 Модуль переименован в `github.com/detrenasama/tasky` (совпадает с репозиторием для `go install`). Добавлены `LICENSE` (MIT) и `README.md`. Сборка через `Justfile`: статическая (`CGO_ENABLED=0`), версия подставляется `-ldflags -X main.version=$(git describe --tags)`, `just release` собирает linux/amd64+arm64 в `dist/release/` (tar.gz + SHA256SUMS) и печатает команду публикации `gh release create`.
 
-Данные переехали в XDG: `~/.local/share/tasky/` (`tasky.db`, отчёты по умолчанию `reports/`), переопределение — `TASKY_HOME` (`internal/xdg`); при первом запуске новой версии старая база из рабочего каталога переносится (`migrateDataDir`).
+Данные переехали в XDG: `~/.local/share/tasky/` (`tasky.db`, отчёты по умолчанию `reports/`), переопределение — `TASKY_HOME` (`internal/xdg`); `TASKY_HOME` просто переключает используемый каталог данных, никакого копирования/переноса базы не выполняется — старые данные в прежней директории остаются нетронутыми.
 
 Самообновление (`internal/update`, CLI `tasky upgrade`): сравнение версий (семвер, `Compare`/`TrimV`), скачивание `tasky-<os>-<arch>.tar.gz` + `SHA256SUMS` из последнего релиза GitHub, проверка контрольной суммы, атомарная замена бинарника (`os.Rename`). При старте TUI фоновая проверка (`checkUpdateCmd`) показывает в шапке задач «обновление: vX.Y.Z — tasky upgrade». Установка: `scripts/install.sh` (curl + SHA256) в `~/.local/bin`, `just install`, `go install`.
 

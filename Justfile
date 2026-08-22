@@ -29,24 +29,11 @@ proto:
     PATH="{{env("HOME")}}/go/bin:${PATH}" protoc --go_out=. --go_opt=module=github.com/detrenasama/tasky \
         --go-grpc_out=. --go-grpc_opt=module=github.com/detrenasama/tasky proto/tasky.proto
 
-# Сборка одного таргета: just build-target linux arm64
-build-target os arch:
-    CGO_ENABLED=0 GOOS={{os}} GOARCH={{arch}} go build -ldflags "-s -w -X main.version={{VERSION}}" \
+# Сборка одного таргета: just build-target linux arm64 v1.2.3
+build-target os arch ver:
+    CGO_ENABLED=0 GOOS={{os}} GOARCH={{arch}} go build -ldflags "-s -w -X main.version={{ver}}" \
         -o dist/release/tasky-{{os}}-{{arch}} .
 
-# Релиз: все таргеты + tar.gz + SHA256SUMS + подсказка публикации
+# Релиз: выбор версии (тег или ввод) + все таргеты + tar.gz + SHA256SUMS + подсказка
 release:
-    @rm -rf dist/release && mkdir -p dist/release dist/release/stage
-    @for t in {{RELEASES}}; do \
-        os=${t%-*}; arch=${t#*-}; \
-        just build-target $os $arch; \
-        cp dist/release/tasky-$os-$arch dist/release/stage/tasky; \
-        tar czf dist/release/tasky-$os-$arch.tar.gz -C dist/release/stage tasky; \
-    done
-    @rm -rf dist/release/stage
-    @cd dist/release && sha256sum *.tar.gz > SHA256SUMS
-    @echo ""
-    @echo "Готово: dist/release/*.tar.gz + SHA256SUMS"
-    @echo "Публикация:"
-    @echo "  gh release create v{{VERSION}} dist/release/*.tar.gz dist/release/SHA256SUMS \\"
-    @echo "      --title 'Tasky v{{VERSION}}' --notes '...'"
+    RELEASES="{{RELEASES}}" bash scripts/release.sh

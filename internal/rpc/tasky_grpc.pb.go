@@ -53,6 +53,13 @@ const (
 	Tasky_CreateJournalEntry_FullMethodName       = "/tasky.Tasky/CreateJournalEntry"
 	Tasky_UpdateJournalEntry_FullMethodName       = "/tasky.Tasky/UpdateJournalEntry"
 	Tasky_JournalTexts_FullMethodName             = "/tasky.Tasky/JournalTexts"
+	Tasky_ChecklistItems_FullMethodName           = "/tasky.Tasky/ChecklistItems"
+	Tasky_ChecklistCounts_FullMethodName          = "/tasky.Tasky/ChecklistCounts"
+	Tasky_CreateChecklistItem_FullMethodName      = "/tasky.Tasky/CreateChecklistItem"
+	Tasky_UpdateChecklistItemText_FullMethodName  = "/tasky.Tasky/UpdateChecklistItemText"
+	Tasky_SetChecklistItemStatus_FullMethodName   = "/tasky.Tasky/SetChecklistItemStatus"
+	Tasky_MoveChecklistItem_FullMethodName        = "/tasky.Tasky/MoveChecklistItem"
+	Tasky_DeleteChecklistItem_FullMethodName      = "/tasky.Tasky/DeleteChecklistItem"
 	Tasky_StartSession_FullMethodName             = "/tasky.Tasky/StartSession"
 	Tasky_StopSession_FullMethodName              = "/tasky.Tasky/StopSession"
 	Tasky_TimeEntriesBySubtask_FullMethodName     = "/tasky.Tasky/TimeEntriesBySubtask"
@@ -125,6 +132,14 @@ type TaskyClient interface {
 	CreateJournalEntry(ctx context.Context, in *JournalTextRequest, opts ...grpc.CallOption) (*JournalEntryResponse, error)
 	UpdateJournalEntry(ctx context.Context, in *JournalTextRequest, opts ...grpc.CallOption) (*Empty, error)
 	JournalTexts(ctx context.Context, in *ProjectIDRequest, opts ...grpc.CallOption) (*JournalTextsResponse, error)
+	// Чек-листы подзадач.
+	ChecklistItems(ctx context.Context, in *SubtaskIDRequest, opts ...grpc.CallOption) (*ChecklistItemListResponse, error)
+	ChecklistCounts(ctx context.Context, in *ProjectIDRequest, opts ...grpc.CallOption) (*ChecklistCountsResponse, error)
+	CreateChecklistItem(ctx context.Context, in *JournalTextRequest, opts ...grpc.CallOption) (*ChecklistItemResponse, error)
+	UpdateChecklistItemText(ctx context.Context, in *JournalTextRequest, opts ...grpc.CallOption) (*Empty, error)
+	SetChecklistItemStatus(ctx context.Context, in *ChecklistStatusRequest, opts ...grpc.CallOption) (*Empty, error)
+	MoveChecklistItem(ctx context.Context, in *MoveRequest, opts ...grpc.CallOption) (*Empty, error)
+	DeleteChecklistItem(ctx context.Context, in *IDRequest, opts ...grpc.CallOption) (*Empty, error)
 	// Учёт времени.
 	StartSession(ctx context.Context, in *TimeRequest, opts ...grpc.CallOption) (*Empty, error)
 	StopSession(ctx context.Context, in *TimeRequest, opts ...grpc.CallOption) (*Empty, error)
@@ -506,6 +521,76 @@ func (c *taskyClient) JournalTexts(ctx context.Context, in *ProjectIDRequest, op
 	return out, nil
 }
 
+func (c *taskyClient) ChecklistItems(ctx context.Context, in *SubtaskIDRequest, opts ...grpc.CallOption) (*ChecklistItemListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ChecklistItemListResponse)
+	err := c.cc.Invoke(ctx, Tasky_ChecklistItems_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskyClient) ChecklistCounts(ctx context.Context, in *ProjectIDRequest, opts ...grpc.CallOption) (*ChecklistCountsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ChecklistCountsResponse)
+	err := c.cc.Invoke(ctx, Tasky_ChecklistCounts_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskyClient) CreateChecklistItem(ctx context.Context, in *JournalTextRequest, opts ...grpc.CallOption) (*ChecklistItemResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ChecklistItemResponse)
+	err := c.cc.Invoke(ctx, Tasky_CreateChecklistItem_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskyClient) UpdateChecklistItemText(ctx context.Context, in *JournalTextRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, Tasky_UpdateChecklistItemText_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskyClient) SetChecklistItemStatus(ctx context.Context, in *ChecklistStatusRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, Tasky_SetChecklistItemStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskyClient) MoveChecklistItem(ctx context.Context, in *MoveRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, Tasky_MoveChecklistItem_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskyClient) DeleteChecklistItem(ctx context.Context, in *IDRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, Tasky_DeleteChecklistItem_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *taskyClient) StartSession(ctx context.Context, in *TimeRequest, opts ...grpc.CallOption) (*Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Empty)
@@ -810,6 +895,14 @@ type TaskyServer interface {
 	CreateJournalEntry(context.Context, *JournalTextRequest) (*JournalEntryResponse, error)
 	UpdateJournalEntry(context.Context, *JournalTextRequest) (*Empty, error)
 	JournalTexts(context.Context, *ProjectIDRequest) (*JournalTextsResponse, error)
+	// Чек-листы подзадач.
+	ChecklistItems(context.Context, *SubtaskIDRequest) (*ChecklistItemListResponse, error)
+	ChecklistCounts(context.Context, *ProjectIDRequest) (*ChecklistCountsResponse, error)
+	CreateChecklistItem(context.Context, *JournalTextRequest) (*ChecklistItemResponse, error)
+	UpdateChecklistItemText(context.Context, *JournalTextRequest) (*Empty, error)
+	SetChecklistItemStatus(context.Context, *ChecklistStatusRequest) (*Empty, error)
+	MoveChecklistItem(context.Context, *MoveRequest) (*Empty, error)
+	DeleteChecklistItem(context.Context, *IDRequest) (*Empty, error)
 	// Учёт времени.
 	StartSession(context.Context, *TimeRequest) (*Empty, error)
 	StopSession(context.Context, *TimeRequest) (*Empty, error)
@@ -952,6 +1045,27 @@ func (UnimplementedTaskyServer) UpdateJournalEntry(context.Context, *JournalText
 }
 func (UnimplementedTaskyServer) JournalTexts(context.Context, *ProjectIDRequest) (*JournalTextsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method JournalTexts not implemented")
+}
+func (UnimplementedTaskyServer) ChecklistItems(context.Context, *SubtaskIDRequest) (*ChecklistItemListResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ChecklistItems not implemented")
+}
+func (UnimplementedTaskyServer) ChecklistCounts(context.Context, *ProjectIDRequest) (*ChecklistCountsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ChecklistCounts not implemented")
+}
+func (UnimplementedTaskyServer) CreateChecklistItem(context.Context, *JournalTextRequest) (*ChecklistItemResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateChecklistItem not implemented")
+}
+func (UnimplementedTaskyServer) UpdateChecklistItemText(context.Context, *JournalTextRequest) (*Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateChecklistItemText not implemented")
+}
+func (UnimplementedTaskyServer) SetChecklistItemStatus(context.Context, *ChecklistStatusRequest) (*Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetChecklistItemStatus not implemented")
+}
+func (UnimplementedTaskyServer) MoveChecklistItem(context.Context, *MoveRequest) (*Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method MoveChecklistItem not implemented")
+}
+func (UnimplementedTaskyServer) DeleteChecklistItem(context.Context, *IDRequest) (*Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteChecklistItem not implemented")
 }
 func (UnimplementedTaskyServer) StartSession(context.Context, *TimeRequest) (*Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method StartSession not implemented")
@@ -1664,6 +1778,132 @@ func _Tasky_JournalTexts_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Tasky_ChecklistItems_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SubtaskIDRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskyServer).ChecklistItems(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Tasky_ChecklistItems_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskyServer).ChecklistItems(ctx, req.(*SubtaskIDRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Tasky_ChecklistCounts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ProjectIDRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskyServer).ChecklistCounts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Tasky_ChecklistCounts_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskyServer).ChecklistCounts(ctx, req.(*ProjectIDRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Tasky_CreateChecklistItem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(JournalTextRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskyServer).CreateChecklistItem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Tasky_CreateChecklistItem_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskyServer).CreateChecklistItem(ctx, req.(*JournalTextRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Tasky_UpdateChecklistItemText_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(JournalTextRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskyServer).UpdateChecklistItemText(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Tasky_UpdateChecklistItemText_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskyServer).UpdateChecklistItemText(ctx, req.(*JournalTextRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Tasky_SetChecklistItemStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ChecklistStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskyServer).SetChecklistItemStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Tasky_SetChecklistItemStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskyServer).SetChecklistItemStatus(ctx, req.(*ChecklistStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Tasky_MoveChecklistItem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MoveRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskyServer).MoveChecklistItem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Tasky_MoveChecklistItem_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskyServer).MoveChecklistItem(ctx, req.(*MoveRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Tasky_DeleteChecklistItem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IDRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskyServer).DeleteChecklistItem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Tasky_DeleteChecklistItem_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskyServer).DeleteChecklistItem(ctx, req.(*IDRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Tasky_StartSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(TimeRequest)
 	if err := dec(in); err != nil {
@@ -2274,6 +2514,34 @@ var Tasky_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "JournalTexts",
 			Handler:    _Tasky_JournalTexts_Handler,
+		},
+		{
+			MethodName: "ChecklistItems",
+			Handler:    _Tasky_ChecklistItems_Handler,
+		},
+		{
+			MethodName: "ChecklistCounts",
+			Handler:    _Tasky_ChecklistCounts_Handler,
+		},
+		{
+			MethodName: "CreateChecklistItem",
+			Handler:    _Tasky_CreateChecklistItem_Handler,
+		},
+		{
+			MethodName: "UpdateChecklistItemText",
+			Handler:    _Tasky_UpdateChecklistItemText_Handler,
+		},
+		{
+			MethodName: "SetChecklistItemStatus",
+			Handler:    _Tasky_SetChecklistItemStatus_Handler,
+		},
+		{
+			MethodName: "MoveChecklistItem",
+			Handler:    _Tasky_MoveChecklistItem_Handler,
+		},
+		{
+			MethodName: "DeleteChecklistItem",
+			Handler:    _Tasky_DeleteChecklistItem_Handler,
 		},
 		{
 			MethodName: "StartSession",

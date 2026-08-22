@@ -258,5 +258,78 @@ func TestReportsJournalInReport(t *testing.T) {
 	}
 }
 
+// TestReportsChecklist — в отчёте под подзадачей выводятся чек-листы: сначала
+// «Выполнены» (done за период отчёта), затем «В работе» (все in_progress).
+// new и done вне периода не выводятся; индикатор заменён на bullet «•».
+
+func TestReportsChecklist(t *testing.T) {
+	conn, _, st := reportsSeedProject(t)
+
+	done, err := db.CreateChecklistItem(conn, st.ID, "сделано сегодня")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.SetChecklistItemStatus(conn, done.ID, "done"); err != nil {
+		t.Fatal(err)
+	}
+	ip, err := db.CreateChecklistItem(conn, st.ID, "в работе")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.SetChecklistItemStatus(conn, ip.ID, "in_progress"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.CreateChecklistItem(conn, st.ID, "новое"); err != nil {
+		t.Fatal(err)
+	}
+	out, err := db.CreateChecklistItem(conn, st.ID, "сделано вчера")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.SetChecklistItemStatus(conn, out.ID, "done"); err != nil {
+		t.Fatal(err)
+	}
+	yesterday := time.Now().AddDate(0, 0, -1)
+	if _, err := conn.Exec("UPDATE checklist_items SET status_changed_at = ? WHERE id = ?",
+		yesterday.Unix(), out.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	m := newReportsModel(conn)
+	mm, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	m = mm.(model)
+	view := m.View()
+	for _, want := range []string{"Выполнены:", "сделано сегодня", "В работе:", "в работе"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("в отчёте нет %q", want)
+		}
+	}
+	for _, notWant := range []string{"новое", "сделано вчера"} {
+		if strings.Contains(view, notWant) {
+			t.Errorf("в отчёте не должно быть %q", notWant)
+		}
+	}
+
+	dir := t.TempDir()
+	m.settings.cfg.saveDir = dir
+	mm, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+	m = mm.(model)
+	data, err := os.ReadFile(filepath.Join(dir, m.reports.saveFileName()))
+	if err != nil {
+		t.Fatalf("файл отчёта не создан: %v", err)
+	}
+	content := string(data)
+	for _, want := range []string{"Выполнены:", "сделано сегодня", "В работе:", "в работе"} {
+		if !strings.Contains(content, want) {
+			t.Errorf("в файле отчёта нет %q", want)
+		}
+	}
+	for _, notWant := range []string{"новое", "сделано вчера"} {
+		if strings.Contains(content, notWant) {
+			t.Errorf("в файле отчёта не должно быть %q", notWant)
+		}
+	}
+}
+
 // TestSettingsForm — настройки: период и проект выбираются в модалках,
 // журнал — toggle, каталог — ввод пути; значения пишутся в общий cfg.

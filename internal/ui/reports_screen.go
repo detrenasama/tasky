@@ -45,15 +45,18 @@ var monthNames = []string{
 // reportsScreen — страница «Отчеты»: общее время за период, задачи и
 // подзадачи с учтённым временем (только завершённые записи).
 type reportsScreen struct {
-	store    store.Store
-	cfg      *reportConfig
-	now      time.Time
-	rep      []db.TaskReport
-	journal  map[int64][]db.ReportJournalEntry
-	total    time.Duration
-	repV     viewport.Model
-	lastErr  error
-	lastSave string
+	store     store.Store
+	cfg       *reportConfig
+	now       time.Time
+	rep       []db.TaskReport
+	journal   map[int64][]db.ReportJournalEntry
+	checklist map[int64][]db.ChecklistItem
+	repFrom   time.Time
+	repTo     time.Time
+	total     time.Duration
+	repV      viewport.Model
+	lastErr   error
+	lastSave  string
 }
 
 func newReportsScreen(st store.Store, cfg *reportConfig) *reportsScreen {
@@ -67,6 +70,7 @@ func (s *reportsScreen) load() {
 	s.lastErr = nil
 	s.lastSave = ""
 	from, to := s.periodRange()
+	s.repFrom, s.repTo = from, to
 	entries, err := s.store.ReportEntries(from, to, s.cfg.projectID)
 	if err != nil {
 		s.rep = nil
@@ -101,6 +105,14 @@ func (s *reportsScreen) load() {
 		}
 	} else {
 		s.journal = nil
+	}
+	s.checklist = map[int64][]db.ChecklistItem{}
+	for _, t := range s.rep {
+		for _, st := range t.Subs {
+			if items, err := s.store.ChecklistItems(st.ID); err == nil {
+				s.checklist[st.ID] = items
+			}
+		}
 	}
 	s.refresh()
 }
@@ -169,6 +181,39 @@ func (s *reportsScreen) saveFileName() string {
 	return from.Format("2006-01-02") + "_" + to.AddDate(0, 0, -1).Format("2006-01-02") + ".txt"
 }
 
+// checklistSection возвращает строки чек-листа подзадачи для отчёта: сначала
+// «Выполнены» (done, сменившие статус в период отчёта), затем «В работе» (все
+// in_progress). new/cancelled не выводятся; вместо индикатора — bullet «•».
+func (s *reportsScreen) checklistSection(stID int64) []string {
+	items := s.checklist[stID]
+	if len(items) == 0 {
+		return nil
+	}
+	from, to := s.repFrom, s.repTo
+	var done, inprog []db.ChecklistItem
+	for _, it := range items {
+		if it.Status == "done" && !it.StatusChangedAt.Before(from) && it.StatusChangedAt.Before(to) {
+			done = append(done, it)
+		} else if it.Status == "in_progress" {
+			inprog = append(inprog, it)
+		}
+	}
+	var out []string
+	if len(done) > 0 {
+		out = append(out, "    Выполнены:")
+		for _, it := range done {
+			out = append(out, "      • "+it.Text)
+		}
+	}
+	if len(inprog) > 0 {
+		out = append(out, "    В работе:")
+		for _, it := range inprog {
+			out = append(out, "      • "+it.Text)
+		}
+	}
+	return out
+}
+
 // refresh пересобирает контент viewport отчёта.
 func (s *reportsScreen) refresh() {
 	var body []string
@@ -182,6 +227,9 @@ func (s *reportsScreen) refresh() {
 				body = append(body, "  ├ "+st.Title+" · "+fmtDur(time.Duration(st.Seconds)*time.Second))
 				for _, e := range s.journal[st.ID] {
 					body = append(body, theme.Faint("      ["+e.CreatedAt.Format("02.01 15:04")+"] "+e.Text))
+				}
+				for _, line := range s.checklistSection(st.ID) {
+					body = append(body, line)
 				}
 			}
 			body = append(body, "")
@@ -212,6 +260,9 @@ func (s *reportsScreen) save() {
 				fmtDur(time.Duration(st.Seconds)*time.Second)))
 			for _, e := range s.journal[st.ID] {
 				sb.WriteString(fmt.Sprintf("      [%s] %s\n", e.CreatedAt.Format("02.01 15:04"), e.Text))
+			}
+			for _, line := range s.checklistSection(st.ID) {
+				sb.WriteString(line + "\n")
 			}
 		}
 		sb.WriteString("\n")

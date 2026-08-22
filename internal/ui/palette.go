@@ -55,6 +55,7 @@ func (m *model) paletteGroups() []cmdGroup {
 			{title: "Новая подзадача", run: func(m *model) { m.tasks.startNewSubtask() }},
 			{title: "Изменить название", keys: "e", run: func(m *model) { m.tasks.startEditTitle() }},
 			{title: "Удалить задачу", run: func(m *model) { m.tasks.startDelete() }},
+			{title: "Чеклист", keys: "i", run: func(m *model) { m.tasks.openChecklist() }},
 		}})
 	case screenProjects:
 		groups = append(groups, cmdGroup{name: "Действия", cmds: []cmdItem{

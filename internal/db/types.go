@@ -57,6 +57,18 @@ type JournalEntry struct {
 	Text      string
 }
 
+// ChecklistItem — элемент чек-листа подзадачи. Status: new | in_progress |
+// done | cancelled (new — не выполнено).
+type ChecklistItem struct {
+	ID              int64
+	SubtaskID       int64
+	Text            string
+	Status          string
+	SortOrder       int64
+	CreatedAt       time.Time
+	StatusChangedAt time.Time
+}
+
 // StatusDef — настраиваемый статус из каталога statuses.
 type StatusDef struct {
 	ID         int64

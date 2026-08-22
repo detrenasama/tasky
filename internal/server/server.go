@@ -293,6 +293,60 @@ func (s *Server) JournalTexts(_ context.Context, req *rpc.ProjectIDRequest) (*rp
 	return &rpc.JournalTextsResponse{Texts: m}, nil
 }
 
+// --- Чек-листы подзадач ---
+
+func (s *Server) ChecklistItems(_ context.Context, req *rpc.SubtaskIDRequest) (*rpc.ChecklistItemListResponse, error) {
+	items, err := s.st.ChecklistItems(req.SubtaskId)
+	if err != nil {
+		return nil, rpc.DBErrorToStatus(err)
+	}
+	return &rpc.ChecklistItemListResponse{Items: rpc.ToChecklistItems(items)}, nil
+}
+
+func (s *Server) ChecklistCounts(_ context.Context, req *rpc.ProjectIDRequest) (*rpc.ChecklistCountsResponse, error) {
+	m, err := s.st.ChecklistCounts(req.ProjectId)
+	if err != nil {
+		return nil, rpc.DBErrorToStatus(err)
+	}
+	return rpc.ToChecklistCounts(m), nil
+}
+
+func (s *Server) CreateChecklistItem(_ context.Context, req *rpc.JournalTextRequest) (*rpc.ChecklistItemResponse, error) {
+	it, err := s.st.CreateChecklistItem(req.Id, req.Text)
+	if err != nil {
+		return nil, rpc.DBErrorToStatus(err)
+	}
+	return &rpc.ChecklistItemResponse{Item: rpc.ToChecklistItem(it)}, nil
+}
+
+func (s *Server) UpdateChecklistItemText(_ context.Context, req *rpc.JournalTextRequest) (*rpc.Empty, error) {
+	if err := s.st.UpdateChecklistItemText(req.Id, req.Text); err != nil {
+		return nil, rpc.DBErrorToStatus(err)
+	}
+	return &rpc.Empty{}, nil
+}
+
+func (s *Server) SetChecklistItemStatus(_ context.Context, req *rpc.ChecklistStatusRequest) (*rpc.Empty, error) {
+	if err := s.st.SetChecklistItemStatus(req.Id, req.Status); err != nil {
+		return nil, rpc.DBErrorToStatus(err)
+	}
+	return &rpc.Empty{}, nil
+}
+
+func (s *Server) MoveChecklistItem(_ context.Context, req *rpc.MoveRequest) (*rpc.Empty, error) {
+	if err := s.st.MoveChecklistItem(req.Id, int(req.Dir)); err != nil {
+		return nil, rpc.DBErrorToStatus(err)
+	}
+	return &rpc.Empty{}, nil
+}
+
+func (s *Server) DeleteChecklistItem(_ context.Context, req *rpc.IDRequest) (*rpc.Empty, error) {
+	if err := s.st.DeleteChecklistItem(req.Id); err != nil {
+		return nil, rpc.DBErrorToStatus(err)
+	}
+	return &rpc.Empty{}, nil
+}
+
 // --- Учёт времени ---
 
 func (s *Server) StartSession(_ context.Context, req *rpc.TimeRequest) (*rpc.Empty, error) {

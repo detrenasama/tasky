@@ -382,6 +382,65 @@ func (c *Client) JournalTexts(projectID int64) (map[int64]string, error) {
 	return resp.Texts, nil
 }
 
+func (c *Client) ChecklistItems(subtaskID int64) ([]db.ChecklistItem, error) {
+	ctx, cancel := callCtx()
+	defer cancel()
+	resp, err := c.rpc.ChecklistItems(ctx, &rpc.SubtaskIDRequest{SubtaskId: subtaskID})
+	if err != nil {
+		return nil, rpc.StatusToDBError(err)
+	}
+	return rpc.FromChecklistItems(resp.Items), nil
+}
+
+func (c *Client) ChecklistCounts(projectID int64) (map[int64][2]int, error) {
+	ctx, cancel := callCtx()
+	defer cancel()
+	resp, err := c.rpc.ChecklistCounts(ctx, &rpc.ProjectIDRequest{ProjectId: projectID})
+	if err != nil {
+		return nil, rpc.StatusToDBError(err)
+	}
+	return rpc.FromChecklistCounts(resp), nil
+}
+
+func (c *Client) CreateChecklistItem(subtaskID int64, text string) (db.ChecklistItem, error) {
+	ctx, cancel := callCtx()
+	defer cancel()
+	resp, err := c.rpc.CreateChecklistItem(ctx,
+		&rpc.JournalTextRequest{Id: subtaskID, Text: text})
+	if err != nil {
+		return db.ChecklistItem{}, rpc.StatusToDBError(err)
+	}
+	return rpc.FromChecklistItem(resp.Item), nil
+}
+
+func (c *Client) UpdateChecklistItemText(id int64, text string) error {
+	ctx, cancel := callCtx()
+	defer cancel()
+	_, err := c.rpc.UpdateChecklistItemText(ctx, &rpc.JournalTextRequest{Id: id, Text: text})
+	return rpc.StatusToDBError(err)
+}
+
+func (c *Client) SetChecklistItemStatus(id int64, status string) error {
+	ctx, cancel := callCtx()
+	defer cancel()
+	_, err := c.rpc.SetChecklistItemStatus(ctx, &rpc.ChecklistStatusRequest{Id: id, Status: status})
+	return rpc.StatusToDBError(err)
+}
+
+func (c *Client) MoveChecklistItem(id int64, dir int) error {
+	ctx, cancel := callCtx()
+	defer cancel()
+	_, err := c.rpc.MoveChecklistItem(ctx, &rpc.MoveRequest{Id: id, Dir: int32(dir)})
+	return rpc.StatusToDBError(err)
+}
+
+func (c *Client) DeleteChecklistItem(id int64) error {
+	ctx, cancel := callCtx()
+	defer cancel()
+	_, err := c.rpc.DeleteChecklistItem(ctx, &rpc.IDRequest{Id: id})
+	return rpc.StatusToDBError(err)
+}
+
 // --- Учёт времени ---
 
 func (c *Client) StartSession(subtaskID int64, now time.Time) error {

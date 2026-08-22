@@ -36,6 +36,8 @@ const (
 	taskTagEdit
 	taskTagTypePick
 	taskTagConfirm
+	taskChecklist
+	taskChecklistConfirm
 )
 
 type taskFocus int
@@ -85,7 +87,11 @@ type subItem struct {
 func (i subItem) FilterValue() string { return i.st.Title }
 
 func (i subItem) Title() string {
-	return "  " + statusBar(i.scr.statusColor(i.st.Status)) + " ├ " + i.st.Title
+	badge := ""
+	if c, ok := i.scr.checklistCounts[i.st.ID]; ok && c[1] > 0 {
+		badge = theme.Faint(fmt.Sprintf("[%d/%d] ", c[0], c[1]))
+	}
+	return "  " + statusBar(i.scr.statusColor(i.st.Status)) + " ├ " + badge + i.st.Title
 }
 
 func (i subItem) Description() string {
@@ -173,6 +179,14 @@ type tasksScreen struct {
 	tagEditURL   textinput.Model
 	tagEditFocus int
 	tagConfirmID int64
+
+	checklistCounts    map[int64][2]int
+	checklistItems     []db.ChecklistItem
+	checklistPick      pickList
+	checklistInput     textinput.Model
+	checklistEditID    int64
+	checklistNew       bool
+	checklistConfirmID int64
 }
 
 func newTasksScreen(st store.Store) *tasksScreen {
@@ -250,6 +264,13 @@ func newTasksScreen(st store.Store) *tasksScreen {
 	s.tagTypePick.setVisible(12)
 	s.tagPick.setVisible(12)
 
+	s.checklistInput = textinput.New()
+	s.checklistInput.Placeholder = "Текст пункта"
+	s.checklistInput.Prompt = "> "
+	s.checklistInput.CharLimit = 256
+	s.checklistInput.Width = 50
+	s.checklistPick.setVisible(12)
+
 	ld := list.NewDefaultDelegate()
 	ld.ShowDescription = true
 	theme.ApplyToDelegate(&ld)
@@ -300,6 +321,7 @@ func (s *tasksScreen) loadData() {
 	}
 	s.tasks, _ = s.store.TasksByProject(s.currentProjectID())
 	s.subs, _ = s.store.SubtasksByProject(s.currentProjectID())
+	s.checklistCounts, _ = s.store.ChecklistCounts(s.currentProjectID())
 	s.journalTexts, _ = s.store.JournalTexts(s.currentProjectID())
 	s.tagsMap, _ = s.store.TagsByProject(s.currentProjectID())
 	s.tagsText = make(map[int64]string, len(s.tagsMap))
@@ -319,12 +341,14 @@ func (s *tasksScreen) loadInfo() {
 	s.run, _ = s.store.RunningSession()
 	s.entries = nil
 	s.history = nil
+	s.checklistItems = nil
 	kind, id := s.selectedKindID()
 	if id == 0 {
 		return
 	}
 	if kind == kindSubtask {
 		s.entries, _ = s.store.TimeEntriesBySubtask(id)
+		s.checklistItems, _ = s.store.ChecklistItems(id)
 	}
 	s.history, _ = s.store.StatusHistory(dbOwner(kind), id)
 }
@@ -553,6 +577,43 @@ func statusBar(color string) string {
 	return lipgloss.NewStyle().Background(lipgloss.Color(color)).Render(" ")
 }
 
+// checkColor возвращает цвет индикатора чек-листа по статусу.
+func checkColor(status string) string {
+	switch status {
+	case "new":
+		return theme.StatusPalette[4] // жёлтый
+	case "in_progress":
+		return theme.StatusPalette[2] // синий
+	case "done":
+		return theme.StatusPalette[0] // зелёный
+	case "cancelled":
+		return theme.StatusPalette[6] // серый
+	default:
+		return theme.StatusPalette[6]
+	}
+}
+
+// checkMark — символ индикатора чек-листа по статусу.
+func checkMark(status string) string {
+	switch status {
+	case "new":
+		return "[ ]"
+	case "in_progress":
+		return "[•]"
+	case "done":
+		return "[✓]"
+	case "cancelled":
+		return "[-]"
+	default:
+		return "[ ]"
+	}
+}
+
+// checkIndicator — окрашенный индикатор чек-листа перед строкой.
+func checkIndicator(status string) string {
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(checkColor(status))).Render(checkMark(status))
+}
+
 // tagChip — цветная метка тега `[текст]` (цвет от типа тега; при URL —
 // подчёркивание, как у ссылки).
 func tagChip(t db.Tag) string {
@@ -754,6 +815,209 @@ func (s *tasksScreen) openTags() {
 	s.tagTypePick.sel = 0
 	s.tagTypePick.clampScroll()
 	s.mode = taskTags
+}
+
+// openChecklist открывает редактор чек-листа выбранной подзадачи.
+func (s *tasksScreen) openChecklist() {
+	kind, id := s.selectedKindID()
+	if kind != kindSubtask || id == 0 {
+		return
+	}
+	s.lastErr = nil
+	s.checklistLoad(id)
+	s.mode = taskChecklist
+}
+
+// checklistLoad перечитывает элементы чек-листа подзадачи и собирает список модалки.
+func (s *tasksScreen) checklistLoad(subtaskID int64) {
+	selVal := int64(0)
+	if s.checklistPick.sel >= 0 && s.checklistPick.sel < len(s.checklistPick.items) {
+		selVal = s.checklistPick.items[s.checklistPick.sel].value
+	}
+	s.checklistItems, _ = s.store.ChecklistItems(subtaskID)
+	items := make([]pickItem, 0, len(s.checklistItems))
+	for _, ci := range s.checklistItems {
+		items = append(items, pickItem{value: ci.ID,
+			label: checkIndicator(ci.Status) + " " + ci.Text})
+	}
+	s.checklistPick.items = items
+	ns := 0
+	for i, it := range items {
+		if it.value == selVal {
+			ns = i
+			break
+		}
+	}
+	s.checklistPick.sel = ns
+	s.checklistPick.clampScroll()
+}
+
+// checklistStatusOf возвращает статус элемента чек-листа по id.
+func (s *tasksScreen) checklistStatusOf(id int64) string {
+	for _, ci := range s.checklistItems {
+		if ci.ID == id {
+			return ci.Status
+		}
+	}
+	return "new"
+}
+
+// checklistTextOf возвращает текст элемента чек-листа по id.
+func (s *tasksScreen) checklistTextOf(id int64) string {
+	for _, ci := range s.checklistItems {
+		if ci.ID == id {
+			return ci.Text
+		}
+	}
+	return ""
+}
+
+// checklistReload перечитывает чек-лист и счётчики для значка в списке.
+func (s *tasksScreen) checklistReload() {
+	kind, id := s.selectedKindID()
+	if kind == kindSubtask && id != 0 {
+		s.checklistLoad(id)
+	}
+	s.loadData()
+}
+
+// checklistCycle переключает статус выделенного элемента на dir (+1/-1)
+// линейно, без зацикливания: new → in_progress → done → cancelled; на краях
+// переключение останавливается (с new влево и с cancelled вправо ничего не делает).
+func (s *tasksScreen) checklistCycle(dir int) {
+	it, ok := s.checklistPick.selected()
+	if !ok {
+		return
+	}
+	order := []string{"new", "in_progress", "done", "cancelled"}
+	cur := s.checklistStatusOf(it.value)
+	idx := 0
+	for i, st := range order {
+		if st == cur {
+			idx = i
+			break
+		}
+	}
+	next := idx + dir
+	if next < 0 {
+		next = 0
+	} else if next >= len(order) {
+		next = len(order) - 1
+	}
+	idx = next
+	if err := s.store.SetChecklistItemStatus(it.value, order[idx]); err != nil {
+		s.lastErr = err
+		return
+	}
+	s.checklistReload()
+}
+
+// updateChecklist обрабатывает клавиши модального окна чек-листа.
+func (s *tasksScreen) updateChecklist(m *model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if s.checklistNew {
+		switch msg.String() {
+		case "enter":
+			text := strings.TrimSpace(s.checklistInput.Value())
+			if text == "" {
+				s.lastErr = fmt.Errorf("текст пункта не может быть пустым")
+				return m, nil
+			}
+			kind, id := s.selectedKindID()
+			if kind != kindSubtask || id == 0 {
+				s.checklistNew = false
+				s.mode = taskBrowse
+				return m, nil
+			}
+			var err error
+			if s.checklistEditID == 0 {
+				_, err = s.store.CreateChecklistItem(id, text)
+			} else {
+				err = s.store.UpdateChecklistItemText(s.checklistEditID, text)
+			}
+			if err != nil {
+				s.lastErr = err
+				return m, nil
+			}
+			s.checklistNew = false
+			s.checklistEditID = 0
+			s.lastErr = nil
+			s.checklistReload()
+			return m, nil
+		case "esc":
+			s.checklistNew = false
+			s.checklistEditID = 0
+			s.lastErr = nil
+			return m, nil
+		}
+		var cmd tea.Cmd
+		s.checklistInput, cmd = s.checklistInput.Update(msg)
+		return m, cmd
+	}
+
+	switch msg.String() {
+	case "up":
+		s.checklistPick.move(-1)
+	case "down":
+		s.checklistPick.move(1)
+	case "enter":
+		if it, ok := s.checklistPick.selected(); ok {
+			next := "done"
+			if s.checklistStatusOf(it.value) == "done" {
+				next = "new"
+			}
+			if err := s.store.SetChecklistItemStatus(it.value, next); err != nil {
+				s.lastErr = err
+			} else {
+				s.checklistReload()
+			}
+		}
+	case "right":
+		s.checklistCycle(1)
+	case "left":
+		s.checklistCycle(-1)
+	case "ctrl+up":
+		if it, ok := s.checklistPick.selected(); ok {
+			if err := s.store.MoveChecklistItem(it.value, -1); err != nil {
+				s.lastErr = err
+			} else {
+				s.checklistReload()
+			}
+		}
+	case "ctrl+down":
+		if it, ok := s.checklistPick.selected(); ok {
+			if err := s.store.MoveChecklistItem(it.value, 1); err != nil {
+				s.lastErr = err
+			} else {
+				s.checklistReload()
+			}
+		}
+	case "e":
+		if it, ok := s.checklistPick.selected(); ok {
+			s.checklistEditID = it.value
+			s.checklistNew = true
+			s.checklistInput.SetValue(s.checklistTextOf(it.value))
+			s.checklistInput.CursorEnd()
+			s.checklistInput.Focus()
+			s.lastErr = nil
+		}
+	case "n":
+		s.checklistEditID = 0
+		s.checklistNew = true
+		s.checklistInput.SetValue("")
+		s.checklistInput.Focus()
+		s.lastErr = nil
+	case "d":
+		if it, ok := s.checklistPick.selected(); ok {
+			s.checklistConfirmID = it.value
+			s.mode = taskChecklistConfirm
+		}
+	case "esc":
+		s.checklistNew = false
+		s.checklistEditID = 0
+		s.mode = taskBrowse
+		s.loadData()
+	}
+	return m, nil
 }
 
 // loadTags перечитывает теги текущей задачи и собирает список модалки.
@@ -1039,6 +1303,7 @@ func (s *tasksScreen) resize(w, h int) {
 	s.descText.SetHeight(max(s.midH, 1))
 	s.journalText.SetWidth(max(descW-frame, 1))
 	s.journalText.SetHeight(10)
+	s.checklistPick.setVisible(max(4, min(h-8, 12)))
 	s.refreshDesc()
 }
 
@@ -1284,6 +1549,48 @@ func (s *tasksScreen) dialog() (string, bool) {
 			body:    fmt.Sprintf("Удалить тег «%s»?", label),
 			primary: "y — удалить", esc: "n — нет"}
 		return d.render(), true
+
+	case taskChecklist:
+		var body []string
+		if len(s.checklistPick.items) == 0 {
+			body = append(body, theme.Faint("Список пуст. n — добавить пункт."))
+		} else {
+			for i := range s.checklistPick.items {
+				label := "  " + s.checklistPick.items[i].label
+				if i == s.checklistPick.sel {
+					label = theme.HeaderStyle.Render("▸ ") + s.checklistPick.items[i].label
+				}
+				body = append(body, label)
+			}
+		}
+		inner := strings.Join(body, "\n")
+		if s.checklistNew {
+			inner += "\n\n" + s.checklistInput.View()
+		}
+		if s.lastErr != nil {
+			inner += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
+		}
+		primary := "Enter — переключить"
+		if s.checklistNew {
+			primary = "Enter — сохранить"
+		}
+		d := dialog{title: "Чек-лист",
+			body:    inner,
+			primary: primary,
+			esc:     "Esc — закрыть"}
+		return d.render(), true
+
+	case taskChecklistConfirm:
+		label := ""
+		for _, ci := range s.checklistItems {
+			if ci.ID == s.checklistConfirmID {
+				label = ci.Text
+			}
+		}
+		d := dialog{title: "Удаление пункта чек-листа",
+			body:    fmt.Sprintf("Удалить пункт «%s»?", label),
+			primary: "y — удалить", esc: "n — нет"}
+		return d.render(), true
 	}
 	return "", false
 }
@@ -1341,6 +1648,13 @@ func (s *tasksScreen) infoTop(topH int) string {
 		}
 		if len(s.entries) == 0 {
 			body = append(body, theme.Faint("Записей нет."))
+		}
+		if len(s.checklistItems) > 0 {
+			body = append(body, "", theme.Faint("Чеклист:"))
+			for _, ci := range s.checklistItems {
+				line := "  " + checkMark(ci.Status) + " " + ci.Text
+				body = append(body, lipgloss.NewStyle().Foreground(lipgloss.Color(checkColor(ci.Status))).Render(line))
+			}
 		}
 		body = append(body, s.historyLines()...)
 	case kind == kindTask:
@@ -1813,6 +2127,22 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			s.mode = taskTags
 		}
 		return m, nil
+	case taskChecklistConfirm:
+		switch msg.String() {
+		case "y", "enter":
+			s.store.DeleteChecklistItem(s.checklistConfirmID)
+			kind, id := s.selectedKindID()
+			if kind == kindSubtask {
+				s.checklistLoad(id)
+			}
+			s.loadData()
+			s.mode = taskChecklist
+		case "n", "esc":
+			s.mode = taskChecklist
+		}
+		return m, nil
+	case taskChecklist:
+		return s.updateChecklist(m, msg)
 	}
 
 	switch msg.String() {
@@ -1898,6 +2228,9 @@ func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "g":
 		s.openTags()
+		return m, nil
+	case "i":
+		s.openChecklist()
 		return m, nil
 	}
 

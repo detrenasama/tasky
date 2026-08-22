@@ -91,6 +91,21 @@ CREATE TABLE IF NOT EXISTS journal_entries (
 
 CREATE INDEX IF NOT EXISTS idx_journal_entries_subtask ON journal_entries(subtask_id);
 
+-- Чек-листы подзадач: упорядоченный список строк со статусом. status: new |
+-- in_progress | done | cancelled (new — не выполнено).
+CREATE TABLE IF NOT EXISTS checklist_items (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    subtask_id INTEGER NOT NULL REFERENCES subtasks(id) ON DELETE CASCADE,
+    text       TEXT    NOT NULL,
+    status     TEXT    NOT NULL DEFAULT 'new'
+                CHECK (status IN ('new', 'in_progress', 'done', 'cancelled')),
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    status_changed_at INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_checklist_items_subtask ON checklist_items(subtask_id);
+
 -- Каталог статусов: настраиваемый список (см. statuses.go, сид по умолчанию —
 -- в миграции). type: new | in_progress | done; is_quick — участвует в быстрой
 -- цепочке смены статуса; note_prompt — подсказка для обязательной заметки.
@@ -160,6 +175,9 @@ func migrate(conn *sql.DB) error {
 		return err
 	}
 	if err := ensureColumn(conn, "subtasks", "description", "TEXT NOT NULL DEFAULT ''"); err != nil {
+		return err
+	}
+	if err := ensureColumn(conn, "checklist_items", "status_changed_at", "INTEGER NOT NULL DEFAULT 0"); err != nil {
 		return err
 	}
 	if err := migrateStatuses(conn); err != nil {

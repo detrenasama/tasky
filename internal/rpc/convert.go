@@ -400,6 +400,54 @@ func TagMapFromProto(m *TagsMapResponse) map[int64][]db.Tag {
 // Int64Ptr — указатель для proto optional-int64.
 func Int64Ptr(v int64) *int64 { return &v }
 
+// Конверсии чек-листов подзадач.
+func ToChecklistItem(ci db.ChecklistItem) *ChecklistItem {
+	return &ChecklistItem{Id: ci.ID, SubtaskId: ci.SubtaskID, Text: ci.Text,
+		Status: ci.Status, SortOrder: ci.SortOrder, CreatedAt: ci.CreatedAt.Unix(),
+		StatusChangedAt: ci.StatusChangedAt.Unix()}
+}
+
+func FromChecklistItem(ci *ChecklistItem) db.ChecklistItem {
+	return db.ChecklistItem{ID: ci.Id, SubtaskID: ci.SubtaskId, Text: ci.Text,
+		Status: ci.Status, SortOrder: ci.SortOrder,
+		CreatedAt:       time.Unix(ci.CreatedAt, 0),
+		StatusChangedAt: time.Unix(ci.StatusChangedAt, 0)}
+}
+
+func ToChecklistItems(cis []db.ChecklistItem) []*ChecklistItem {
+	out := make([]*ChecklistItem, len(cis))
+	for i, ci := range cis {
+		out[i] = ToChecklistItem(ci)
+	}
+	return out
+}
+
+func FromChecklistItems(cis []*ChecklistItem) []db.ChecklistItem {
+	out := make([]db.ChecklistItem, len(cis))
+	for i, ci := range cis {
+		out[i] = FromChecklistItem(ci)
+	}
+	return out
+}
+
+func ToChecklistCounts(m map[int64][2]int) *ChecklistCountsResponse {
+	out := &ChecklistCountsResponse{Done: make(map[int64]int64, len(m)),
+		Total: make(map[int64]int64, len(m))}
+	for id, v := range m {
+		out.Done[id] = int64(v[0])
+		out.Total[id] = int64(v[1])
+	}
+	return out
+}
+
+func FromChecklistCounts(r *ChecklistCountsResponse) map[int64][2]int {
+	out := make(map[int64][2]int, len(r.GetDone()))
+	for id, done := range r.GetDone() {
+		out[id] = [2]int{int(done), int(r.GetTotal()[id])}
+	}
+	return out
+}
+
 // Sentinels — имена ошибок, передаваемые в status.Message.
 const (
 	msgStatusInUse   = "status_in_use"

@@ -54,6 +54,15 @@ type Store interface {
 	UpdateJournalEntry(id int64, text string) error
 	JournalTexts(projectID int64) (map[int64]string, error)
 
+	// Чек-листы подзадач.
+	ChecklistItems(subtaskID int64) ([]db.ChecklistItem, error)
+	ChecklistCounts(projectID int64) (map[int64][2]int, error)
+	CreateChecklistItem(subtaskID int64, text string) (db.ChecklistItem, error)
+	UpdateChecklistItemText(id int64, text string) error
+	SetChecklistItemStatus(id int64, status string) error
+	MoveChecklistItem(id int64, dir int) error
+	DeleteChecklistItem(id int64) error
+
 	// Учёт времени.
 	StartSession(subtaskID int64, now time.Time) error
 	StopSession(subtaskID int64, now time.Time) error

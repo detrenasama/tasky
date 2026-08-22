@@ -190,6 +190,35 @@ message JournalTextRequest {
   string text = 2;
 }
 
+// Чек-листы подзадач.
+message ChecklistItem {
+  int64 id = 1;
+  int64 subtask_id = 2;
+  string text = 3;
+  string status = 4;
+  int64 sort_order = 5;
+  int64 created_at = 6;
+  int64 status_changed_at = 7;
+}
+
+message ChecklistItemListResponse {
+  repeated ChecklistItem items = 1;
+}
+
+message ChecklistItemResponse {
+  ChecklistItem item = 1;
+}
+
+message ChecklistStatusRequest {
+  int64 id = 1;
+  string status = 2;
+}
+
+message ChecklistCountsResponse {
+  map<int64, int64> done = 1;
+  map<int64, int64> total = 2;
+}
+
 message LinkOwnerRequest {
   int64 owner_id = 1;
   string name = 2;
@@ -427,6 +456,15 @@ service Tasky {
   rpc CreateJournalEntry(JournalTextRequest) returns (JournalEntryResponse);
   rpc UpdateJournalEntry(JournalTextRequest) returns (Empty);
   rpc JournalTexts(ProjectIDRequest) returns (JournalTextsResponse);
+
+  // Чек-листы подзадач.
+  rpc ChecklistItems(SubtaskIDRequest) returns (ChecklistItemListResponse);
+  rpc ChecklistCounts(ProjectIDRequest) returns (ChecklistCountsResponse);
+  rpc CreateChecklistItem(JournalTextRequest) returns (ChecklistItemResponse);
+  rpc UpdateChecklistItemText(JournalTextRequest) returns (Empty);
+  rpc SetChecklistItemStatus(ChecklistStatusRequest) returns (Empty);
+  rpc MoveChecklistItem(MoveRequest) returns (Empty);
+  rpc DeleteChecklistItem(IDRequest) returns (Empty);
 
   // Учёт времени.
   rpc StartSession(TimeRequest) returns (Empty);

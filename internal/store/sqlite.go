@@ -103,6 +103,26 @@ func (s *SQLite) JournalTexts(projectID int64) (map[int64]string, error) {
 	return db.JournalTexts(s.conn, projectID)
 }
 
+func (s *SQLite) ChecklistItems(subtaskID int64) ([]db.ChecklistItem, error) {
+	return db.ChecklistItems(s.conn, subtaskID)
+}
+func (s *SQLite) ChecklistCounts(projectID int64) (map[int64][2]int, error) {
+	return db.ChecklistCounts(s.conn, projectID)
+}
+func (s *SQLite) CreateChecklistItem(subtaskID int64, text string) (db.ChecklistItem, error) {
+	return db.CreateChecklistItem(s.conn, subtaskID, text)
+}
+func (s *SQLite) UpdateChecklistItemText(id int64, text string) error {
+	return db.UpdateChecklistItemText(s.conn, id, text)
+}
+func (s *SQLite) SetChecklistItemStatus(id int64, status string) error {
+	return db.SetChecklistItemStatus(s.conn, id, status)
+}
+func (s *SQLite) MoveChecklistItem(id int64, dir int) error {
+	return db.MoveChecklistItem(s.conn, id, dir)
+}
+func (s *SQLite) DeleteChecklistItem(id int64) error { return db.DeleteChecklistItem(s.conn, id) }
+
 func (s *SQLite) StartSession(subtaskID int64, now time.Time) error {
 	return db.StartSession(s.conn, subtaskID, now)
 }

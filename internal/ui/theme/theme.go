@@ -32,6 +32,19 @@ var (
 	linkStyle = lipgloss.NewStyle().Underline(true).Foreground(Accent)
 )
 
+// ListSelectionStyle — фон выделенного элемента списка задач/проектов:
+// серый (Selection), только фон, чтобы встроенные цвета (статус, теги)
+// оставались видимыми. Читается на рендере, поэтому учитывает смену темы.
+func ListSelectionStyle() lipgloss.Style {
+	return lipgloss.NewStyle().Background(lipgloss.Color(active.Colors.Selection))
+}
+
+// ContentBgStyle — фон контента (content) без отступов: им закрашиваются
+// невыделенные строки списка, чтобы колонка имела сплошной фон.
+func ContentBgStyle() lipgloss.Style {
+	return lipgloss.NewStyle().Background(lipgloss.Color(active.Colors.Content))
+}
+
 // Pane возвращает стиль плоской панели без рамок для контента: фон content.
 // Фокуса на панелях контента больше нет, поэтому стиль одинаков для обеих
 // колонок (список и описание) независимо от аргумента focused.
@@ -99,15 +112,18 @@ func ApplyToDelegate(d *list.DefaultDelegate) {
 	sel := lipgloss.Color(active.Colors.Selection)
 	d.Styles.NormalTitle = lipgloss.NewStyle().Foreground(text).Padding(0, 0, 0, 2)
 	d.Styles.NormalDesc = lipgloss.NewStyle().Foreground(muted).Padding(0, 0, 0, 2)
+	// Без левой рамки: иначе у выделенного элемента появляется видимый
+	// символ «│» в начале строки (в отличие от невыделенного, где слева 2
+	// невидимых пробела), и статус/текст визуально сдвигаются вправо.
+	// Отступ слева (2) совпадает с NormalTitle, поэтому выравнивание
+	// идентично; фон выделения задаётся снаружи (selDelegate / список ссылок).
 	d.Styles.SelectedTitle = lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder(), false, false, false, true).
-		BorderForeground(acc).
 		Background(sel).
 		Foreground(acc).
-		Padding(0, 0, 0, 1)
+		Padding(0, 0, 0, 2)
 	d.Styles.SelectedDesc = lipgloss.NewStyle().
 		Foreground(acc).
-		Padding(0, 0, 0, 1)
+		Padding(0, 0, 0, 2)
 	d.Styles.DimmedTitle = lipgloss.NewStyle().Foreground(muted).Padding(0, 0, 0, 2)
 	d.Styles.DimmedDesc = lipgloss.NewStyle().Foreground(muted).Padding(0, 0, 0, 2)
 	d.Styles.FilterMatch = lipgloss.NewStyle().Underline(true)

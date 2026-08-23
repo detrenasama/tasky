@@ -74,17 +74,16 @@ type projectsScreen struct {
 	listW int
 	descW int
 
-	listDelegate *list.DefaultDelegate
+	listDelegate selDelegate
 	linkDelegate *list.DefaultDelegate
 }
 
 func newProjectsScreen(st store.Store) *projectsScreen {
 	s := &projectsScreen{store: st, mode: projBrowse, focus: projFocusList}
-	d := list.NewDefaultDelegate()
+	d := newListDelegate()
 	d.ShowDescription = true
-	theme.ApplyToDelegate(&d)
-	s.listDelegate = &d
-	s.list = list.New(nil, &d, 40, 20)
+	s.listDelegate = d
+	s.list = list.New(nil, d, 40, 20)
 	s.list.SetShowTitle(false)
 	s.list.SetShowHelp(false)
 	s.list.SetShowPagination(false)
@@ -291,7 +290,11 @@ func (s *projectsScreen) resize(w, h int) {
 	avail := w
 	listW, descW := 0, 0
 	if avail >= 100 {
-		// список и описание равной ширины (1:1) с разделителем 2 пробела
+		// список и описание равной ширины (1:1) с разделителем 2 пробела.
+		// Сам разделитель (2 пробела) включаем в ширину левой колонки, чтобы
+		// фон выделенной строки (серый) доходил до самого разделителя без
+		// цветового шва — иначе в конце серой строки оставались бы 2 ячейки
+		// фона контента.
 		listW = (avail - 2) / 2
 		descW = avail - 2 - listW
 	} else {
@@ -299,9 +302,15 @@ func (s *projectsScreen) resize(w, h int) {
 	}
 	s.listW, s.descW = listW, descW
 	frame := theme.Pane(false).GetHorizontalFrameSize()
-	// 1 строка сверху — название страницы над списком
-	s.list.SetWidth(listW - frame)
-	// 2 строки сверху — название страницы + отступ
+	// Левая колонка целиком (контент + 2 пробела-разделителя) — ширина, по
+	// которой рендерится список, чтобы серый фон выделенной строки доходил
+	// до самого разделителя без цветового шва (иначе в конце серой строки
+	// оставались бы 2 ячейки фона контента).
+	colW := s.listW
+	if s.descW > 0 {
+		colW = s.listW + 2
+	}
+	s.list.SetWidth(colW)
 	s.list.SetHeight(max(s.midH-2, 1))
 	s.descV.Width = max(descW-frame, 1)
 	s.descV.Height = max(s.midH-1, 1)
@@ -312,7 +321,7 @@ func (s *projectsScreen) resize(w, h int) {
 
 // retheme пересобирает стили делегатов списков после смены темы.
 func (s *projectsScreen) retheme() {
-	theme.ApplyToDelegate(s.listDelegate)
+	theme.ApplyToDelegate(&s.listDelegate.DefaultDelegate)
 	s.list.SetDelegate(s.listDelegate)
 	theme.ApplyToDelegate(s.linkDelegate)
 	s.linkList.SetDelegate(s.linkDelegate)
@@ -328,26 +337,43 @@ func (s *projectsScreen) footer(w int) string {
 
 func (s *projectsScreen) view(w, h int) string {
 	leftStyle := theme.Pane(false)
-	W := max(s.listW-leftStyle.GetHorizontalFrameSize(), 0)
+	// colW — полная ширина левой колонки (контент + 2 пробела-разделителя),
+	// равна ширине списка; заголовок/отступ/дополнение рендерятся через
+	// theme.Pane (её фрейм 2 уже входит в colW), поэтому их ширина совпадает.
+	colW := s.listW
+	if s.descW > 0 {
+		colW += 2
+	}
+	W := max(colW-leftStyle.GetHorizontalFrameSize(), 0)
 	H := max(s.midH, 1)
-	titleTxt := theme.HeaderStyle.Render("Проекты")
+	titleTxt := padW(theme.HeaderStyle.Render("Проекты"), W)
 	var body string
 	switch {
 	case len(s.projects) == 0 && s.mode == projBrowse:
-		body = "Проектов нет.\nНажмите n для создания."
+		body = renderPane(leftStyle, padLines("Проектов нет.\nНажмите n для создания.", W, max(H-2, 1)))
 	case s.searchQuery != "" && len(s.items) == 0:
-		body = "Ничего не найдено по запросу\n«" + s.searchQuery + "»."
+		body = renderPane(leftStyle, padLines("Ничего не найдено по запросу\n«"+s.searchQuery+"».", W, max(H-2, 1)))
 	default:
-		// bubbles/list не дополняет строки до ширины — паддинг вручную
+		// bubbles/list не дополняет строки до ширины — паддинг внутри
+		// делегата (selDelegate закрашивает каждую строку целиком)
 		body = s.list.View()
 	}
-	// заголовок страницы + нижний отступ 1 строка, затем тело — единая панель
-	leftContent := titleTxt + "\n" + padW("", W) + "\n" + body
-	left := renderPane(leftStyle, padLines(leftContent, W, H))
+	// заголовок страницы (фон контента) + отступ 1 строка + тело списка
+	// (строки несут собственный фон: серый для выделенной, контент для
+	// остальных), затем дополнение до H строк фоном контента.
+	left := renderPane(leftStyle, titleTxt) + "\n" + renderPane(leftStyle, padW("", W)) + "\n" + body
+	lines := strings.Split(left, "\n")
+	for len(lines) < H {
+		lines = append(lines, renderPane(leftStyle, padW("", W)))
+	}
+	if len(lines) > H {
+		lines = lines[:H]
+	}
+	left = strings.Join(lines, "\n")
 
 	cols := []string{left}
 	if s.descW > 0 {
-		cols = append(cols, "  ", s.descBox())
+		cols = append(cols, s.descBox())
 	}
 	bodyOut := lipgloss.JoinHorizontal(lipgloss.Top, cols...)
 	return padH(bodyOut, w, h)

@@ -35,9 +35,9 @@ type paletteRow struct {
 // доступна всегда, действия — только на экранах задач и проектов.
 func (m *model) paletteGroups() []cmdGroup {
 	nav := cmdGroup{name: "Навигация", cmds: []cmdItem{
-		{title: "Задачи", keys: "alt+1", run: func(m *model) { m.switchScreen(screenTasks) }},
-		{title: "Проекты", keys: "alt+2", run: func(m *model) { m.switchScreen(screenProjects) }},
-		{title: "Отчеты", keys: "alt+3", run: func(m *model) {
+		{title: "Задачи", keys: "ctrl+t", run: func(m *model) { m.switchScreen(screenTasks) }},
+		{title: "Проекты", keys: "ctrl+p", run: func(m *model) { m.switchScreen(screenProjects) }},
+		{title: "Отчеты", keys: "ctrl+r", run: func(m *model) {
 			if run, err := m.store.RunningSession(); err == nil && run != nil {
 				m.reportConfirm = true
 				m.reportTitle = run.Title
@@ -45,7 +45,7 @@ func (m *model) paletteGroups() []cmdGroup {
 			}
 			m.switchScreen(screenReports)
 		}},
-		{title: "Настройки", keys: "alt+4", run: func(m *model) { m.switchScreen(screenSettings) }},
+		{title: "Настройки", keys: "ctrl+s", run: func(m *model) { m.switchScreen(screenSettings) }},
 	}}
 	groups := []cmdGroup{nav}
 	switch m.screen {
@@ -211,7 +211,7 @@ func (m *model) closePalette() {
 }
 
 // updatePalette обрабатывает клавиши палитры: навигация по списку, Enter —
-// выполнить, Esc — закрыть, alt+1/2/3/4 — выполнить команду навигации
+// выполнить, Esc — закрыть, ctrl+t/p/r/s — выполнить команду навигации
 // сразу; все остальные клавиши уходят в поисковую строку (живой фильтр).
 func (m model) updatePalette(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
@@ -233,7 +233,7 @@ func (m model) updatePalette(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "esc", "ctrl+c":
 		m.closePalette()
 		return m, nil
-	case "alt+1", "alt+2", "alt+3", "alt+4":
+	case "ctrl+t", "ctrl+p", "ctrl+r", "ctrl+s":
 		m.paletteExecKey(msg.String())
 		return m, nil
 	default:

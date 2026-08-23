@@ -365,7 +365,11 @@ func (m model) View() string {
 	// центральная часть и нижняя панель подсказок — единый паддинг
 	// (вертикальный 1, горизонтальный 2), фон panel, как у правой колонки.
 	boxStyle := lipgloss.NewStyle().Padding(1, 2).Background(theme.Pane(false).GetBackground())
-	mid = renderPane(boxStyle, padLines(mid, max(centralW-4, 1), max(midH-4, 1)))
+	// Простой рендер (без post-обработки reset'ов renderPane): фон задаётся
+	// для отступов, а внутренние области (списки и т.п.) несут собственный
+	// фон (контент или серый для выделенной строки) и сами восстанавливают
+	// его после внутренних reset'ов.
+	mid = boxStyle.Render(padLines(mid, max(centralW-4, 1), max(midH-4, 1)))
 
 	// нижняя панель подсказок: клавиши белым, названия серым (как сейчас);
 	// справа — «ctrl+p команды» с отступом 2, чтобы подсказки не перекрывались.
@@ -373,7 +377,7 @@ func (m model) View() string {
 	footRight := "  " + styleHints("ctrl+p команды")
 	footLeftW := max(footInnerW-lipgloss.Width(footRight), 0)
 	footLine := padW(truncateW(styleHints(footer), footLeftW), footLeftW) + footRight
-	footPanel := renderPane(boxStyle, padLines(footLine, footInnerW, 1))
+	footPanel := boxStyle.Render(padLines(footLine, footInnerW, 1))
 
 	sbLines := strings.Split(sidebarView(m.screen, h), "\n")
 	railLines := strings.Split(rightRail(m.version, rightW, h, rightMid), "\n")

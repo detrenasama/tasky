@@ -248,6 +248,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "ctrl+p":
 				m.openPalette()
 				return m, nil
+			case "alt+1":
+				m.switchScreen(screenTasks)
+				return m, nil
+			case "alt+2":
+				m.switchScreen(screenProjects)
+				return m, nil
+			case "alt+3":
+				if run, err := m.store.RunningSession(); err == nil && run != nil {
+					m.reportConfirm = true
+					m.reportTitle = run.Title
+					return m, nil
+				}
+				m.switchScreen(screenReports)
+				return m, nil
+			case "alt+4":
+				m.switchScreen(screenSettings)
+				return m, nil
 			}
 		}
 		if m.screen == screenTasks {

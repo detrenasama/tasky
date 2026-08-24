@@ -2,6 +2,7 @@ package ui
 
 import (
 	"strings"
+	"unicode/utf8"
 
 	"github.com/charmbracelet/lipgloss"
 
@@ -17,15 +18,27 @@ type dialog struct {
 
 func (d dialog) render() string {
 	title := theme.HeaderStyle.Render(d.title)
-	buttons := theme.Faint("[") + " " + theme.AccentBtn(d.primary) + "  " + theme.Faint("]  [") + " " +
-		theme.EscBtn(d.esc) + " " + theme.Faint("]")
-	return renderPane(theme.ModalStyle, title+"\n\n"+d.body+"\n\n"+buttons)
+	combined := strings.ReplaceAll(d.primary, "— ", "")
+	if d.esc != "" {
+		combined += " · " + strings.ReplaceAll(d.esc, "— ", "")
+	}
+	var content string
+	if combined != "" {
+		content = title + "\n\n" + d.body + "\n\n" + styleHints(combined)
+	} else {
+		content = title + "\n\n" + d.body
+	}
+	return renderPane(theme.ModalStyle, content)
 }
 
 // overlay кладёт dialog поверх base, центрируя его по середине холста
 // w×h и затемняя фон. Фрагменты фона, накрытые диалогом, обрезаются по
 // границе диалога; фоновые строки вне диалога затемняются целиком.
-func overlay(base, dialog string, w, h int) string {
+// overlay кладёт dialog поверх base, центрируя его по середине холста
+// w×h и затемняя фон. maxW ограничивает ширину модалки (чтобы она не
+// растягивалась во всю ширину экрана и не превращалась в серую полосу);
+// строки длиннее maxW переносятся. maxW<=0 — без ограничения (палитра).
+func overlay(base, dialog string, w, h, maxW int) string {
 	baseLines := strings.Split(strings.ReplaceAll(base, "\r\n", "\n"), "\n")
 	if len(baseLines) > h {
 		baseLines = baseLines[:h]
@@ -38,6 +51,17 @@ func overlay(base, dialog string, w, h int) string {
 	}
 
 	dialogLines := strings.Split(strings.ReplaceAll(dialog, "\r\n", "\n"), "\n")
+	if maxW > 0 {
+		var wrapped []string
+		for _, l := range dialogLines {
+			if lipgloss.Width(l) > maxW && !lineHasBox(l) {
+				wrapped = append(wrapped, wrapStyled(l, maxW)...)
+			} else {
+				wrapped = append(wrapped, l)
+			}
+		}
+		dialogLines = wrapped
+	}
 	dw := 0
 	for _, l := range dialogLines {
 		if lipgloss.Width(l) > dw {
@@ -71,6 +95,104 @@ func overlay(base, dialog string, w, h int) string {
 		}
 	}
 	return strings.Join(baseLines, "\n")
+}
+
+// dialogMaxW — максимальная ширина диалоговой модалки: всегда уже экрана,
+// чтобы оставались боковые поля и модалка не выглядела серой полосой.
+func dialogMaxW(w int) int {
+	c := w * 2 / 3
+	if c < 40 {
+		return 40
+	}
+	return c
+}
+
+// lineHasBox — содержит ли строка box-drawing символы (рамка/разделители).
+// Такие строки переносить нельзя: перенос разорвёт рамку модалки.
+func lineHasBox(s string) bool {
+	for _, r := range s {
+		switch r {
+		case '┌', '┐', '└', '┘', '│', '─',
+			'├', '┤', '┬', '┴', '┼',
+			'╭', '╮', '╰', '╯', '║', '═',
+			'╔', '╗', '╚', '╝':
+			return true
+		}
+	}
+	return false
+}
+
+// wrapStyled переносит строку с ANSI-кодами по видимой ширине width,
+// разбивая СТРОГО по пробелам (слово никогда не разрывается посередине);
+// состояние стиля сохраняется внутри слов.
+func wrapStyled(s string, width int) []string {
+	if width <= 0 {
+		return []string{s}
+	}
+	type tok struct {
+		text    string
+		isSpace bool
+	}
+	var toks []tok
+	var style strings.Builder
+	var cur strings.Builder
+	curSpace := false
+	flush := func() {
+		if cur.Len() == 0 {
+			style.Reset()
+			return
+		}
+		toks = append(toks, tok{text: style.String() + cur.String(), isSpace: curSpace})
+		cur.Reset()
+		style.Reset()
+	}
+	i := 0
+	for i < len(s) {
+		if s[i] == '\x1b' {
+			end := ansiEnd(s, i)
+			style.WriteString(s[i : end+1])
+			i = end + 1
+			continue
+		}
+		r, size := utf8.DecodeRuneInString(s[i:])
+		sp := r == ' '
+		if sp != curSpace && cur.Len() > 0 {
+			flush()
+		}
+		curSpace = sp
+		cur.WriteString(string(r))
+		i += size
+	}
+	flush()
+
+	var lines []string
+	var line strings.Builder
+	lineW := 0
+	for _, tk := range toks {
+		w := lipgloss.Width(tk.text)
+		if tk.isSpace {
+			if lineW > 0 {
+				line.WriteString(tk.text)
+				lineW += w
+			}
+			continue
+		}
+		if lineW > 0 && lineW+w > width {
+			lines = append(lines, strings.TrimRight(line.String(), " "))
+			line.Reset()
+			lineW = 0
+		}
+		line.WriteString(tk.text)
+		lineW += w
+	}
+	t := strings.TrimRight(line.String(), " ")
+	if t != "" || len(lines) == 0 {
+		lines = append(lines, t)
+	}
+	if len(lines) == 0 {
+		lines = []string{""}
+	}
+	return lines
 }
 
 // stripANSI удаляет ESC-последовательности (CSI, OSC, двухсимвольные).

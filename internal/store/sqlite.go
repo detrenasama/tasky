@@ -38,6 +38,9 @@ func (s *SQLite) ProjectLinks(projectID int64) ([]db.Link, error) {
 func (s *SQLite) CreateProjectLink(projectID int64, name, url string) (db.Link, error) {
 	return db.CreateProjectLink(s.conn, projectID, name, url)
 }
+func (s *SQLite) UpdateProjectLink(id int64, name, url string) error {
+	return db.UpdateProjectLink(s.conn, id, name, url)
+}
 func (s *SQLite) DeleteProjectLink(id int64) error             { return db.DeleteProjectLink(s.conn, id) }
 func (s *SQLite) ProjectLinksTexts() (map[int64]string, error) { return db.ProjectLinksTexts(s.conn) }
 
@@ -84,8 +87,14 @@ func (s *SQLite) SubtaskLinks(subtaskID int64) ([]db.Link, error) {
 func (s *SQLite) CreateTaskLink(taskID int64, name, url string) (db.Link, error) {
 	return db.CreateTaskLink(s.conn, taskID, name, url)
 }
+func (s *SQLite) UpdateTaskLink(id int64, name, url string) error {
+	return db.UpdateTaskLink(s.conn, id, name, url)
+}
 func (s *SQLite) CreateSubtaskLink(subtaskID int64, name, url string) (db.Link, error) {
 	return db.CreateSubtaskLink(s.conn, subtaskID, name, url)
+}
+func (s *SQLite) UpdateSubtaskLink(id int64, name, url string) error {
+	return db.UpdateSubtaskLink(s.conn, id, name, url)
 }
 func (s *SQLite) DeleteTaskLink(id int64) error    { return db.DeleteTaskLink(s.conn, id) }
 func (s *SQLite) DeleteSubtaskLink(id int64) error { return db.DeleteSubtaskLink(s.conn, id) }

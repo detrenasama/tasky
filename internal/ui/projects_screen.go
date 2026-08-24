@@ -23,7 +23,7 @@ const (
 	projInput
 	projConfirm
 	projDescEdit
-	projLinkInput
+	projLinkEdit
 	projLinks
 	projLinkConfirm
 	projSearch
@@ -59,6 +59,7 @@ type projectsScreen struct {
 	linkList      list.Model
 	confirmID     int64
 	confirmLinkID int64
+	editLinkID    int64
 	lastErr       error
 
 	desc  string
@@ -126,7 +127,7 @@ func newProjectsScreen(st store.Store) *projectsScreen {
 	theme.ApplyToDelegate(&ld)
 	s.linkDelegate = &ld
 	s.linkList = list.New(nil, &ld, 50, 8)
-	s.linkList.Title = "Ссылки"
+	s.linkList.SetShowTitle(false)
 	s.linkList.SetShowHelp(false)
 	s.linkList.SetShowPagination(false)
 	s.linkList.SetShowStatusBar(false)
@@ -232,12 +233,20 @@ func (s *projectsScreen) startEditDescription() {
 	s.descText.Focus()
 }
 
-// startLinkInput открывает модалку добавления ссылки к проекту.
-func (s *projectsScreen) startLinkInput() {
+// startLinkEdit открывает модалку ссылки проекта: id=0 — новая, иначе —
+// правка существующей (поля префилливаются из списка ссылок).
+func (s *projectsScreen) startLinkEdit(id int64) {
 	s.lastErr = nil
+	s.editLinkID = id
 	s.linkName.SetValue("")
 	s.linkInput.SetValue("")
-	s.mode = projLinkInput
+	for _, l := range s.links {
+		if l.ID == id {
+			s.linkName.SetValue(l.Name)
+			s.linkInput.SetValue(l.URL)
+		}
+	}
+	s.mode = projLinkEdit
 	s.linkName.Focus()
 	s.linkInput.Blur()
 }
@@ -420,22 +429,35 @@ func (s *projectsScreen) dialog() (string, bool) {
 		return d.render(), true
 	case projDescEdit:
 		return "", false
-	case projLinkInput:
+	case projLinkEdit:
+		title := "Добавить ссылку"
+		if s.editLinkID != 0 {
+			title = "Изменить ссылку"
+		}
 		body := s.linkName.View() + "\n" + s.linkInput.View()
 		if s.lastErr != nil {
 			body += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
 		}
-		d := dialog{title: "Добавить ссылку", body: body,
-			primary: "Enter — добавить · Tab — поле", esc: "Esc — отмена"}
+		d := dialog{title: title, body: body,
+			primary: "Enter — сохранить · Tab — поле", esc: "Esc — отмена"}
 		return d.render(), true
 	case projLinks:
-		body := s.linkList.View()
+		var body string
+		if len(s.links) == 0 {
+			body = theme.Faint("Ссылок проекта нет. n — добавить.")
+		} else {
+			body = s.linkList.View()
+		}
 		if s.lastErr != nil {
 			body += "\n\n" + theme.ErrorStyle.Render("Не удалось открыть: "+s.lastErr.Error())
 		}
+		hint := "n — новая · Esc — закрыть"
+		if len(s.links) > 0 {
+			hint = "Enter — открыть · e — изменить · d — удалить · " + hint
+		}
 		d := dialog{title: "Ссылки проекта",
 			body:    body,
-			primary: "Enter — открыть · d — удалить", esc: "Esc — закрыть"}
+			primary: hint}
 		return d.render(), true
 	case projLinkConfirm:
 		label := ""
@@ -512,7 +534,7 @@ func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			s.mode = projBrowse
 		}
 		return m, cmd
-	case projLinkInput:
+	case projLinkEdit:
 		var cmd tea.Cmd
 		if s.linkName.Focused() {
 			s.linkName, cmd = s.linkName.Update(msg)
@@ -531,11 +553,17 @@ func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "enter":
 			if s.linkInput.Focused() {
 				url := strings.TrimSpace(s.linkInput.Value())
+				name := strings.TrimSpace(s.linkName.Value())
 				if url != "" {
-					_, err := s.store.CreateProjectLink(s.selectedProjectID(),
-						strings.TrimSpace(s.linkName.Value()), url)
+					var err error
+					if s.editLinkID != 0 {
+						err = s.store.UpdateProjectLink(s.editLinkID, name, url)
+					} else {
+						_, err = s.store.CreateProjectLink(s.selectedProjectID(), name, url)
+					}
 					s.lastErr = err
 					if err == nil {
+						s.editLinkID = 0
 						s.loadDesc()
 					}
 				}
@@ -543,18 +571,23 @@ func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				s.linkName.Blur()
 				s.linkInput.SetValue("")
 				s.linkInput.Blur()
-				s.mode = projBrowse
+				if s.lastErr == nil {
+					s.mode = projLinks
+				} else {
+					s.mode = projBrowse
+				}
 			} else {
 				// Enter на названии — перейти к адресу
 				s.linkName.Blur()
 				s.linkInput.Focus()
 			}
 		case "esc":
+			s.editLinkID = 0
 			s.linkName.SetValue("")
 			s.linkName.Blur()
 			s.linkInput.SetValue("")
 			s.linkInput.Blur()
-			s.mode = projBrowse
+			s.mode = projLinks
 		}
 		return m, cmd
 	case projLinks:
@@ -567,6 +600,14 @@ func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					s.lastErr = err
 				}
 			}
+			return m, nil
+		case "e":
+			if item, ok := s.linkList.SelectedItem().(linkItem); ok {
+				s.startLinkEdit(item.l.ID)
+			}
+			return m, nil
+		case "n":
+			s.startLinkEdit(0)
 			return m, nil
 		case "d":
 			if item, ok := s.linkList.SelectedItem().(linkItem); ok {
@@ -628,9 +669,6 @@ func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "e":
 		// описание теперь открывается по Enter; «e» оставляем без действия
-		return m, nil
-	case "l":
-		s.startLinkInput()
 		return m, nil
 	case "o":
 		s.openLinks()

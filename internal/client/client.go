@@ -137,6 +137,17 @@ func (c *Client) CreateProjectLink(projectID int64, name, url string) (db.Link, 
 	return rpc.FromLink(resp.Link), nil
 }
 
+func (c *Client) UpdateProjectLink(id int64, name, url string) error {
+	ctx, cancel := callCtx()
+	defer cancel()
+	_, err := c.rpc.UpdateProjectLink(ctx,
+		&rpc.LinkNameRequest{Id: id, Name: name, Url: url})
+	if err != nil {
+		return rpc.StatusToDBError(err)
+	}
+	return nil
+}
+
 func (c *Client) DeleteProjectLink(id int64) error {
 	ctx, cancel := callCtx()
 	defer cancel()
@@ -317,6 +328,17 @@ func (c *Client) CreateTaskLink(taskID int64, name, url string) (db.Link, error)
 	return rpc.FromLink(resp.Link), nil
 }
 
+func (c *Client) UpdateTaskLink(id int64, name, url string) error {
+	ctx, cancel := callCtx()
+	defer cancel()
+	_, err := c.rpc.UpdateTaskLink(ctx,
+		&rpc.LinkNameRequest{Id: id, Name: name, Url: url})
+	if err != nil {
+		return rpc.StatusToDBError(err)
+	}
+	return nil
+}
+
 func (c *Client) CreateSubtaskLink(subtaskID int64, name, url string) (db.Link, error) {
 	ctx, cancel := callCtx()
 	defer cancel()
@@ -326,6 +348,17 @@ func (c *Client) CreateSubtaskLink(subtaskID int64, name, url string) (db.Link, 
 		return db.Link{}, rpc.StatusToDBError(err)
 	}
 	return rpc.FromLink(resp.Link), nil
+}
+
+func (c *Client) UpdateSubtaskLink(id int64, name, url string) error {
+	ctx, cancel := callCtx()
+	defer cancel()
+	_, err := c.rpc.UpdateSubtaskLink(ctx,
+		&rpc.LinkNameRequest{Id: id, Name: name, Url: url})
+	if err != nil {
+		return rpc.StatusToDBError(err)
+	}
+	return nil
 }
 
 func (c *Client) DeleteTaskLink(id int64) error {

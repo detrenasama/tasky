@@ -69,7 +69,7 @@ func TestSettingsForm(t *testing.T) {
 	if m.settings.mode != settingsPeriodInput || m.settings.lastErr == nil {
 		t.Fatal("неверная дата не показала ошибку")
 	}
-	if !strings.Contains(m.View(), "нужен формат ДД.ММ.ГГГГ") {
+	if !strings.Contains(m.View(), "ДД.ММ.ГГГГ") {
 		t.Error("нет подсказки про формат")
 	}
 	m.updateSettings(tea.KeyMsg{Type: tea.KeyEsc})

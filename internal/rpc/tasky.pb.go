@@ -4453,7 +4453,7 @@ const file_proto_tasky_proto_rawDesc = "" +
 	"\vStatusOwner\x12\x0e\n" +
 	"\n" +
 	"OWNER_TASK\x10\x00\x12\x11\n" +
-	"\rOWNER_SUBTASK\x10\x012\x98 \n" +
+	"\rOWNER_SUBTASK\x10\x012\xdb!\n" +
 	"\x05Tasky\x128\n" +
 	"\fListProjects\x12\f.tasky.Empty\x1a\x1a.tasky.ProjectListResponse\x12B\n" +
 	"\rCreateProject\x12\x19.tasky.ProjectNameRequest\x1a\x16.tasky.ProjectResponse\x12/\n" +
@@ -4461,7 +4461,8 @@ const file_proto_tasky_proto_rawDesc = "" +
 	"\x12ProjectDescription\x12\x10.tasky.IDRequest\x1a\x15.tasky.StringResponse\x12<\n" +
 	"\x18UpdateProjectDescription\x12\x12.tasky.TextRequest\x1a\f.tasky.Empty\x12@\n" +
 	"\fProjectLinks\x12\x17.tasky.ProjectIDRequest\x1a\x17.tasky.LinkListResponse\x12A\n" +
-	"\x11CreateProjectLink\x12\x17.tasky.LinkOwnerRequest\x1a\x13.tasky.LinkResponse\x123\n" +
+	"\x11CreateProjectLink\x12\x17.tasky.LinkOwnerRequest\x1a\x13.tasky.LinkResponse\x12@\n" +
+	"\x11UpdateProjectLink\x12\x16.tasky.LinkNameRequest\x1a\x13.tasky.LinkResponse\x123\n" +
 	"\x11DeleteProjectLink\x12\x10.tasky.IDRequest\x1a\f.tasky.Empty\x12C\n" +
 	"\x11ProjectLinksTexts\x12\f.tasky.Empty\x1a .tasky.ProjectLinksTextsResponse\x12B\n" +
 	"\x0eTasksByProject\x12\x17.tasky.ProjectIDRequest\x1a\x17.tasky.TaskListResponse\x12H\n" +
@@ -4483,8 +4484,10 @@ const file_proto_tasky_proto_rawDesc = "" +
 	"\x18UpdateSubtaskDescription\x12\x12.tasky.TextRequest\x1a\f.tasky.Empty\x12:\n" +
 	"\tTaskLinks\x12\x14.tasky.TaskIDRequest\x1a\x17.tasky.LinkListResponse\x12@\n" +
 	"\fSubtaskLinks\x12\x17.tasky.SubtaskIDRequest\x1a\x17.tasky.LinkListResponse\x12>\n" +
-	"\x0eCreateTaskLink\x12\x17.tasky.LinkOwnerRequest\x1a\x13.tasky.LinkResponse\x12A\n" +
-	"\x11CreateSubtaskLink\x12\x17.tasky.LinkOwnerRequest\x1a\x13.tasky.LinkResponse\x120\n" +
+	"\x0eCreateTaskLink\x12\x17.tasky.LinkOwnerRequest\x1a\x13.tasky.LinkResponse\x12=\n" +
+	"\x0eUpdateTaskLink\x12\x16.tasky.LinkNameRequest\x1a\x13.tasky.LinkResponse\x12A\n" +
+	"\x11CreateSubtaskLink\x12\x17.tasky.LinkOwnerRequest\x1a\x13.tasky.LinkResponse\x12@\n" +
+	"\x11UpdateSubtaskLink\x12\x16.tasky.LinkNameRequest\x1a\x13.tasky.LinkResponse\x120\n" +
 	"\x0eDeleteTaskLink\x12\x10.tasky.IDRequest\x1a\f.tasky.Empty\x123\n" +
 	"\x11DeleteSubtaskLink\x12\x10.tasky.IDRequest\x1a\f.tasky.Empty\x12J\n" +
 	"\x0eJournalEntries\x12\x17.tasky.SubtaskIDRequest\x1a\x1f.tasky.JournalEntryListResponse\x12L\n" +
@@ -4624,177 +4627,183 @@ var file_proto_tasky_proto_goTypes = []any{
 	nil,                                    // 78: tasky.TagsMapResponse.TagsEntry
 }
 var file_proto_tasky_proto_depIdxs = []int32{
-	10, // 0: tasky.TagList.tags:type_name -> tasky.Tag
-	30, // 1: tasky.ChecklistItemListResponse.items:type_name -> tasky.ChecklistItem
-	30, // 2: tasky.ChecklistItemResponse.item:type_name -> tasky.ChecklistItem
-	74, // 3: tasky.ChecklistCountsResponse.done:type_name -> tasky.ChecklistCountsResponse.DoneEntry
-	75, // 4: tasky.ChecklistCountsResponse.total:type_name -> tasky.ChecklistCountsResponse.TotalEntry
-	0,  // 5: tasky.SetStatusRequest.owner:type_name -> tasky.StatusOwner
-	0,  // 6: tasky.HistoryRequest.owner:type_name -> tasky.StatusOwner
-	76, // 7: tasky.JournalTextsResponse.texts:type_name -> tasky.JournalTextsResponse.TextsEntry
-	77, // 8: tasky.ProjectLinksTextsResponse.texts:type_name -> tasky.ProjectLinksTextsResponse.TextsEntry
-	78, // 9: tasky.TagsMapResponse.tags:type_name -> tasky.TagsMapResponse.TagsEntry
-	1,  // 10: tasky.ProjectListResponse.projects:type_name -> tasky.Project
-	1,  // 11: tasky.ProjectResponse.project:type_name -> tasky.Project
-	5,  // 12: tasky.LinkListResponse.links:type_name -> tasky.Link
-	5,  // 13: tasky.LinkResponse.link:type_name -> tasky.Link
-	2,  // 14: tasky.TaskListResponse.tasks:type_name -> tasky.Task
-	3,  // 15: tasky.SubtaskListResponse.subtasks:type_name -> tasky.SubtaskWithTime
-	2,  // 16: tasky.TaskResponse.task:type_name -> tasky.Task
-	3,  // 17: tasky.SubtaskResponse.subtask:type_name -> tasky.SubtaskWithTime
-	4,  // 18: tasky.TimeEntryListResponse.entries:type_name -> tasky.TimeEntry
-	3,  // 19: tasky.RunningSessionResponse.subtask:type_name -> tasky.SubtaskWithTime
-	6,  // 20: tasky.JournalEntryListResponse.entries:type_name -> tasky.JournalEntry
-	6,  // 21: tasky.JournalEntryResponse.entry:type_name -> tasky.JournalEntry
-	7,  // 22: tasky.StatusListResponse.statuses:type_name -> tasky.StatusDef
-	7,  // 23: tasky.StatusResponse.status:type_name -> tasky.StatusDef
-	8,  // 24: tasky.HistoryListResponse.entries:type_name -> tasky.StatusHistoryEntry
-	9,  // 25: tasky.TagTypeListResponse.tag_types:type_name -> tasky.TagType
-	9,  // 26: tasky.TagTypeResponse.tag_type:type_name -> tasky.TagType
-	10, // 27: tasky.TagListResponse.tags:type_name -> tasky.Tag
-	10, // 28: tasky.TagResponse.tag:type_name -> tasky.Tag
-	11, // 29: tasky.ReportEntryListResponse.entries:type_name -> tasky.ReportEntry
-	12, // 30: tasky.ReportJournalEntryListResponse.entries:type_name -> tasky.ReportJournalEntry
-	13, // 31: tasky.TagsMapResponse.TagsEntry.value:type_name -> tasky.TagList
-	14, // 32: tasky.Tasky.ListProjects:input_type -> tasky.Empty
-	19, // 33: tasky.Tasky.CreateProject:input_type -> tasky.ProjectNameRequest
-	15, // 34: tasky.Tasky.DeleteProject:input_type -> tasky.IDRequest
-	15, // 35: tasky.Tasky.ProjectDescription:input_type -> tasky.IDRequest
-	27, // 36: tasky.Tasky.UpdateProjectDescription:input_type -> tasky.TextRequest
-	20, // 37: tasky.Tasky.ProjectLinks:input_type -> tasky.ProjectIDRequest
-	35, // 38: tasky.Tasky.CreateProjectLink:input_type -> tasky.LinkOwnerRequest
-	15, // 39: tasky.Tasky.DeleteProjectLink:input_type -> tasky.IDRequest
-	14, // 40: tasky.Tasky.ProjectLinksTexts:input_type -> tasky.Empty
-	20, // 41: tasky.Tasky.TasksByProject:input_type -> tasky.ProjectIDRequest
-	20, // 42: tasky.Tasky.SubtasksByProject:input_type -> tasky.ProjectIDRequest
-	21, // 43: tasky.Tasky.SubtasksWithTime:input_type -> tasky.TaskIDRequest
-	22, // 44: tasky.Tasky.CreateTask:input_type -> tasky.CreateTaskRequest
-	15, // 45: tasky.Tasky.DeleteTask:input_type -> tasky.IDRequest
-	23, // 46: tasky.Tasky.CreateSubtask:input_type -> tasky.CreateSubtaskRequest
-	15, // 47: tasky.Tasky.DeleteSubtask:input_type -> tasky.IDRequest
-	26, // 48: tasky.Tasky.MoveTask:input_type -> tasky.MoveRequest
-	26, // 49: tasky.Tasky.MoveSubtask:input_type -> tasky.MoveRequest
-	28, // 50: tasky.Tasky.UpdateTaskTitle:input_type -> tasky.TitleRequest
-	28, // 51: tasky.Tasky.UpdateSubtaskTitle:input_type -> tasky.TitleRequest
-	15, // 52: tasky.Tasky.TaskDescription:input_type -> tasky.IDRequest
-	15, // 53: tasky.Tasky.SubtaskDescription:input_type -> tasky.IDRequest
-	27, // 54: tasky.Tasky.UpdateTaskDescription:input_type -> tasky.TextRequest
-	27, // 55: tasky.Tasky.UpdateSubtaskDescription:input_type -> tasky.TextRequest
-	21, // 56: tasky.Tasky.TaskLinks:input_type -> tasky.TaskIDRequest
-	24, // 57: tasky.Tasky.SubtaskLinks:input_type -> tasky.SubtaskIDRequest
-	35, // 58: tasky.Tasky.CreateTaskLink:input_type -> tasky.LinkOwnerRequest
-	35, // 59: tasky.Tasky.CreateSubtaskLink:input_type -> tasky.LinkOwnerRequest
-	15, // 60: tasky.Tasky.DeleteTaskLink:input_type -> tasky.IDRequest
-	15, // 61: tasky.Tasky.DeleteSubtaskLink:input_type -> tasky.IDRequest
-	24, // 62: tasky.Tasky.JournalEntries:input_type -> tasky.SubtaskIDRequest
-	29, // 63: tasky.Tasky.CreateJournalEntry:input_type -> tasky.JournalTextRequest
-	29, // 64: tasky.Tasky.UpdateJournalEntry:input_type -> tasky.JournalTextRequest
-	20, // 65: tasky.Tasky.JournalTexts:input_type -> tasky.ProjectIDRequest
-	24, // 66: tasky.Tasky.ChecklistItems:input_type -> tasky.SubtaskIDRequest
-	20, // 67: tasky.Tasky.ChecklistCounts:input_type -> tasky.ProjectIDRequest
-	29, // 68: tasky.Tasky.CreateChecklistItem:input_type -> tasky.JournalTextRequest
-	29, // 69: tasky.Tasky.UpdateChecklistItemText:input_type -> tasky.JournalTextRequest
-	33, // 70: tasky.Tasky.SetChecklistItemStatus:input_type -> tasky.ChecklistStatusRequest
-	26, // 71: tasky.Tasky.MoveChecklistItem:input_type -> tasky.MoveRequest
-	15, // 72: tasky.Tasky.DeleteChecklistItem:input_type -> tasky.IDRequest
-	36, // 73: tasky.Tasky.StartSession:input_type -> tasky.TimeRequest
-	36, // 74: tasky.Tasky.StopSession:input_type -> tasky.TimeRequest
-	24, // 75: tasky.Tasky.TimeEntriesBySubtask:input_type -> tasky.SubtaskIDRequest
-	14, // 76: tasky.Tasky.RunningSession:input_type -> tasky.Empty
-	14, // 77: tasky.Tasky.TodayTotal:input_type -> tasky.Empty
-	14, // 78: tasky.Tasky.WeeklyTotal:input_type -> tasky.Empty
-	37, // 79: tasky.Tasky.ReportEntries:input_type -> tasky.RangeRequest
-	38, // 80: tasky.Tasky.JournalEntriesByRange:input_type -> tasky.RangeNoProjectRequest
-	73, // 81: tasky.Tasky.TagsByTasks:input_type -> tasky.TagsByTasksRequest
-	14, // 82: tasky.Tasky.ListStatuses:input_type -> tasky.Empty
-	39, // 83: tasky.Tasky.CreateStatus:input_type -> tasky.StatusRequest
-	40, // 84: tasky.Tasky.UpdateStatus:input_type -> tasky.StatusUpdateRequest
-	15, // 85: tasky.Tasky.DeleteStatus:input_type -> tasky.IDRequest
-	41, // 86: tasky.Tasky.SetStatus:input_type -> tasky.SetStatusRequest
-	42, // 87: tasky.Tasky.StatusHistory:input_type -> tasky.HistoryRequest
-	14, // 88: tasky.Tasky.ListTagTypes:input_type -> tasky.Empty
-	43, // 89: tasky.Tasky.CreateTagType:input_type -> tasky.TagTypeRequest
-	44, // 90: tasky.Tasky.UpdateTagType:input_type -> tasky.TagTypeUpdateRequest
-	15, // 91: tasky.Tasky.DeleteTagType:input_type -> tasky.IDRequest
-	21, // 92: tasky.Tasky.TaskTags:input_type -> tasky.TaskIDRequest
-	20, // 93: tasky.Tasky.TagsByProject:input_type -> tasky.ProjectIDRequest
-	45, // 94: tasky.Tasky.CreateTag:input_type -> tasky.TagRequest
-	46, // 95: tasky.Tasky.UpdateTag:input_type -> tasky.TagUpdateRequest
-	15, // 96: tasky.Tasky.DeleteTag:input_type -> tasky.IDRequest
-	47, // 97: tasky.Tasky.GetSetting:input_type -> tasky.SettingRequest
-	47, // 98: tasky.Tasky.SetSetting:input_type -> tasky.SettingRequest
-	52, // 99: tasky.Tasky.ListProjects:output_type -> tasky.ProjectListResponse
-	53, // 100: tasky.Tasky.CreateProject:output_type -> tasky.ProjectResponse
-	14, // 101: tasky.Tasky.DeleteProject:output_type -> tasky.Empty
-	16, // 102: tasky.Tasky.ProjectDescription:output_type -> tasky.StringResponse
-	14, // 103: tasky.Tasky.UpdateProjectDescription:output_type -> tasky.Empty
-	54, // 104: tasky.Tasky.ProjectLinks:output_type -> tasky.LinkListResponse
-	55, // 105: tasky.Tasky.CreateProjectLink:output_type -> tasky.LinkResponse
-	14, // 106: tasky.Tasky.DeleteProjectLink:output_type -> tasky.Empty
-	50, // 107: tasky.Tasky.ProjectLinksTexts:output_type -> tasky.ProjectLinksTextsResponse
-	56, // 108: tasky.Tasky.TasksByProject:output_type -> tasky.TaskListResponse
-	57, // 109: tasky.Tasky.SubtasksByProject:output_type -> tasky.SubtaskListResponse
-	57, // 110: tasky.Tasky.SubtasksWithTime:output_type -> tasky.SubtaskListResponse
-	58, // 111: tasky.Tasky.CreateTask:output_type -> tasky.TaskResponse
-	14, // 112: tasky.Tasky.DeleteTask:output_type -> tasky.Empty
-	59, // 113: tasky.Tasky.CreateSubtask:output_type -> tasky.SubtaskResponse
-	14, // 114: tasky.Tasky.DeleteSubtask:output_type -> tasky.Empty
-	14, // 115: tasky.Tasky.MoveTask:output_type -> tasky.Empty
-	14, // 116: tasky.Tasky.MoveSubtask:output_type -> tasky.Empty
-	14, // 117: tasky.Tasky.UpdateTaskTitle:output_type -> tasky.Empty
-	14, // 118: tasky.Tasky.UpdateSubtaskTitle:output_type -> tasky.Empty
-	16, // 119: tasky.Tasky.TaskDescription:output_type -> tasky.StringResponse
-	16, // 120: tasky.Tasky.SubtaskDescription:output_type -> tasky.StringResponse
-	14, // 121: tasky.Tasky.UpdateTaskDescription:output_type -> tasky.Empty
-	14, // 122: tasky.Tasky.UpdateSubtaskDescription:output_type -> tasky.Empty
-	54, // 123: tasky.Tasky.TaskLinks:output_type -> tasky.LinkListResponse
-	54, // 124: tasky.Tasky.SubtaskLinks:output_type -> tasky.LinkListResponse
-	55, // 125: tasky.Tasky.CreateTaskLink:output_type -> tasky.LinkResponse
-	55, // 126: tasky.Tasky.CreateSubtaskLink:output_type -> tasky.LinkResponse
-	14, // 127: tasky.Tasky.DeleteTaskLink:output_type -> tasky.Empty
-	14, // 128: tasky.Tasky.DeleteSubtaskLink:output_type -> tasky.Empty
-	62, // 129: tasky.Tasky.JournalEntries:output_type -> tasky.JournalEntryListResponse
-	63, // 130: tasky.Tasky.CreateJournalEntry:output_type -> tasky.JournalEntryResponse
-	14, // 131: tasky.Tasky.UpdateJournalEntry:output_type -> tasky.Empty
-	49, // 132: tasky.Tasky.JournalTexts:output_type -> tasky.JournalTextsResponse
-	31, // 133: tasky.Tasky.ChecklistItems:output_type -> tasky.ChecklistItemListResponse
-	34, // 134: tasky.Tasky.ChecklistCounts:output_type -> tasky.ChecklistCountsResponse
-	32, // 135: tasky.Tasky.CreateChecklistItem:output_type -> tasky.ChecklistItemResponse
-	14, // 136: tasky.Tasky.UpdateChecklistItemText:output_type -> tasky.Empty
-	14, // 137: tasky.Tasky.SetChecklistItemStatus:output_type -> tasky.Empty
-	14, // 138: tasky.Tasky.MoveChecklistItem:output_type -> tasky.Empty
-	14, // 139: tasky.Tasky.DeleteChecklistItem:output_type -> tasky.Empty
-	14, // 140: tasky.Tasky.StartSession:output_type -> tasky.Empty
-	14, // 141: tasky.Tasky.StopSession:output_type -> tasky.Empty
-	60, // 142: tasky.Tasky.TimeEntriesBySubtask:output_type -> tasky.TimeEntryListResponse
-	61, // 143: tasky.Tasky.RunningSession:output_type -> tasky.RunningSessionResponse
-	18, // 144: tasky.Tasky.TodayTotal:output_type -> tasky.DurationResponse
-	18, // 145: tasky.Tasky.WeeklyTotal:output_type -> tasky.DurationResponse
-	71, // 146: tasky.Tasky.ReportEntries:output_type -> tasky.ReportEntryListResponse
-	72, // 147: tasky.Tasky.JournalEntriesByRange:output_type -> tasky.ReportJournalEntryListResponse
-	51, // 148: tasky.Tasky.TagsByTasks:output_type -> tasky.TagsMapResponse
-	64, // 149: tasky.Tasky.ListStatuses:output_type -> tasky.StatusListResponse
-	65, // 150: tasky.Tasky.CreateStatus:output_type -> tasky.StatusResponse
-	14, // 151: tasky.Tasky.UpdateStatus:output_type -> tasky.Empty
-	14, // 152: tasky.Tasky.DeleteStatus:output_type -> tasky.Empty
-	14, // 153: tasky.Tasky.SetStatus:output_type -> tasky.Empty
-	66, // 154: tasky.Tasky.StatusHistory:output_type -> tasky.HistoryListResponse
-	67, // 155: tasky.Tasky.ListTagTypes:output_type -> tasky.TagTypeListResponse
-	68, // 156: tasky.Tasky.CreateTagType:output_type -> tasky.TagTypeResponse
-	14, // 157: tasky.Tasky.UpdateTagType:output_type -> tasky.Empty
-	14, // 158: tasky.Tasky.DeleteTagType:output_type -> tasky.Empty
-	69, // 159: tasky.Tasky.TaskTags:output_type -> tasky.TagListResponse
-	51, // 160: tasky.Tasky.TagsByProject:output_type -> tasky.TagsMapResponse
-	70, // 161: tasky.Tasky.CreateTag:output_type -> tasky.TagResponse
-	14, // 162: tasky.Tasky.UpdateTag:output_type -> tasky.Empty
-	14, // 163: tasky.Tasky.DeleteTag:output_type -> tasky.Empty
-	48, // 164: tasky.Tasky.GetSetting:output_type -> tasky.GetSettingResponse
-	14, // 165: tasky.Tasky.SetSetting:output_type -> tasky.Empty
-	99, // [99:166] is the sub-list for method output_type
-	32, // [32:99] is the sub-list for method input_type
-	32, // [32:32] is the sub-list for extension type_name
-	32, // [32:32] is the sub-list for extension extendee
-	0,  // [0:32] is the sub-list for field type_name
+	10,  // 0: tasky.TagList.tags:type_name -> tasky.Tag
+	30,  // 1: tasky.ChecklistItemListResponse.items:type_name -> tasky.ChecklistItem
+	30,  // 2: tasky.ChecklistItemResponse.item:type_name -> tasky.ChecklistItem
+	74,  // 3: tasky.ChecklistCountsResponse.done:type_name -> tasky.ChecklistCountsResponse.DoneEntry
+	75,  // 4: tasky.ChecklistCountsResponse.total:type_name -> tasky.ChecklistCountsResponse.TotalEntry
+	0,   // 5: tasky.SetStatusRequest.owner:type_name -> tasky.StatusOwner
+	0,   // 6: tasky.HistoryRequest.owner:type_name -> tasky.StatusOwner
+	76,  // 7: tasky.JournalTextsResponse.texts:type_name -> tasky.JournalTextsResponse.TextsEntry
+	77,  // 8: tasky.ProjectLinksTextsResponse.texts:type_name -> tasky.ProjectLinksTextsResponse.TextsEntry
+	78,  // 9: tasky.TagsMapResponse.tags:type_name -> tasky.TagsMapResponse.TagsEntry
+	1,   // 10: tasky.ProjectListResponse.projects:type_name -> tasky.Project
+	1,   // 11: tasky.ProjectResponse.project:type_name -> tasky.Project
+	5,   // 12: tasky.LinkListResponse.links:type_name -> tasky.Link
+	5,   // 13: tasky.LinkResponse.link:type_name -> tasky.Link
+	2,   // 14: tasky.TaskListResponse.tasks:type_name -> tasky.Task
+	3,   // 15: tasky.SubtaskListResponse.subtasks:type_name -> tasky.SubtaskWithTime
+	2,   // 16: tasky.TaskResponse.task:type_name -> tasky.Task
+	3,   // 17: tasky.SubtaskResponse.subtask:type_name -> tasky.SubtaskWithTime
+	4,   // 18: tasky.TimeEntryListResponse.entries:type_name -> tasky.TimeEntry
+	3,   // 19: tasky.RunningSessionResponse.subtask:type_name -> tasky.SubtaskWithTime
+	6,   // 20: tasky.JournalEntryListResponse.entries:type_name -> tasky.JournalEntry
+	6,   // 21: tasky.JournalEntryResponse.entry:type_name -> tasky.JournalEntry
+	7,   // 22: tasky.StatusListResponse.statuses:type_name -> tasky.StatusDef
+	7,   // 23: tasky.StatusResponse.status:type_name -> tasky.StatusDef
+	8,   // 24: tasky.HistoryListResponse.entries:type_name -> tasky.StatusHistoryEntry
+	9,   // 25: tasky.TagTypeListResponse.tag_types:type_name -> tasky.TagType
+	9,   // 26: tasky.TagTypeResponse.tag_type:type_name -> tasky.TagType
+	10,  // 27: tasky.TagListResponse.tags:type_name -> tasky.Tag
+	10,  // 28: tasky.TagResponse.tag:type_name -> tasky.Tag
+	11,  // 29: tasky.ReportEntryListResponse.entries:type_name -> tasky.ReportEntry
+	12,  // 30: tasky.ReportJournalEntryListResponse.entries:type_name -> tasky.ReportJournalEntry
+	13,  // 31: tasky.TagsMapResponse.TagsEntry.value:type_name -> tasky.TagList
+	14,  // 32: tasky.Tasky.ListProjects:input_type -> tasky.Empty
+	19,  // 33: tasky.Tasky.CreateProject:input_type -> tasky.ProjectNameRequest
+	15,  // 34: tasky.Tasky.DeleteProject:input_type -> tasky.IDRequest
+	15,  // 35: tasky.Tasky.ProjectDescription:input_type -> tasky.IDRequest
+	27,  // 36: tasky.Tasky.UpdateProjectDescription:input_type -> tasky.TextRequest
+	20,  // 37: tasky.Tasky.ProjectLinks:input_type -> tasky.ProjectIDRequest
+	35,  // 38: tasky.Tasky.CreateProjectLink:input_type -> tasky.LinkOwnerRequest
+	25,  // 39: tasky.Tasky.UpdateProjectLink:input_type -> tasky.LinkNameRequest
+	15,  // 40: tasky.Tasky.DeleteProjectLink:input_type -> tasky.IDRequest
+	14,  // 41: tasky.Tasky.ProjectLinksTexts:input_type -> tasky.Empty
+	20,  // 42: tasky.Tasky.TasksByProject:input_type -> tasky.ProjectIDRequest
+	20,  // 43: tasky.Tasky.SubtasksByProject:input_type -> tasky.ProjectIDRequest
+	21,  // 44: tasky.Tasky.SubtasksWithTime:input_type -> tasky.TaskIDRequest
+	22,  // 45: tasky.Tasky.CreateTask:input_type -> tasky.CreateTaskRequest
+	15,  // 46: tasky.Tasky.DeleteTask:input_type -> tasky.IDRequest
+	23,  // 47: tasky.Tasky.CreateSubtask:input_type -> tasky.CreateSubtaskRequest
+	15,  // 48: tasky.Tasky.DeleteSubtask:input_type -> tasky.IDRequest
+	26,  // 49: tasky.Tasky.MoveTask:input_type -> tasky.MoveRequest
+	26,  // 50: tasky.Tasky.MoveSubtask:input_type -> tasky.MoveRequest
+	28,  // 51: tasky.Tasky.UpdateTaskTitle:input_type -> tasky.TitleRequest
+	28,  // 52: tasky.Tasky.UpdateSubtaskTitle:input_type -> tasky.TitleRequest
+	15,  // 53: tasky.Tasky.TaskDescription:input_type -> tasky.IDRequest
+	15,  // 54: tasky.Tasky.SubtaskDescription:input_type -> tasky.IDRequest
+	27,  // 55: tasky.Tasky.UpdateTaskDescription:input_type -> tasky.TextRequest
+	27,  // 56: tasky.Tasky.UpdateSubtaskDescription:input_type -> tasky.TextRequest
+	21,  // 57: tasky.Tasky.TaskLinks:input_type -> tasky.TaskIDRequest
+	24,  // 58: tasky.Tasky.SubtaskLinks:input_type -> tasky.SubtaskIDRequest
+	35,  // 59: tasky.Tasky.CreateTaskLink:input_type -> tasky.LinkOwnerRequest
+	25,  // 60: tasky.Tasky.UpdateTaskLink:input_type -> tasky.LinkNameRequest
+	35,  // 61: tasky.Tasky.CreateSubtaskLink:input_type -> tasky.LinkOwnerRequest
+	25,  // 62: tasky.Tasky.UpdateSubtaskLink:input_type -> tasky.LinkNameRequest
+	15,  // 63: tasky.Tasky.DeleteTaskLink:input_type -> tasky.IDRequest
+	15,  // 64: tasky.Tasky.DeleteSubtaskLink:input_type -> tasky.IDRequest
+	24,  // 65: tasky.Tasky.JournalEntries:input_type -> tasky.SubtaskIDRequest
+	29,  // 66: tasky.Tasky.CreateJournalEntry:input_type -> tasky.JournalTextRequest
+	29,  // 67: tasky.Tasky.UpdateJournalEntry:input_type -> tasky.JournalTextRequest
+	20,  // 68: tasky.Tasky.JournalTexts:input_type -> tasky.ProjectIDRequest
+	24,  // 69: tasky.Tasky.ChecklistItems:input_type -> tasky.SubtaskIDRequest
+	20,  // 70: tasky.Tasky.ChecklistCounts:input_type -> tasky.ProjectIDRequest
+	29,  // 71: tasky.Tasky.CreateChecklistItem:input_type -> tasky.JournalTextRequest
+	29,  // 72: tasky.Tasky.UpdateChecklistItemText:input_type -> tasky.JournalTextRequest
+	33,  // 73: tasky.Tasky.SetChecklistItemStatus:input_type -> tasky.ChecklistStatusRequest
+	26,  // 74: tasky.Tasky.MoveChecklistItem:input_type -> tasky.MoveRequest
+	15,  // 75: tasky.Tasky.DeleteChecklistItem:input_type -> tasky.IDRequest
+	36,  // 76: tasky.Tasky.StartSession:input_type -> tasky.TimeRequest
+	36,  // 77: tasky.Tasky.StopSession:input_type -> tasky.TimeRequest
+	24,  // 78: tasky.Tasky.TimeEntriesBySubtask:input_type -> tasky.SubtaskIDRequest
+	14,  // 79: tasky.Tasky.RunningSession:input_type -> tasky.Empty
+	14,  // 80: tasky.Tasky.TodayTotal:input_type -> tasky.Empty
+	14,  // 81: tasky.Tasky.WeeklyTotal:input_type -> tasky.Empty
+	37,  // 82: tasky.Tasky.ReportEntries:input_type -> tasky.RangeRequest
+	38,  // 83: tasky.Tasky.JournalEntriesByRange:input_type -> tasky.RangeNoProjectRequest
+	73,  // 84: tasky.Tasky.TagsByTasks:input_type -> tasky.TagsByTasksRequest
+	14,  // 85: tasky.Tasky.ListStatuses:input_type -> tasky.Empty
+	39,  // 86: tasky.Tasky.CreateStatus:input_type -> tasky.StatusRequest
+	40,  // 87: tasky.Tasky.UpdateStatus:input_type -> tasky.StatusUpdateRequest
+	15,  // 88: tasky.Tasky.DeleteStatus:input_type -> tasky.IDRequest
+	41,  // 89: tasky.Tasky.SetStatus:input_type -> tasky.SetStatusRequest
+	42,  // 90: tasky.Tasky.StatusHistory:input_type -> tasky.HistoryRequest
+	14,  // 91: tasky.Tasky.ListTagTypes:input_type -> tasky.Empty
+	43,  // 92: tasky.Tasky.CreateTagType:input_type -> tasky.TagTypeRequest
+	44,  // 93: tasky.Tasky.UpdateTagType:input_type -> tasky.TagTypeUpdateRequest
+	15,  // 94: tasky.Tasky.DeleteTagType:input_type -> tasky.IDRequest
+	21,  // 95: tasky.Tasky.TaskTags:input_type -> tasky.TaskIDRequest
+	20,  // 96: tasky.Tasky.TagsByProject:input_type -> tasky.ProjectIDRequest
+	45,  // 97: tasky.Tasky.CreateTag:input_type -> tasky.TagRequest
+	46,  // 98: tasky.Tasky.UpdateTag:input_type -> tasky.TagUpdateRequest
+	15,  // 99: tasky.Tasky.DeleteTag:input_type -> tasky.IDRequest
+	47,  // 100: tasky.Tasky.GetSetting:input_type -> tasky.SettingRequest
+	47,  // 101: tasky.Tasky.SetSetting:input_type -> tasky.SettingRequest
+	52,  // 102: tasky.Tasky.ListProjects:output_type -> tasky.ProjectListResponse
+	53,  // 103: tasky.Tasky.CreateProject:output_type -> tasky.ProjectResponse
+	14,  // 104: tasky.Tasky.DeleteProject:output_type -> tasky.Empty
+	16,  // 105: tasky.Tasky.ProjectDescription:output_type -> tasky.StringResponse
+	14,  // 106: tasky.Tasky.UpdateProjectDescription:output_type -> tasky.Empty
+	54,  // 107: tasky.Tasky.ProjectLinks:output_type -> tasky.LinkListResponse
+	55,  // 108: tasky.Tasky.CreateProjectLink:output_type -> tasky.LinkResponse
+	55,  // 109: tasky.Tasky.UpdateProjectLink:output_type -> tasky.LinkResponse
+	14,  // 110: tasky.Tasky.DeleteProjectLink:output_type -> tasky.Empty
+	50,  // 111: tasky.Tasky.ProjectLinksTexts:output_type -> tasky.ProjectLinksTextsResponse
+	56,  // 112: tasky.Tasky.TasksByProject:output_type -> tasky.TaskListResponse
+	57,  // 113: tasky.Tasky.SubtasksByProject:output_type -> tasky.SubtaskListResponse
+	57,  // 114: tasky.Tasky.SubtasksWithTime:output_type -> tasky.SubtaskListResponse
+	58,  // 115: tasky.Tasky.CreateTask:output_type -> tasky.TaskResponse
+	14,  // 116: tasky.Tasky.DeleteTask:output_type -> tasky.Empty
+	59,  // 117: tasky.Tasky.CreateSubtask:output_type -> tasky.SubtaskResponse
+	14,  // 118: tasky.Tasky.DeleteSubtask:output_type -> tasky.Empty
+	14,  // 119: tasky.Tasky.MoveTask:output_type -> tasky.Empty
+	14,  // 120: tasky.Tasky.MoveSubtask:output_type -> tasky.Empty
+	14,  // 121: tasky.Tasky.UpdateTaskTitle:output_type -> tasky.Empty
+	14,  // 122: tasky.Tasky.UpdateSubtaskTitle:output_type -> tasky.Empty
+	16,  // 123: tasky.Tasky.TaskDescription:output_type -> tasky.StringResponse
+	16,  // 124: tasky.Tasky.SubtaskDescription:output_type -> tasky.StringResponse
+	14,  // 125: tasky.Tasky.UpdateTaskDescription:output_type -> tasky.Empty
+	14,  // 126: tasky.Tasky.UpdateSubtaskDescription:output_type -> tasky.Empty
+	54,  // 127: tasky.Tasky.TaskLinks:output_type -> tasky.LinkListResponse
+	54,  // 128: tasky.Tasky.SubtaskLinks:output_type -> tasky.LinkListResponse
+	55,  // 129: tasky.Tasky.CreateTaskLink:output_type -> tasky.LinkResponse
+	55,  // 130: tasky.Tasky.UpdateTaskLink:output_type -> tasky.LinkResponse
+	55,  // 131: tasky.Tasky.CreateSubtaskLink:output_type -> tasky.LinkResponse
+	55,  // 132: tasky.Tasky.UpdateSubtaskLink:output_type -> tasky.LinkResponse
+	14,  // 133: tasky.Tasky.DeleteTaskLink:output_type -> tasky.Empty
+	14,  // 134: tasky.Tasky.DeleteSubtaskLink:output_type -> tasky.Empty
+	62,  // 135: tasky.Tasky.JournalEntries:output_type -> tasky.JournalEntryListResponse
+	63,  // 136: tasky.Tasky.CreateJournalEntry:output_type -> tasky.JournalEntryResponse
+	14,  // 137: tasky.Tasky.UpdateJournalEntry:output_type -> tasky.Empty
+	49,  // 138: tasky.Tasky.JournalTexts:output_type -> tasky.JournalTextsResponse
+	31,  // 139: tasky.Tasky.ChecklistItems:output_type -> tasky.ChecklistItemListResponse
+	34,  // 140: tasky.Tasky.ChecklistCounts:output_type -> tasky.ChecklistCountsResponse
+	32,  // 141: tasky.Tasky.CreateChecklistItem:output_type -> tasky.ChecklistItemResponse
+	14,  // 142: tasky.Tasky.UpdateChecklistItemText:output_type -> tasky.Empty
+	14,  // 143: tasky.Tasky.SetChecklistItemStatus:output_type -> tasky.Empty
+	14,  // 144: tasky.Tasky.MoveChecklistItem:output_type -> tasky.Empty
+	14,  // 145: tasky.Tasky.DeleteChecklistItem:output_type -> tasky.Empty
+	14,  // 146: tasky.Tasky.StartSession:output_type -> tasky.Empty
+	14,  // 147: tasky.Tasky.StopSession:output_type -> tasky.Empty
+	60,  // 148: tasky.Tasky.TimeEntriesBySubtask:output_type -> tasky.TimeEntryListResponse
+	61,  // 149: tasky.Tasky.RunningSession:output_type -> tasky.RunningSessionResponse
+	18,  // 150: tasky.Tasky.TodayTotal:output_type -> tasky.DurationResponse
+	18,  // 151: tasky.Tasky.WeeklyTotal:output_type -> tasky.DurationResponse
+	71,  // 152: tasky.Tasky.ReportEntries:output_type -> tasky.ReportEntryListResponse
+	72,  // 153: tasky.Tasky.JournalEntriesByRange:output_type -> tasky.ReportJournalEntryListResponse
+	51,  // 154: tasky.Tasky.TagsByTasks:output_type -> tasky.TagsMapResponse
+	64,  // 155: tasky.Tasky.ListStatuses:output_type -> tasky.StatusListResponse
+	65,  // 156: tasky.Tasky.CreateStatus:output_type -> tasky.StatusResponse
+	14,  // 157: tasky.Tasky.UpdateStatus:output_type -> tasky.Empty
+	14,  // 158: tasky.Tasky.DeleteStatus:output_type -> tasky.Empty
+	14,  // 159: tasky.Tasky.SetStatus:output_type -> tasky.Empty
+	66,  // 160: tasky.Tasky.StatusHistory:output_type -> tasky.HistoryListResponse
+	67,  // 161: tasky.Tasky.ListTagTypes:output_type -> tasky.TagTypeListResponse
+	68,  // 162: tasky.Tasky.CreateTagType:output_type -> tasky.TagTypeResponse
+	14,  // 163: tasky.Tasky.UpdateTagType:output_type -> tasky.Empty
+	14,  // 164: tasky.Tasky.DeleteTagType:output_type -> tasky.Empty
+	69,  // 165: tasky.Tasky.TaskTags:output_type -> tasky.TagListResponse
+	51,  // 166: tasky.Tasky.TagsByProject:output_type -> tasky.TagsMapResponse
+	70,  // 167: tasky.Tasky.CreateTag:output_type -> tasky.TagResponse
+	14,  // 168: tasky.Tasky.UpdateTag:output_type -> tasky.Empty
+	14,  // 169: tasky.Tasky.DeleteTag:output_type -> tasky.Empty
+	48,  // 170: tasky.Tasky.GetSetting:output_type -> tasky.GetSettingResponse
+	14,  // 171: tasky.Tasky.SetSetting:output_type -> tasky.Empty
+	102, // [102:172] is the sub-list for method output_type
+	32,  // [32:102] is the sub-list for method input_type
+	32,  // [32:32] is the sub-list for extension type_name
+	32,  // [32:32] is the sub-list for extension extendee
+	0,   // [0:32] is the sub-list for field type_name
 }
 
 func init() { file_proto_tasky_proto_init() }

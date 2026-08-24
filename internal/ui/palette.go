@@ -66,7 +66,6 @@ func (m *model) paletteGroups() []cmdGroup {
 			{title: "Переместить вверх", keys: "ctrl+up", run: func(m *model) { m.tasks.moveSelected(-1) }},
 			{title: "Переместить вниз", keys: "ctrl+down", run: func(m *model) { m.tasks.moveSelected(1) }},
 			{title: "Теги", keys: "g", run: func(m *model) { m.tasks.openTags() }},
-			{title: "Добавить ссылку", keys: "l", run: func(m *model) { m.tasks.startLinkInput() }},
 			{title: "Открыть ссылки", keys: "o", run: func(m *model) { m.tasks.openLinks() }},
 			{title: "Запись журнала", keys: "ctrl+j", run: func(m *model) { m.tasks.startJournal() }},
 			{title: "Изменить запись", keys: "j", run: func(m *model) { m.tasks.editTodayJournal() }},
@@ -77,7 +76,6 @@ func (m *model) paletteGroups() []cmdGroup {
 			{title: "Новый проект", keys: "n", run: func(m *model) { m.proj.startNew() }},
 			{title: "Изменить описание", keys: "enter", run: func(m *model) { m.proj.startEditDescription() }},
 			{title: "Удалить проект", keys: "d", run: func(m *model) { m.proj.startDelete() }},
-			{title: "Добавить ссылку", keys: "l", run: func(m *model) { m.proj.startLinkInput() }},
 			{title: "Открыть ссылки", keys: "o", run: func(m *model) { m.proj.openLinks() }},
 			{title: "Поиск", keys: "/", run: func(m *model) { m.proj.startSearch() }},
 		}})

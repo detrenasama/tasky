@@ -83,6 +83,13 @@ func (s *Server) CreateProjectLink(_ context.Context, req *rpc.LinkOwnerRequest)
 	return &rpc.LinkResponse{Link: rpc.ToLink(l)}, nil
 }
 
+func (s *Server) UpdateProjectLink(_ context.Context, req *rpc.LinkNameRequest) (*rpc.LinkResponse, error) {
+	if err := s.st.UpdateProjectLink(req.Id, req.Name, req.Url); err != nil {
+		return nil, rpc.DBErrorToStatus(err)
+	}
+	return &rpc.LinkResponse{}, nil
+}
+
 func (s *Server) DeleteProjectLink(_ context.Context, req *rpc.IDRequest) (*rpc.Empty, error) {
 	if err := s.st.DeleteProjectLink(req.Id); err != nil {
 		return nil, rpc.DBErrorToStatus(err)
@@ -238,12 +245,26 @@ func (s *Server) CreateTaskLink(_ context.Context, req *rpc.LinkOwnerRequest) (*
 	return &rpc.LinkResponse{Link: rpc.ToLink(l)}, nil
 }
 
+func (s *Server) UpdateTaskLink(_ context.Context, req *rpc.LinkNameRequest) (*rpc.LinkResponse, error) {
+	if err := s.st.UpdateTaskLink(req.Id, req.Name, req.Url); err != nil {
+		return nil, rpc.DBErrorToStatus(err)
+	}
+	return &rpc.LinkResponse{}, nil
+}
+
 func (s *Server) CreateSubtaskLink(_ context.Context, req *rpc.LinkOwnerRequest) (*rpc.LinkResponse, error) {
 	l, err := s.st.CreateSubtaskLink(req.OwnerId, req.Name, req.Url)
 	if err != nil {
 		return nil, rpc.DBErrorToStatus(err)
 	}
 	return &rpc.LinkResponse{Link: rpc.ToLink(l)}, nil
+}
+
+func (s *Server) UpdateSubtaskLink(_ context.Context, req *rpc.LinkNameRequest) (*rpc.LinkResponse, error) {
+	if err := s.st.UpdateSubtaskLink(req.Id, req.Name, req.Url); err != nil {
+		return nil, rpc.DBErrorToStatus(err)
+	}
+	return &rpc.LinkResponse{}, nil
 }
 
 func (s *Server) DeleteTaskLink(_ context.Context, req *rpc.IDRequest) (*rpc.Empty, error) {

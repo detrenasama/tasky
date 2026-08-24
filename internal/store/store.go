@@ -20,6 +20,7 @@ type Store interface {
 	UpdateProjectDescription(id int64, text string) error
 	ProjectLinks(projectID int64) ([]db.Link, error)
 	CreateProjectLink(projectID int64, name, url string) (db.Link, error)
+	UpdateProjectLink(id int64, name, url string) error
 	DeleteProjectLink(id int64) error
 	ProjectLinksTexts() (map[int64]string, error)
 
@@ -44,7 +45,9 @@ type Store interface {
 	TaskLinks(taskID int64) ([]db.Link, error)
 	SubtaskLinks(subtaskID int64) ([]db.Link, error)
 	CreateTaskLink(taskID int64, name, url string) (db.Link, error)
+	UpdateTaskLink(id int64, name, url string) error
 	CreateSubtaskLink(subtaskID int64, name, url string) (db.Link, error)
+	UpdateSubtaskLink(id int64, name, url string) error
 	DeleteTaskLink(id int64) error
 	DeleteSubtaskLink(id int64) error
 

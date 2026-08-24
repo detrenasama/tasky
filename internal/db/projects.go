@@ -72,6 +72,10 @@ func DeleteProjectLink(conn *sql.DB, id int64) error {
 	return deleteLink(conn, "project_links", id)
 }
 
+func UpdateProjectLink(conn *sql.DB, id int64, name, url string) error {
+	return updateLink(conn, "project_links", id, name, url)
+}
+
 // ProjectLinksTexts возвращает карту id проекта → объединённые названия и
 // адреса его ссылок (для полнотекстового поиска по проектам).
 func ProjectLinksTexts(conn *sql.DB) (map[int64]string, error) {
@@ -139,5 +143,13 @@ func createLink(conn *sql.DB, table, ownerCol string, ownerID int64, name, url s
 
 func deleteLink(conn *sql.DB, table string, id int64) error {
 	_, err := conn.Exec(fmt.Sprintf("DELETE FROM %s WHERE id = ?", table), id)
+	return err
+}
+
+// updateLink обновляет название и адрес ссылки по её id (независимо от
+// владельца — таблица передаётся вызывающим).
+func updateLink(conn *sql.DB, table string, id int64, name, url string) error {
+	_, err := conn.Exec(fmt.Sprintf(
+		"UPDATE %s SET name = ?, url = ? WHERE id = ?", table), name, url, id)
 	return err
 }

@@ -423,6 +423,7 @@ service Tasky {
   rpc UpdateProjectDescription(TextRequest) returns (Empty);
   rpc ProjectLinks(ProjectIDRequest) returns (LinkListResponse);
   rpc CreateProjectLink(LinkOwnerRequest) returns (LinkResponse);
+  rpc UpdateProjectLink(LinkNameRequest) returns (LinkResponse);
   rpc DeleteProjectLink(IDRequest) returns (Empty);
   rpc ProjectLinksTexts(Empty) returns (ProjectLinksTextsResponse);
 
@@ -447,7 +448,9 @@ service Tasky {
   rpc TaskLinks(TaskIDRequest) returns (LinkListResponse);
   rpc SubtaskLinks(SubtaskIDRequest) returns (LinkListResponse);
   rpc CreateTaskLink(LinkOwnerRequest) returns (LinkResponse);
+  rpc UpdateTaskLink(LinkNameRequest) returns (LinkResponse);
   rpc CreateSubtaskLink(LinkOwnerRequest) returns (LinkResponse);
+  rpc UpdateSubtaskLink(LinkNameRequest) returns (LinkResponse);
   rpc DeleteTaskLink(IDRequest) returns (Empty);
   rpc DeleteSubtaskLink(IDRequest) returns (Empty);
 

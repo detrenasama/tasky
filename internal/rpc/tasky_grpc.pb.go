@@ -26,6 +26,7 @@ const (
 	Tasky_UpdateProjectDescription_FullMethodName = "/tasky.Tasky/UpdateProjectDescription"
 	Tasky_ProjectLinks_FullMethodName             = "/tasky.Tasky/ProjectLinks"
 	Tasky_CreateProjectLink_FullMethodName        = "/tasky.Tasky/CreateProjectLink"
+	Tasky_UpdateProjectLink_FullMethodName        = "/tasky.Tasky/UpdateProjectLink"
 	Tasky_DeleteProjectLink_FullMethodName        = "/tasky.Tasky/DeleteProjectLink"
 	Tasky_ProjectLinksTexts_FullMethodName        = "/tasky.Tasky/ProjectLinksTexts"
 	Tasky_TasksByProject_FullMethodName           = "/tasky.Tasky/TasksByProject"
@@ -46,7 +47,9 @@ const (
 	Tasky_TaskLinks_FullMethodName                = "/tasky.Tasky/TaskLinks"
 	Tasky_SubtaskLinks_FullMethodName             = "/tasky.Tasky/SubtaskLinks"
 	Tasky_CreateTaskLink_FullMethodName           = "/tasky.Tasky/CreateTaskLink"
+	Tasky_UpdateTaskLink_FullMethodName           = "/tasky.Tasky/UpdateTaskLink"
 	Tasky_CreateSubtaskLink_FullMethodName        = "/tasky.Tasky/CreateSubtaskLink"
+	Tasky_UpdateSubtaskLink_FullMethodName        = "/tasky.Tasky/UpdateSubtaskLink"
 	Tasky_DeleteTaskLink_FullMethodName           = "/tasky.Tasky/DeleteTaskLink"
 	Tasky_DeleteSubtaskLink_FullMethodName        = "/tasky.Tasky/DeleteSubtaskLink"
 	Tasky_JournalEntries_FullMethodName           = "/tasky.Tasky/JournalEntries"
@@ -102,6 +105,7 @@ type TaskyClient interface {
 	UpdateProjectDescription(ctx context.Context, in *TextRequest, opts ...grpc.CallOption) (*Empty, error)
 	ProjectLinks(ctx context.Context, in *ProjectIDRequest, opts ...grpc.CallOption) (*LinkListResponse, error)
 	CreateProjectLink(ctx context.Context, in *LinkOwnerRequest, opts ...grpc.CallOption) (*LinkResponse, error)
+	UpdateProjectLink(ctx context.Context, in *LinkNameRequest, opts ...grpc.CallOption) (*LinkResponse, error)
 	DeleteProjectLink(ctx context.Context, in *IDRequest, opts ...grpc.CallOption) (*Empty, error)
 	ProjectLinksTexts(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ProjectLinksTextsResponse, error)
 	// Задачи и подзадачи.
@@ -124,7 +128,9 @@ type TaskyClient interface {
 	TaskLinks(ctx context.Context, in *TaskIDRequest, opts ...grpc.CallOption) (*LinkListResponse, error)
 	SubtaskLinks(ctx context.Context, in *SubtaskIDRequest, opts ...grpc.CallOption) (*LinkListResponse, error)
 	CreateTaskLink(ctx context.Context, in *LinkOwnerRequest, opts ...grpc.CallOption) (*LinkResponse, error)
+	UpdateTaskLink(ctx context.Context, in *LinkNameRequest, opts ...grpc.CallOption) (*LinkResponse, error)
 	CreateSubtaskLink(ctx context.Context, in *LinkOwnerRequest, opts ...grpc.CallOption) (*LinkResponse, error)
+	UpdateSubtaskLink(ctx context.Context, in *LinkNameRequest, opts ...grpc.CallOption) (*LinkResponse, error)
 	DeleteTaskLink(ctx context.Context, in *IDRequest, opts ...grpc.CallOption) (*Empty, error)
 	DeleteSubtaskLink(ctx context.Context, in *IDRequest, opts ...grpc.CallOption) (*Empty, error)
 	// Журнал подзадач.
@@ -245,6 +251,16 @@ func (c *taskyClient) CreateProjectLink(ctx context.Context, in *LinkOwnerReques
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(LinkResponse)
 	err := c.cc.Invoke(ctx, Tasky_CreateProjectLink_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskyClient) UpdateProjectLink(ctx context.Context, in *LinkNameRequest, opts ...grpc.CallOption) (*LinkResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LinkResponse)
+	err := c.cc.Invoke(ctx, Tasky_UpdateProjectLink_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -451,10 +467,30 @@ func (c *taskyClient) CreateTaskLink(ctx context.Context, in *LinkOwnerRequest, 
 	return out, nil
 }
 
+func (c *taskyClient) UpdateTaskLink(ctx context.Context, in *LinkNameRequest, opts ...grpc.CallOption) (*LinkResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LinkResponse)
+	err := c.cc.Invoke(ctx, Tasky_UpdateTaskLink_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *taskyClient) CreateSubtaskLink(ctx context.Context, in *LinkOwnerRequest, opts ...grpc.CallOption) (*LinkResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(LinkResponse)
 	err := c.cc.Invoke(ctx, Tasky_CreateSubtaskLink_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskyClient) UpdateSubtaskLink(ctx context.Context, in *LinkNameRequest, opts ...grpc.CallOption) (*LinkResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LinkResponse)
+	err := c.cc.Invoke(ctx, Tasky_UpdateSubtaskLink_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -865,6 +901,7 @@ type TaskyServer interface {
 	UpdateProjectDescription(context.Context, *TextRequest) (*Empty, error)
 	ProjectLinks(context.Context, *ProjectIDRequest) (*LinkListResponse, error)
 	CreateProjectLink(context.Context, *LinkOwnerRequest) (*LinkResponse, error)
+	UpdateProjectLink(context.Context, *LinkNameRequest) (*LinkResponse, error)
 	DeleteProjectLink(context.Context, *IDRequest) (*Empty, error)
 	ProjectLinksTexts(context.Context, *Empty) (*ProjectLinksTextsResponse, error)
 	// Задачи и подзадачи.
@@ -887,7 +924,9 @@ type TaskyServer interface {
 	TaskLinks(context.Context, *TaskIDRequest) (*LinkListResponse, error)
 	SubtaskLinks(context.Context, *SubtaskIDRequest) (*LinkListResponse, error)
 	CreateTaskLink(context.Context, *LinkOwnerRequest) (*LinkResponse, error)
+	UpdateTaskLink(context.Context, *LinkNameRequest) (*LinkResponse, error)
 	CreateSubtaskLink(context.Context, *LinkOwnerRequest) (*LinkResponse, error)
+	UpdateSubtaskLink(context.Context, *LinkNameRequest) (*LinkResponse, error)
 	DeleteTaskLink(context.Context, *IDRequest) (*Empty, error)
 	DeleteSubtaskLink(context.Context, *IDRequest) (*Empty, error)
 	// Журнал подзадач.
@@ -965,6 +1004,9 @@ func (UnimplementedTaskyServer) ProjectLinks(context.Context, *ProjectIDRequest)
 func (UnimplementedTaskyServer) CreateProjectLink(context.Context, *LinkOwnerRequest) (*LinkResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateProjectLink not implemented")
 }
+func (UnimplementedTaskyServer) UpdateProjectLink(context.Context, *LinkNameRequest) (*LinkResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateProjectLink not implemented")
+}
 func (UnimplementedTaskyServer) DeleteProjectLink(context.Context, *IDRequest) (*Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteProjectLink not implemented")
 }
@@ -1025,8 +1067,14 @@ func (UnimplementedTaskyServer) SubtaskLinks(context.Context, *SubtaskIDRequest)
 func (UnimplementedTaskyServer) CreateTaskLink(context.Context, *LinkOwnerRequest) (*LinkResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateTaskLink not implemented")
 }
+func (UnimplementedTaskyServer) UpdateTaskLink(context.Context, *LinkNameRequest) (*LinkResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateTaskLink not implemented")
+}
 func (UnimplementedTaskyServer) CreateSubtaskLink(context.Context, *LinkOwnerRequest) (*LinkResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateSubtaskLink not implemented")
+}
+func (UnimplementedTaskyServer) UpdateSubtaskLink(context.Context, *LinkNameRequest) (*LinkResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateSubtaskLink not implemented")
 }
 func (UnimplementedTaskyServer) DeleteTaskLink(context.Context, *IDRequest) (*Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteTaskLink not implemented")
@@ -1288,6 +1336,24 @@ func _Tasky_CreateProjectLink_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(TaskyServer).CreateProjectLink(ctx, req.(*LinkOwnerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Tasky_UpdateProjectLink_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LinkNameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskyServer).UpdateProjectLink(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Tasky_UpdateProjectLink_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskyServer).UpdateProjectLink(ctx, req.(*LinkNameRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1652,6 +1718,24 @@ func _Tasky_CreateTaskLink_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Tasky_UpdateTaskLink_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LinkNameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskyServer).UpdateTaskLink(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Tasky_UpdateTaskLink_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskyServer).UpdateTaskLink(ctx, req.(*LinkNameRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Tasky_CreateSubtaskLink_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(LinkOwnerRequest)
 	if err := dec(in); err != nil {
@@ -1666,6 +1750,24 @@ func _Tasky_CreateSubtaskLink_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(TaskyServer).CreateSubtaskLink(ctx, req.(*LinkOwnerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Tasky_UpdateSubtaskLink_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LinkNameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskyServer).UpdateSubtaskLink(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Tasky_UpdateSubtaskLink_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskyServer).UpdateSubtaskLink(ctx, req.(*LinkNameRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2408,6 +2510,10 @@ var Tasky_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Tasky_CreateProjectLink_Handler,
 		},
 		{
+			MethodName: "UpdateProjectLink",
+			Handler:    _Tasky_UpdateProjectLink_Handler,
+		},
+		{
 			MethodName: "DeleteProjectLink",
 			Handler:    _Tasky_DeleteProjectLink_Handler,
 		},
@@ -2488,8 +2594,16 @@ var Tasky_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Tasky_CreateTaskLink_Handler,
 		},
 		{
+			MethodName: "UpdateTaskLink",
+			Handler:    _Tasky_UpdateTaskLink_Handler,
+		},
+		{
 			MethodName: "CreateSubtaskLink",
 			Handler:    _Tasky_CreateSubtaskLink_Handler,
+		},
+		{
+			MethodName: "UpdateSubtaskLink",
+			Handler:    _Tasky_UpdateSubtaskLink_Handler,
 		},
 		{
 			MethodName: "DeleteTaskLink",

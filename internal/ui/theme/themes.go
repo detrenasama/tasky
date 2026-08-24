@@ -271,7 +271,5 @@ func applyTheme(t Theme) {
 	linkStyle = lipgloss.NewStyle().Underline(true).Foreground(acc)
 	ModalStyle = lipgloss.NewStyle().
 		Background(lipgloss.Color(t.Colors.Element)).
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color(t.Colors.BorderSubtle)).
 		Padding(1, 2)
 }

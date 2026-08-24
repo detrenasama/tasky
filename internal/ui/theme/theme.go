@@ -4,6 +4,8 @@
 package theme
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -19,6 +21,7 @@ var (
 	FaintStyle  = lipgloss.NewStyle().Faint(true)
 	MutedStyle  = lipgloss.NewStyle().Faint(true)
 	DimStyle    = lipgloss.NewStyle().Faint(true)
+
 	ErrorStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
 	SaveOKStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
 	// TextStyle — основной (белый) цвет текста: явный foreground, чтобы
@@ -56,11 +59,9 @@ func Pane(focused bool) lipgloss.Style {
 // PanelColor — цвет фона правой панели (panel).
 func PanelColor() lipgloss.Color { return lipgloss.Color(active.Colors.Panel) }
 
-// ModalStyle — стиль модального диалога: плоская панель с лёгкой рамкой.
+// ModalStyle — стиль модального диалога: плоская панель без рамок.
 var ModalStyle = lipgloss.NewStyle().
 	Background(lipgloss.Color("#1e1e1e")).
-	Border(lipgloss.NormalBorder()).
-	BorderForeground(lipgloss.Color("#3c3c3c")).
 	Padding(1, 2)
 
 // SidebarInactive — неактивная вкладка левой вертикальной панели и фон
@@ -88,15 +89,16 @@ func Text(s string) string { return TextStyle.Render(s) }
 // Muted — вторичный текст цветом muted темы (подсказки, штампы, метки).
 func Muted(s string) string { return MutedStyle.Render(s) }
 
-// Dim — затемнение фона под модалкой (атрибут faint, цвета сохраняются).
-func Dim(s string) string { return DimStyle.Render(s) }
-
-func AccentBtn(label string) string {
-	return lipgloss.NewStyle().Bold(true).Foreground(Accent).Render(label)
-}
-
-func EscBtn(label string) string {
-	return MutedStyle.Render(label)
+// Dim — затемнение фона под модалкой. Чтобы затемнение покрывало всю
+// строку (включая цветные сегменты с собственными сбросами стиля), faint
+// включается повторно после каждого \x1b[0m — иначе он сбрасывается после
+// первого сегмента и фон затемняется только в полосе высоты модалки.
+func Dim(s string) string {
+	const faint = "\x1b[2m"
+	const reset = "\x1b[0m"
+	out := faint + s
+	out = strings.ReplaceAll(out, reset, reset+faint)
+	return out + reset
 }
 
 // ApplyToDelegate стилизует делегат списка bubbles по активной теме:

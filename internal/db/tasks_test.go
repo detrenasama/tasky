@@ -353,6 +353,15 @@ func TestTaskLinks(t *testing.T) {
 	if len(links) != 1 || links[0].ID != l1.ID+1 {
 		t.Errorf("после удаления ссылки = %+v", links)
 	}
+
+	// UpdateTaskLink меняет название и адрес существующей ссылки.
+	if err := UpdateTaskLink(conn, l1.ID+1, "Обновлено", "https://updated.org"); err != nil {
+		t.Fatalf("UpdateTaskLink: %v", err)
+	}
+	links, _ = TaskLinks(conn, task.ID)
+	if len(links) != 1 || links[0].Name != "Обновлено" || links[0].URL != "https://updated.org" {
+		t.Errorf("после обновления ссылки = %+v", links)
+	}
 }
 
 func TestSubtaskLinks(t *testing.T) {
@@ -379,6 +388,13 @@ func TestSubtaskLinks(t *testing.T) {
 	}
 	if len(links) != 1 || links[0].URL != "https://example.com" {
 		t.Errorf("ссылки подзадачи = %+v", links)
+	}
+	if err := UpdateSubtaskLink(conn, l.ID, "Изменено", "https://updated.org"); err != nil {
+		t.Fatalf("UpdateSubtaskLink: %v", err)
+	}
+	links, _ = SubtaskLinks(conn, sub.ID)
+	if len(links) != 1 || links[0].Name != "Изменено" || links[0].URL != "https://updated.org" {
+		t.Errorf("после обновления ссылки подзадачи = %+v", links)
 	}
 }
 

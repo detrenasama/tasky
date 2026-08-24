@@ -173,6 +173,10 @@ func DeleteTaskLink(conn *sql.DB, id int64) error {
 	return deleteLink(conn, "task_links", id)
 }
 
+func UpdateTaskLink(conn *sql.DB, id int64, name, url string) error {
+	return updateLink(conn, "task_links", id, name, url)
+}
+
 func SubtaskLinks(conn *sql.DB, subtaskID int64) ([]Link, error) {
 	return linksFor(conn, "subtask_links", "subtask_id", subtaskID)
 }
@@ -183,6 +187,10 @@ func CreateSubtaskLink(conn *sql.DB, subtaskID int64, name, url string) (Link, e
 
 func DeleteSubtaskLink(conn *sql.DB, id int64) error {
 	return deleteLink(conn, "subtask_links", id)
+}
+
+func UpdateSubtaskLink(conn *sql.DB, id int64, name, url string) error {
+	return updateLink(conn, "subtask_links", id, name, url)
 }
 
 // JournalEntries возвращает записи журнала подзадачи в хронологическом порядке.

@@ -109,6 +109,15 @@ func TestProjectLinks(t *testing.T) {
 	if len(links) != 1 || links[0].ID != l2.ID {
 		t.Errorf("после удаления ссылки = %+v, ожидалась только %d", links, l2.ID)
 	}
+
+	// UpdateProjectLink меняет название и адрес существующей ссылки.
+	if err := UpdateProjectLink(conn, l2.ID, "Обновлено", "https://updated.org"); err != nil {
+		t.Fatalf("UpdateProjectLink: %v", err)
+	}
+	links, _ = ProjectLinks(conn, pid)
+	if len(links) != 1 || links[0].Name != "Обновлено" || links[0].URL != "https://updated.org" {
+		t.Errorf("после обновления ссылки = %+v", links)
+	}
 }
 
 func TestProjectLinkCascadeDelete(t *testing.T) {

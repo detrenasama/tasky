@@ -206,12 +206,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateTasks(msg)
 		}
 		if m.screen == screenProjects &&
-			(m.proj.mode == projDescEdit || m.proj.mode == projLinkInput || m.proj.mode == projLinks || m.proj.mode == projLinkConfirm ||
+			(m.proj.mode == projDescEdit || m.proj.mode == projLinkEdit || m.proj.mode == projLinks || m.proj.mode == projLinkConfirm ||
 				m.proj.mode == projSearch) {
 			return m.updateProjects(msg)
 		}
 		if m.screen == screenTasks &&
-			(m.tasks.mode == taskDescEdit || m.tasks.mode == taskLinkInput || m.tasks.mode == taskLinks ||
+			(m.tasks.mode == taskDescEdit || m.tasks.mode == taskLinkEdit || m.tasks.mode == taskLinks ||
 				m.tasks.mode == taskLinkConfirm || m.tasks.mode == taskJournal ||
 				m.tasks.mode == taskStatusPick || m.tasks.mode == taskStatusNote ||
 				m.tasks.mode == taskSearch || m.tasks.mode == taskTags ||
@@ -404,12 +404,12 @@ func (m model) View() string {
 	full := strings.Join(out, "\n")
 
 	if modalOpen {
-		full = overlay(full, dlg, w, h)
+		full = overlay(full, dlg, w, h, dialogMaxW(w))
 	}
 	if m.paletteOpen {
 		d, _ := m.paletteDialog()
 		if d != "" {
-			full = overlay(full, d, w, h)
+			full = overlay(full, d, w, h, 0)
 		}
 	}
 	if m.quitting {
@@ -419,7 +419,7 @@ func (m model) View() string {
 			primary: "Enter — остановить и выйти",
 			esc:     "Esc — отмена",
 		}
-		full = overlay(full, d.render(), w, h)
+		full = overlay(full, d.render(), w, h, dialogMaxW(w))
 	}
 	if m.reportConfirm {
 		d := dialog{
@@ -428,7 +428,7 @@ func (m model) View() string {
 			primary: "Enter — остановить и сформировать отчёт",
 			esc:     "Esc — отмена",
 		}
-		full = overlay(full, d.render(), w, h)
+		full = overlay(full, d.render(), w, h, dialogMaxW(w))
 	}
 	return full
 }

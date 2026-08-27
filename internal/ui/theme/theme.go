@@ -4,6 +4,7 @@
 package theme
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -61,7 +62,7 @@ func PanelColor() lipgloss.Color { return lipgloss.Color(active.Colors.Panel) }
 
 // ModalStyle — стиль модального диалога: плоская панель без рамок.
 var ModalStyle = lipgloss.NewStyle().
-	Background(lipgloss.Color("#1e1e1e")).
+	Background(lipgloss.Color(active.Colors.Modal)).
 	Padding(1, 2)
 
 // SidebarInactive — неактивная вкладка левой вертикальной панели и фон
@@ -89,16 +90,135 @@ func Text(s string) string { return TextStyle.Render(s) }
 // Muted — вторичный текст цветом muted темы (подсказки, штампы, метки).
 func Muted(s string) string { return MutedStyle.Render(s) }
 
+// dimFactor — во сколько раз затемняются цвета фона бэкдропа (0.55 ≈ на 45%
+// темнее). Текст дополнительно гасится faint в Dim; вместе это даёт заметно
+// более тёмный, но сохраняющий контент фон вокруг модалки.
+const dimFactor = 0.4
+
 // Dim — затемнение фона под модалкой. Чтобы затемнение покрывало всю
 // строку (включая цветные сегменты с собственными сбросами стиля), faint
 // включается повторно после каждого \x1b[0m — иначе он сбрасывается после
 // первого сегмента и фон затемняется только в полосе высоты модалки.
+// Поверх этого цвета фона строки дополнительно потемняются к чёрному
+// (dimBackgrounds), чтобы бэкдроп был ещё тусклее, но контент оставался виден.
 func Dim(s string) string {
 	const faint = "\x1b[2m"
 	const reset = "\x1b[0m"
 	out := faint + s
 	out = strings.ReplaceAll(out, reset, reset+faint)
+	out = dimBackgrounds(out, dimFactor)
 	return out + reset
+}
+
+// dimBackgrounds проходит по строке и в каждой SGR-последовательности с фоном
+// (48;2;r;g;b или 48;5;n) умножает цвет на factor, делая фон темнее. Прочие
+// последовательности (текст, faint, reset) оставляются как есть.
+func dimBackgrounds(s string, factor float64) string {
+	var b strings.Builder
+	i := 0
+	for i < len(s) {
+		if s[i] != '\x1b' {
+			b.WriteByte(s[i])
+			i++
+			continue
+		}
+		end := ansiEndTheme(s, i)
+		seq := s[i : end+1]
+		if strings.HasSuffix(seq, "m") && strings.Contains(seq, "48") {
+			seq = dimBgInSeq(seq, factor)
+		}
+		b.WriteString(seq)
+		i = end + 1
+	}
+	return b.String()
+}
+
+// dimBgInSeq затемняет фоновый цвет внутри одной SGR-последовательности.
+func dimBgInSeq(seq string, factor float64) string {
+	if len(seq) < 4 || seq[0] != '\x1b' || seq[1] != '[' || seq[len(seq)-1] != 'm' {
+		return seq
+	}
+	body := seq[2 : len(seq)-1]
+	parts := strings.Split(body, ";")
+	for k := 0; k+1 < len(parts); k++ {
+		if parts[k] != "48" {
+			continue
+		}
+		if k+4 < len(parts) && parts[k+1] == "2" {
+			for off := 2; off <= 4; off++ {
+				n, err := strconv.Atoi(parts[k+off])
+				if err != nil {
+					return seq
+				}
+				parts[k+off] = strconv.Itoa(int(float64(n) * factor))
+			}
+			return "\x1b[" + strings.Join(parts, ";") + "m"
+		}
+		if k+2 < len(parts) && parts[k+1] == "5" {
+			idx, err := strconv.Atoi(parts[k+2])
+			if err != nil {
+				return seq
+			}
+			r, g, b := rgbFrom256(idx)
+			r, g, b = int(float64(r)*factor), int(float64(g)*factor), int(float64(b)*factor)
+			// Перевыпускаем как truecolor, чтобы затемнение применилось
+			// независимо от цветового профиля терминала.
+			return "\x1b[48;2;" + strconv.Itoa(r) + ";" + strconv.Itoa(g) + ";" + strconv.Itoa(b) + "m"
+		}
+		// 16-цветные формы 4n/10n оставляем без изменений.
+		break
+	}
+	return "\x1b[" + strings.Join(parts, ";") + "m"
+}
+
+// rgbFrom256 — перевод индекса 256-цветовой палитры xterm в RGB.
+func rgbFrom256(n int) (r, g, b int) {
+	switch {
+	case n < 16:
+		// Системные 16 цветов: грубая аппроксимация (точная палитра
+		// зависит от терминала). Для фонов при темизации не используются.
+		return 128, 128, 128
+	case n <= 231:
+		code := n - 16
+		levels := []int{0, 95, 135, 175, 215, 255}
+		return levels[code/36], levels[(code/6)%6], levels[code%6]
+	default: // 232..255 — градации серого
+		v := 8 + (n-232)*10
+		return v, v, v
+	}
+}
+
+// ansiEndTheme возвращает индекс последнего байта ESC-последовательности,
+// начинающейся в s[start] (start указывает на байт ESC). Локальная копия, т.к.
+// пакет theme не может импортировать ui (цикл зависимостей).
+func ansiEndTheme(s string, start int) int {
+	if start+1 >= len(s) {
+		return start
+	}
+	switch s[start+1] {
+	case ']':
+		for j := start + 2; j < len(s); j++ {
+			if s[j] == '\a' {
+				return j
+			}
+			if s[j] == '\x1b' && j+1 < len(s) && s[j+1] == '\\' {
+				return j + 1
+			}
+		}
+		return len(s) - 1
+	case '[':
+		for j := start + 2; j < len(s); j++ {
+			c := s[j]
+			if c >= '@' && c <= '~' {
+				return j
+			}
+			if !(c >= '0' && c <= '9' || c == ';' || c == '?' || c == '>' || c == '<' || c == '=' || c == ' ') {
+				return j - 1
+			}
+		}
+		return len(s) - 1
+	}
+	return start + 1
 }
 
 // ApplyToDelegate стилизует делегат списка bubbles по активной теме:

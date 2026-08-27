@@ -79,7 +79,7 @@ func (s *projectsScreen) renderDescModal() string {
 	b.WriteString(body)
 	b.WriteString(noticeLine)
 	b.WriteString("\n")
-	b.WriteString(padW(footer, innerW))
+	b.WriteString(padW(styleHints(footer), innerW))
 	inner := padLines(b.String(), innerW, innerH)
 	box := renderPane(style, inner)
 

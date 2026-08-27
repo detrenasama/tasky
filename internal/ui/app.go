@@ -391,7 +391,7 @@ func (m model) View() string {
 	footRight := "  " + styleHints("ctrl+p команды")
 	footLeftW := max(footInnerW-lipgloss.Width(footRight), 0)
 	footLine := padW(truncateW(styleHints(footer), footLeftW), footLeftW) + footRight
-	footPanel := boxStyle.Render(padLines(footLine, footInnerW, 1))
+	footPanel := renderPane(boxStyle, padLines(footLine, footInnerW, 1))
 
 	sbLines := strings.Split(sidebarView(m.screen, h), "\n")
 	railLines := strings.Split(rightRail(m.version, rightW, h, rightMid), "\n")

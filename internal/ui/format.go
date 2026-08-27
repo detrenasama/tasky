@@ -114,15 +114,20 @@ func wrapText(s string, w int) string {
 	return strings.Join(out, "\n")
 }
 
-// styleHints форматирует строку подсказок: сочетание клавиш — белым
-// (основной цвет терминала), название — серым (faint, как раньше),
-// разделитель « · » — серым. Каждый фрагмент имеет вид «КЛАВИША название»;
-// граница — первый пробел.
+// styleHints форматирует строку подсказок в единый вид: сочетание клавиш —
+// белым (theme.Text), название — серым (theme.Muted), между клавишей и
+// названием — пробел, между пунктами — маленький bullet «·» (серым).
+// Тире «—» между клавишей и названием (если есть в исходной строке)
+// убирается. Формат элемента: «КЛАВИША название».
 func styleHints(s string) string {
 	if s == "" {
 		return ""
 	}
-	parts := strings.Split(s, " · ")
+	// убираем тире между клавишей и названием, оставляя один пробел
+	norm := strings.ReplaceAll(s, " — ", " ")
+	norm = strings.ReplaceAll(norm, "— ", " ")
+	norm = strings.ReplaceAll(norm, " —", " ")
+	parts := strings.Split(norm, " · ")
 	out := make([]string, 0, len(parts))
 	for _, p := range parts {
 		i := strings.Index(p, " ")
@@ -130,7 +135,7 @@ func styleHints(s string) string {
 			out = append(out, theme.Faint(p))
 			continue
 		}
-		out = append(out, theme.Text(p[:i])+theme.Faint(p[i:]))
+		out = append(out, theme.Text(p[:i])+" "+theme.Muted(p[i+1:]))
 	}
-	return strings.Join(out, theme.Faint(" · "))
+	return strings.Join(out, theme.Muted(" · "))
 }

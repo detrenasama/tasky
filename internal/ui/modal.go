@@ -5,6 +5,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mattn/go-runewidth"
 
 	"github.com/detrenasama/tasky/internal/ui/theme"
 )
@@ -18,9 +19,9 @@ type dialog struct {
 
 func (d dialog) render() string {
 	title := theme.HeaderStyle.Render(d.title)
-	combined := strings.ReplaceAll(d.primary, "— ", "")
+	combined := d.primary
 	if d.esc != "" {
-		combined += " · " + strings.ReplaceAll(d.esc, "— ", "")
+		combined += " · " + d.esc
 	}
 	var content string
 	if combined != "" {
@@ -83,10 +84,7 @@ func overlay(base, dialog string, w, h, maxW int) string {
 	}
 
 	for r := 0; r < dh && row0+r < h; r++ {
-		plain := stripANSI(baseLines[row0+r])
-		runes := []rune(plain)
-		left := string(runes[:min(col0, len(runes))])
-		right := string(runes[min(col0+dw, len(runes)):])
+		left, right := splitStyledAtWidth(baseLines[row0+r], col0, dw)
 		baseLines[row0+r] = theme.Dim(left) + dialogLines[r] + theme.Dim(right)
 	}
 	for i := 0; i < len(baseLines); i++ {
@@ -95,6 +93,109 @@ func overlay(base, dialog string, w, h, maxW int) string {
 		}
 	}
 	return strings.Join(baseLines, "\n")
+}
+
+// splitStyledAtWidth режет строку s с ANSI-кодами на левую и правую части по
+// видимой ширине: левая — [0,col0), правая — [col0+boxW, конец). Колонки под
+// модалкой ([col0,col0+boxW)) пропускаются (их перекроет диалог). Слова,
+// пересекающие границы модалки, полностью прячутся (заменяются пробелами с
+// сохранением цвета фона), чтобы на краях модалки слова не разрывались
+// пополам. Цвета фона (SGR) сохраняются по обе стороны и переносятся в правую
+// часть, поэтому бэкдроп остаётся «живым», а не плоским блоком.
+func splitStyledAtWidth(s string, col0, boxW int) (left, right string) {
+	plain := []rune(stripANSI(s))
+	rb := col0 + boxW
+	blankL := -1
+	if col0 > 0 && col0 <= len(plain) && plain[col0-1] != ' ' {
+		st, _ := wordRange(plain, col0-1)
+		blankL = st
+	}
+	blankR := -1
+	if rb >= 0 && rb < len(plain) && plain[rb] != ' ' {
+		_, en := wordRange(plain, rb)
+		blankR = en
+	}
+
+	var lb, rb2 strings.Builder
+	var active string
+	rightStarted := false
+	pos := 0
+	ri := 0
+	i := 0
+	for i < len(s) {
+		if s[i] == '\x1b' {
+			end := ansiEnd(s, i)
+			seq := s[i : end+1]
+			if isSGReset(seq) {
+				active = ""
+			} else {
+				active += seq
+			}
+			switch {
+			case pos < col0:
+				lb.WriteString(seq)
+			case pos >= rb:
+				if !rightStarted {
+					rb2.WriteString(active)
+					rightStarted = true
+				}
+				rb2.WriteString(seq)
+			}
+			i = end + 1
+			continue
+		}
+		r, size := utf8.DecodeRuneInString(s[i:])
+		rw := runewidth.RuneWidth(r)
+		switch {
+		case pos < col0:
+			if blankL >= 0 && ri >= blankL && ri < col0 {
+				lb.WriteRune(' ')
+			} else {
+				lb.WriteRune(r)
+			}
+		case pos >= rb:
+			if !rightStarted {
+				rb2.WriteString(active)
+				rightStarted = true
+			}
+			if blankR >= 0 && ri < blankR {
+				rb2.WriteRune(' ')
+			} else {
+				rb2.WriteRune(r)
+			}
+		}
+		// область под модалкой (col0<=pos<rb) — не пишем, перекроет диалог
+		pos += rw
+		ri++
+		i += size
+	}
+	if !rightStarted {
+		rb2.WriteString(active)
+	}
+	return lb.String(), rb2.String()
+}
+
+// wordRange возвращает [start,end) слова (непрерывная последовательность
+// не-пробелов), содержащего руну at. Если at — пробел, возвращает at,at.
+func wordRange(plain []rune, at int) (int, int) {
+	s := at
+	for s > 0 && plain[s-1] != ' ' {
+		s--
+	}
+	e := at
+	for e < len(plain) && plain[e] != ' ' {
+		e++
+	}
+	return s, e
+}
+
+// isSGReset — является ли SGR-последовательность сбросом (\x1b[0m / \x1b[m).
+func isSGReset(seq string) bool {
+	if !strings.HasPrefix(seq, "\x1b[") || !strings.HasSuffix(seq, "m") {
+		return false
+	}
+	body := seq[2 : len(seq)-1]
+	return body == "0" || body == ""
 }
 
 // dialogMaxW — максимальная ширина диалоговой модалки: всегда уже экрана,

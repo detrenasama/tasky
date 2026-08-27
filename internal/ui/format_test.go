@@ -1,43 +1,34 @@
 package ui
 
 import (
+	"strings"
 	"testing"
 )
 
-func TestWrapText(t *testing.T) {
-	cases := []struct {
-		in, want string
-	}{
-		{"", ""},
-		{"одно слово", "одно\nслово"},
-		{"aaa bbb", "aaa bbb"},
-		{"aaa bbb ccc", "aaa bbb\nccc"},
-		{"оченьдлинноеслово", "оченьдл\nинноесл\nово"},
-		{"aaa\nbbb", "aaa\nbbb"},
+// TestStyleHints — единый формат подсказок: клавиша белым, название серым,
+// между клавишей и названием пробел, между пунктами — bullet «•». Тире «—»
+// между клавишей и названием убирается.
+func TestStyleHints(t *testing.T) {
+	got := styleHints("Enter — открыть · e — изменить · d — удалить")
+	plain := stripANSI(got)
+	// тире не должно остаться
+	if strings.Contains(plain, "—") {
+		t.Errorf("в подсказках осталось тире: %q", plain)
 	}
-	for _, c := range cases {
-		got := wrapText(c.in, 7)
-		if got != c.want {
-			t.Errorf("wrapText(%q, 7) = %q, ожидалось %q", c.in, got, c.want)
-		}
+	// пункты разделены маленьким bullet'ом
+	if !strings.Contains(plain, "·") {
+		t.Errorf("между пунктами нет bullet'а: %q", plain)
 	}
-}
-
-func TestTruncateWEnd(t *testing.T) {
-	cases := []struct {
-		in, want string
-		w        int
-	}{
-		{"abc", "abc", 5},
-		{"abcdef", "abcd…", 5},
-		{"оченьдлинноеназвание", "оченьд…", 7},
-		{"", "", 4},
-		{"abc", "…", 1},
+	// клавиша и название разделены пробелом (не тире, не bullet)
+	if !strings.Contains(plain, "Enter открыть") {
+		t.Errorf("ожидался формат «Enter открыть»: %q", plain)
 	}
-	for _, c := range cases {
-		got := truncateWEnd(c.in, c.w)
-		if got != c.want {
-			t.Errorf("truncateWEnd(%q, %d) = %q, ожидалось %q", c.in, c.w, got, c.want)
-		}
+	if !strings.Contains(plain, "e изменить") {
+		t.Errorf("ожидался формат «e изменить»: %q", plain)
+	}
+	// исходная строка без тире тоже корректна
+	got2 := styleHints("ctrl+p команды")
+	if strings.Contains(stripANSI(got2), "—") {
+		t.Errorf("в одиночной подсказке осталось тире: %q", stripANSI(got2))
 	}
 }

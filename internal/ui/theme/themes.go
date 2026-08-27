@@ -36,6 +36,7 @@ type Colors struct {
 	Selection    string `json:"selection"`
 	Border       string `json:"border"`
 	BorderSubtle string `json:"borderSubtle"`
+	Modal        string `json:"modal"`
 }
 
 // Theme — готовая тема: имя и палитра.
@@ -82,6 +83,7 @@ func defaultColors() Colors {
 		Selection:    "#282828",
 		Border:       "#484848",
 		BorderSubtle: "#3c3c3c",
+		Modal:        "#161616",
 	}
 }
 
@@ -249,6 +251,9 @@ func parseTheme(data []byte, fileBase string) (Theme, bool) {
 	if v := f.Colors.BorderSubtle; v != "" {
 		c.BorderSubtle = v
 	}
+	if v := f.Colors.Modal; v != "" {
+		c.Modal = v
+	}
 	return Theme{Name: name, Colors: c}, true
 }
 
@@ -270,6 +275,6 @@ func applyTheme(t Theme) {
 		Foreground(lipgloss.Color(t.Colors.Accent))
 	linkStyle = lipgloss.NewStyle().Underline(true).Foreground(acc)
 	ModalStyle = lipgloss.NewStyle().
-		Background(lipgloss.Color(t.Colors.Element)).
+		Background(lipgloss.Color(t.Colors.Modal)).
 		Padding(1, 2)
 }

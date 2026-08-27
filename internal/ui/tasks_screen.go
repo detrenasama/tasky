@@ -35,6 +35,10 @@ const (
 	taskChecklist
 	taskChecklistConfirm
 	taskJournalDiscard
+
+	taskTimeList
+	taskTimeEdit
+	taskTimeDelete
 )
 
 // dmState — подсостояние модалки описания (taskDescModal).
@@ -193,6 +197,15 @@ type tasksScreen struct {
 	checklistEditID    int64
 	checklistNew       bool
 	checklistConfirmID int64
+
+	// модалка записей времени подзадачи
+	timePick      pickList
+	editTimeID    int64
+	editStart     time.Time
+	editEnd       *time.Time
+	editHasEnd    bool
+	timeField     int
+	confirmTimeID int64
 
 	notice      string
 	extEditPath string

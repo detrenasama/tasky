@@ -392,6 +392,25 @@ func (s *Server) TimeEntriesBySubtask(_ context.Context, req *rpc.SubtaskIDReque
 	return &rpc.TimeEntryListResponse{Entries: rpc.ToTimeEntries(es)}, nil
 }
 
+func (s *Server) UpdateTimeEntry(_ context.Context, req *rpc.UpdateTimeEntryRequest) (*rpc.Empty, error) {
+	var endedAt *time.Time
+	if req.EndedAt != nil {
+		t := time.Unix(*req.EndedAt, 0)
+		endedAt = &t
+	}
+	if err := s.st.UpdateTimeEntry(req.Id, time.Unix(req.StartedAt, 0), endedAt); err != nil {
+		return nil, rpc.DBErrorToStatus(err)
+	}
+	return &rpc.Empty{}, nil
+}
+
+func (s *Server) DeleteTimeEntry(_ context.Context, req *rpc.IDRequest) (*rpc.Empty, error) {
+	if err := s.st.DeleteTimeEntry(req.Id); err != nil {
+		return nil, rpc.DBErrorToStatus(err)
+	}
+	return &rpc.Empty{}, nil
+}
+
 func (s *Server) RunningSession(_ context.Context, _ *rpc.Empty) (*rpc.RunningSessionResponse, error) {
 	st, err := s.st.RunningSession()
 	if err != nil {
@@ -427,6 +446,14 @@ func (s *Server) ReportEntries(_ context.Context, req *rpc.RangeRequest) (*rpc.R
 		return nil, rpc.DBErrorToStatus(err)
 	}
 	return &rpc.ReportEntryListResponse{Entries: rpc.ToReportEntries(es)}, nil
+}
+
+func (s *Server) TimeEntriesInRange(_ context.Context, req *rpc.RangeRequest) (*rpc.TimeEntryInfoListResponse, error) {
+	es, err := s.st.TimeEntriesInRange(time.Unix(req.From, 0), time.Unix(req.To, 0), req.ProjectId)
+	if err != nil {
+		return nil, rpc.DBErrorToStatus(err)
+	}
+	return &rpc.TimeEntryInfoListResponse{Entries: rpc.ToTimeEntryInfos(es)}, nil
 }
 
 func (s *Server) JournalEntriesByRange(_ context.Context, req *rpc.RangeNoProjectRequest) (*rpc.ReportJournalEntryListResponse, error) {

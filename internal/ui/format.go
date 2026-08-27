@@ -44,6 +44,44 @@ func fmtElapsed(d time.Duration) string {
 	return fmt.Sprintf("%dс", sec)
 }
 
+// ruWeekdayShort — русское сокращённое название дня недели (Пн/Вт/Ср/Чт/Пт/Сб/Вс).
+func ruWeekdayShort(t time.Time) string {
+	switch t.Weekday() {
+	case time.Monday:
+		return "Пн"
+	case time.Tuesday:
+		return "Вт"
+	case time.Wednesday:
+		return "Ср"
+	case time.Thursday:
+		return "Чт"
+	case time.Friday:
+		return "Пт"
+	case time.Saturday:
+		return "Сб"
+	default:
+		return "Вс"
+	}
+}
+
+// fmtTimeEntry форматирует момент времени для записей учёта:
+// «[2006-01-02 Чт 15:04]» (с русским днём недели).
+func fmtTimeEntry(t time.Time) string {
+	return "[" + t.Format("2006-01-02") + " " + ruWeekdayShort(t) + " " +
+		t.Format("15:04") + "]"
+}
+
+// fmtDurationHM форматирует длительность как «ЧЧ:ММ» (часы:минуты, минуты с
+// ведущим нулём): 9 минут → "0:09", 1ч5м → "1:05", 25ч30м → "25:30".
+func fmtDurationHM(d time.Duration) string {
+	if d < 0 {
+		d = 0
+	}
+	h := int(d / time.Hour)
+	m := int(d % time.Hour / time.Minute)
+	return fmt.Sprintf("%d:%02d", h, m)
+}
+
 // openURL открывает ссылку в браузере по умолчанию.
 func openURL(url string) error {
 	var cmd *exec.Cmd

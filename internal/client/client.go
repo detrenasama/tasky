@@ -502,6 +502,36 @@ func (c *Client) TimeEntriesBySubtask(subtaskID int64) ([]db.TimeEntry, error) {
 	return rpc.FromTimeEntries(resp.Entries), nil
 }
 
+func (c *Client) UpdateTimeEntry(id int64, startedAt time.Time, endedAt *time.Time) error {
+	ctx, cancel := callCtx()
+	defer cancel()
+	req := &rpc.UpdateTimeEntryRequest{Id: id, StartedAt: startedAt.Unix()}
+	if endedAt != nil {
+		e := endedAt.Unix()
+		req.EndedAt = &e
+	}
+	_, err := c.rpc.UpdateTimeEntry(ctx, req)
+	return rpc.StatusToDBError(err)
+}
+
+func (c *Client) DeleteTimeEntry(id int64) error {
+	ctx, cancel := callCtx()
+	defer cancel()
+	_, err := c.rpc.DeleteTimeEntry(ctx, &rpc.IDRequest{Id: id})
+	return rpc.StatusToDBError(err)
+}
+
+func (c *Client) TimeEntriesInRange(from, to time.Time, projectID int64) ([]db.TimeEntryInfo, error) {
+	ctx, cancel := callCtx()
+	defer cancel()
+	resp, err := c.rpc.TimeEntriesInRange(ctx, &rpc.RangeRequest{
+		From: from.Unix(), To: to.Unix(), ProjectId: projectID})
+	if err != nil {
+		return nil, rpc.StatusToDBError(err)
+	}
+	return rpc.FromTimeEntryInfos(resp.Entries), nil
+}
+
 func (c *Client) RunningSession() (*db.SubtaskWithTime, error) {
 	ctx, cancel := callCtx()
 	defer cancel()

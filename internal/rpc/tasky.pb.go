@@ -427,6 +427,212 @@ func (x *TimeEntry) GetNote() string {
 	return ""
 }
 
+// TimeEntryInfo — запись учёта времени с названиями подзадачи/задачи/проекта.
+type TimeEntryInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	SubtaskId     int64                  `protobuf:"varint,2,opt,name=subtask_id,json=subtaskId,proto3" json:"subtask_id,omitempty"`
+	SubtaskTitle  string                 `protobuf:"bytes,3,opt,name=subtask_title,json=subtaskTitle,proto3" json:"subtask_title,omitempty"`
+	TaskTitle     string                 `protobuf:"bytes,4,opt,name=task_title,json=taskTitle,proto3" json:"task_title,omitempty"`
+	ProjectName   string                 `protobuf:"bytes,5,opt,name=project_name,json=projectName,proto3" json:"project_name,omitempty"`
+	StartedAt     int64                  `protobuf:"varint,6,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	EndedAt       *int64                 `protobuf:"varint,7,opt,name=ended_at,json=endedAt,proto3,oneof" json:"ended_at,omitempty"`
+	Note          string                 `protobuf:"bytes,8,opt,name=note,proto3" json:"note,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TimeEntryInfo) Reset() {
+	*x = TimeEntryInfo{}
+	mi := &file_proto_tasky_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TimeEntryInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TimeEntryInfo) ProtoMessage() {}
+
+func (x *TimeEntryInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_tasky_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TimeEntryInfo.ProtoReflect.Descriptor instead.
+func (*TimeEntryInfo) Descriptor() ([]byte, []int) {
+	return file_proto_tasky_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *TimeEntryInfo) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *TimeEntryInfo) GetSubtaskId() int64 {
+	if x != nil {
+		return x.SubtaskId
+	}
+	return 0
+}
+
+func (x *TimeEntryInfo) GetSubtaskTitle() string {
+	if x != nil {
+		return x.SubtaskTitle
+	}
+	return ""
+}
+
+func (x *TimeEntryInfo) GetTaskTitle() string {
+	if x != nil {
+		return x.TaskTitle
+	}
+	return ""
+}
+
+func (x *TimeEntryInfo) GetProjectName() string {
+	if x != nil {
+		return x.ProjectName
+	}
+	return ""
+}
+
+func (x *TimeEntryInfo) GetStartedAt() int64 {
+	if x != nil {
+		return x.StartedAt
+	}
+	return 0
+}
+
+func (x *TimeEntryInfo) GetEndedAt() int64 {
+	if x != nil && x.EndedAt != nil {
+		return *x.EndedAt
+	}
+	return 0
+}
+
+func (x *TimeEntryInfo) GetNote() string {
+	if x != nil {
+		return x.Note
+	}
+	return ""
+}
+
+type TimeEntryInfoListResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Entries       []*TimeEntryInfo       `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TimeEntryInfoListResponse) Reset() {
+	*x = TimeEntryInfoListResponse{}
+	mi := &file_proto_tasky_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TimeEntryInfoListResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TimeEntryInfoListResponse) ProtoMessage() {}
+
+func (x *TimeEntryInfoListResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_tasky_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TimeEntryInfoListResponse.ProtoReflect.Descriptor instead.
+func (*TimeEntryInfoListResponse) Descriptor() ([]byte, []int) {
+	return file_proto_tasky_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *TimeEntryInfoListResponse) GetEntries() []*TimeEntryInfo {
+	if x != nil {
+		return x.Entries
+	}
+	return nil
+}
+
+// UpdateTimeEntryRequest — новые границы записи; ended_at пуст -> активная.
+type UpdateTimeEntryRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	StartedAt     int64                  `protobuf:"varint,2,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	EndedAt       *int64                 `protobuf:"varint,3,opt,name=ended_at,json=endedAt,proto3,oneof" json:"ended_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateTimeEntryRequest) Reset() {
+	*x = UpdateTimeEntryRequest{}
+	mi := &file_proto_tasky_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateTimeEntryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateTimeEntryRequest) ProtoMessage() {}
+
+func (x *UpdateTimeEntryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_tasky_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateTimeEntryRequest.ProtoReflect.Descriptor instead.
+func (*UpdateTimeEntryRequest) Descriptor() ([]byte, []int) {
+	return file_proto_tasky_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *UpdateTimeEntryRequest) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *UpdateTimeEntryRequest) GetStartedAt() int64 {
+	if x != nil {
+		return x.StartedAt
+	}
+	return 0
+}
+
+func (x *UpdateTimeEntryRequest) GetEndedAt() int64 {
+	if x != nil && x.EndedAt != nil {
+		return *x.EndedAt
+	}
+	return 0
+}
+
 type Link struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -440,7 +646,7 @@ type Link struct {
 
 func (x *Link) Reset() {
 	*x = Link{}
-	mi := &file_proto_tasky_proto_msgTypes[4]
+	mi := &file_proto_tasky_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -452,7 +658,7 @@ func (x *Link) String() string {
 func (*Link) ProtoMessage() {}
 
 func (x *Link) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[4]
+	mi := &file_proto_tasky_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -465,7 +671,7 @@ func (x *Link) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Link.ProtoReflect.Descriptor instead.
 func (*Link) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{4}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *Link) GetId() int64 {
@@ -515,7 +721,7 @@ type JournalEntry struct {
 
 func (x *JournalEntry) Reset() {
 	*x = JournalEntry{}
-	mi := &file_proto_tasky_proto_msgTypes[5]
+	mi := &file_proto_tasky_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -527,7 +733,7 @@ func (x *JournalEntry) String() string {
 func (*JournalEntry) ProtoMessage() {}
 
 func (x *JournalEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[5]
+	mi := &file_proto_tasky_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -540,7 +746,7 @@ func (x *JournalEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JournalEntry.ProtoReflect.Descriptor instead.
 func (*JournalEntry) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{5}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *JournalEntry) GetId() int64 {
@@ -586,7 +792,7 @@ type StatusDef struct {
 
 func (x *StatusDef) Reset() {
 	*x = StatusDef{}
-	mi := &file_proto_tasky_proto_msgTypes[6]
+	mi := &file_proto_tasky_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -598,7 +804,7 @@ func (x *StatusDef) String() string {
 func (*StatusDef) ProtoMessage() {}
 
 func (x *StatusDef) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[6]
+	mi := &file_proto_tasky_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -611,7 +817,7 @@ func (x *StatusDef) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatusDef.ProtoReflect.Descriptor instead.
 func (*StatusDef) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{6}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *StatusDef) GetId() int64 {
@@ -675,7 +881,7 @@ type StatusHistoryEntry struct {
 
 func (x *StatusHistoryEntry) Reset() {
 	*x = StatusHistoryEntry{}
-	mi := &file_proto_tasky_proto_msgTypes[7]
+	mi := &file_proto_tasky_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -687,7 +893,7 @@ func (x *StatusHistoryEntry) String() string {
 func (*StatusHistoryEntry) ProtoMessage() {}
 
 func (x *StatusHistoryEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[7]
+	mi := &file_proto_tasky_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -700,7 +906,7 @@ func (x *StatusHistoryEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatusHistoryEntry.ProtoReflect.Descriptor instead.
 func (*StatusHistoryEntry) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{7}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *StatusHistoryEntry) GetFrom() string {
@@ -744,7 +950,7 @@ type TagType struct {
 
 func (x *TagType) Reset() {
 	*x = TagType{}
-	mi := &file_proto_tasky_proto_msgTypes[8]
+	mi := &file_proto_tasky_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -756,7 +962,7 @@ func (x *TagType) String() string {
 func (*TagType) ProtoMessage() {}
 
 func (x *TagType) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[8]
+	mi := &file_proto_tasky_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -769,7 +975,7 @@ func (x *TagType) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TagType.ProtoReflect.Descriptor instead.
 func (*TagType) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{8}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *TagType) GetId() int64 {
@@ -824,7 +1030,7 @@ type Tag struct {
 
 func (x *Tag) Reset() {
 	*x = Tag{}
-	mi := &file_proto_tasky_proto_msgTypes[9]
+	mi := &file_proto_tasky_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -836,7 +1042,7 @@ func (x *Tag) String() string {
 func (*Tag) ProtoMessage() {}
 
 func (x *Tag) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[9]
+	mi := &file_proto_tasky_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -849,7 +1055,7 @@ func (x *Tag) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Tag.ProtoReflect.Descriptor instead.
 func (*Tag) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{9}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *Tag) GetId() int64 {
@@ -930,7 +1136,7 @@ type ReportEntry struct {
 
 func (x *ReportEntry) Reset() {
 	*x = ReportEntry{}
-	mi := &file_proto_tasky_proto_msgTypes[10]
+	mi := &file_proto_tasky_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -942,7 +1148,7 @@ func (x *ReportEntry) String() string {
 func (*ReportEntry) ProtoMessage() {}
 
 func (x *ReportEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[10]
+	mi := &file_proto_tasky_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -955,7 +1161,7 @@ func (x *ReportEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReportEntry.ProtoReflect.Descriptor instead.
 func (*ReportEntry) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{10}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ReportEntry) GetProjectId() int64 {
@@ -1018,7 +1224,7 @@ type ReportJournalEntry struct {
 
 func (x *ReportJournalEntry) Reset() {
 	*x = ReportJournalEntry{}
-	mi := &file_proto_tasky_proto_msgTypes[11]
+	mi := &file_proto_tasky_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1030,7 +1236,7 @@ func (x *ReportJournalEntry) String() string {
 func (*ReportJournalEntry) ProtoMessage() {}
 
 func (x *ReportJournalEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[11]
+	mi := &file_proto_tasky_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1043,7 +1249,7 @@ func (x *ReportJournalEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReportJournalEntry.ProtoReflect.Descriptor instead.
 func (*ReportJournalEntry) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{11}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ReportJournalEntry) GetSubtaskId() int64 {
@@ -1077,7 +1283,7 @@ type TagList struct {
 
 func (x *TagList) Reset() {
 	*x = TagList{}
-	mi := &file_proto_tasky_proto_msgTypes[12]
+	mi := &file_proto_tasky_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1089,7 +1295,7 @@ func (x *TagList) String() string {
 func (*TagList) ProtoMessage() {}
 
 func (x *TagList) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[12]
+	mi := &file_proto_tasky_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1102,7 +1308,7 @@ func (x *TagList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TagList.ProtoReflect.Descriptor instead.
 func (*TagList) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{12}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *TagList) GetTags() []*Tag {
@@ -1120,7 +1326,7 @@ type Empty struct {
 
 func (x *Empty) Reset() {
 	*x = Empty{}
-	mi := &file_proto_tasky_proto_msgTypes[13]
+	mi := &file_proto_tasky_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1132,7 +1338,7 @@ func (x *Empty) String() string {
 func (*Empty) ProtoMessage() {}
 
 func (x *Empty) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[13]
+	mi := &file_proto_tasky_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1145,7 +1351,7 @@ func (x *Empty) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Empty.ProtoReflect.Descriptor instead.
 func (*Empty) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{13}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{16}
 }
 
 type IDRequest struct {
@@ -1157,7 +1363,7 @@ type IDRequest struct {
 
 func (x *IDRequest) Reset() {
 	*x = IDRequest{}
-	mi := &file_proto_tasky_proto_msgTypes[14]
+	mi := &file_proto_tasky_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1169,7 +1375,7 @@ func (x *IDRequest) String() string {
 func (*IDRequest) ProtoMessage() {}
 
 func (x *IDRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[14]
+	mi := &file_proto_tasky_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1182,7 +1388,7 @@ func (x *IDRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IDRequest.ProtoReflect.Descriptor instead.
 func (*IDRequest) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{14}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *IDRequest) GetId() int64 {
@@ -1201,7 +1407,7 @@ type StringResponse struct {
 
 func (x *StringResponse) Reset() {
 	*x = StringResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[15]
+	mi := &file_proto_tasky_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1213,7 +1419,7 @@ func (x *StringResponse) String() string {
 func (*StringResponse) ProtoMessage() {}
 
 func (x *StringResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[15]
+	mi := &file_proto_tasky_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1226,7 +1432,7 @@ func (x *StringResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StringResponse.ProtoReflect.Descriptor instead.
 func (*StringResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{15}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *StringResponse) GetValue() string {
@@ -1245,7 +1451,7 @@ type BoolResponse struct {
 
 func (x *BoolResponse) Reset() {
 	*x = BoolResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[16]
+	mi := &file_proto_tasky_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1257,7 +1463,7 @@ func (x *BoolResponse) String() string {
 func (*BoolResponse) ProtoMessage() {}
 
 func (x *BoolResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[16]
+	mi := &file_proto_tasky_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1270,7 +1476,7 @@ func (x *BoolResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BoolResponse.ProtoReflect.Descriptor instead.
 func (*BoolResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{16}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *BoolResponse) GetOk() bool {
@@ -1289,7 +1495,7 @@ type DurationResponse struct {
 
 func (x *DurationResponse) Reset() {
 	*x = DurationResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[17]
+	mi := &file_proto_tasky_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1301,7 +1507,7 @@ func (x *DurationResponse) String() string {
 func (*DurationResponse) ProtoMessage() {}
 
 func (x *DurationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[17]
+	mi := &file_proto_tasky_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1314,7 +1520,7 @@ func (x *DurationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DurationResponse.ProtoReflect.Descriptor instead.
 func (*DurationResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{17}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *DurationResponse) GetSeconds() int64 {
@@ -1333,7 +1539,7 @@ type ProjectNameRequest struct {
 
 func (x *ProjectNameRequest) Reset() {
 	*x = ProjectNameRequest{}
-	mi := &file_proto_tasky_proto_msgTypes[18]
+	mi := &file_proto_tasky_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1345,7 +1551,7 @@ func (x *ProjectNameRequest) String() string {
 func (*ProjectNameRequest) ProtoMessage() {}
 
 func (x *ProjectNameRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[18]
+	mi := &file_proto_tasky_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1358,7 +1564,7 @@ func (x *ProjectNameRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProjectNameRequest.ProtoReflect.Descriptor instead.
 func (*ProjectNameRequest) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{18}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ProjectNameRequest) GetName() string {
@@ -1377,7 +1583,7 @@ type ProjectIDRequest struct {
 
 func (x *ProjectIDRequest) Reset() {
 	*x = ProjectIDRequest{}
-	mi := &file_proto_tasky_proto_msgTypes[19]
+	mi := &file_proto_tasky_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1389,7 +1595,7 @@ func (x *ProjectIDRequest) String() string {
 func (*ProjectIDRequest) ProtoMessage() {}
 
 func (x *ProjectIDRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[19]
+	mi := &file_proto_tasky_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1402,7 +1608,7 @@ func (x *ProjectIDRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProjectIDRequest.ProtoReflect.Descriptor instead.
 func (*ProjectIDRequest) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{19}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ProjectIDRequest) GetProjectId() int64 {
@@ -1421,7 +1627,7 @@ type TaskIDRequest struct {
 
 func (x *TaskIDRequest) Reset() {
 	*x = TaskIDRequest{}
-	mi := &file_proto_tasky_proto_msgTypes[20]
+	mi := &file_proto_tasky_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1433,7 +1639,7 @@ func (x *TaskIDRequest) String() string {
 func (*TaskIDRequest) ProtoMessage() {}
 
 func (x *TaskIDRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[20]
+	mi := &file_proto_tasky_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1446,7 +1652,7 @@ func (x *TaskIDRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TaskIDRequest.ProtoReflect.Descriptor instead.
 func (*TaskIDRequest) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{20}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *TaskIDRequest) GetTaskId() int64 {
@@ -1466,7 +1672,7 @@ type CreateTaskRequest struct {
 
 func (x *CreateTaskRequest) Reset() {
 	*x = CreateTaskRequest{}
-	mi := &file_proto_tasky_proto_msgTypes[21]
+	mi := &file_proto_tasky_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1478,7 +1684,7 @@ func (x *CreateTaskRequest) String() string {
 func (*CreateTaskRequest) ProtoMessage() {}
 
 func (x *CreateTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[21]
+	mi := &file_proto_tasky_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1491,7 +1697,7 @@ func (x *CreateTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTaskRequest.ProtoReflect.Descriptor instead.
 func (*CreateTaskRequest) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{21}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *CreateTaskRequest) GetProjectId() int64 {
@@ -1518,7 +1724,7 @@ type CreateSubtaskRequest struct {
 
 func (x *CreateSubtaskRequest) Reset() {
 	*x = CreateSubtaskRequest{}
-	mi := &file_proto_tasky_proto_msgTypes[22]
+	mi := &file_proto_tasky_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1530,7 +1736,7 @@ func (x *CreateSubtaskRequest) String() string {
 func (*CreateSubtaskRequest) ProtoMessage() {}
 
 func (x *CreateSubtaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[22]
+	mi := &file_proto_tasky_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1543,7 +1749,7 @@ func (x *CreateSubtaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSubtaskRequest.ProtoReflect.Descriptor instead.
 func (*CreateSubtaskRequest) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{22}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *CreateSubtaskRequest) GetTaskId() int64 {
@@ -1569,7 +1775,7 @@ type SubtaskIDRequest struct {
 
 func (x *SubtaskIDRequest) Reset() {
 	*x = SubtaskIDRequest{}
-	mi := &file_proto_tasky_proto_msgTypes[23]
+	mi := &file_proto_tasky_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1581,7 +1787,7 @@ func (x *SubtaskIDRequest) String() string {
 func (*SubtaskIDRequest) ProtoMessage() {}
 
 func (x *SubtaskIDRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[23]
+	mi := &file_proto_tasky_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1594,7 +1800,7 @@ func (x *SubtaskIDRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubtaskIDRequest.ProtoReflect.Descriptor instead.
 func (*SubtaskIDRequest) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{23}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *SubtaskIDRequest) GetSubtaskId() int64 {
@@ -1615,7 +1821,7 @@ type LinkNameRequest struct {
 
 func (x *LinkNameRequest) Reset() {
 	*x = LinkNameRequest{}
-	mi := &file_proto_tasky_proto_msgTypes[24]
+	mi := &file_proto_tasky_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1627,7 +1833,7 @@ func (x *LinkNameRequest) String() string {
 func (*LinkNameRequest) ProtoMessage() {}
 
 func (x *LinkNameRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[24]
+	mi := &file_proto_tasky_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1640,7 +1846,7 @@ func (x *LinkNameRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LinkNameRequest.ProtoReflect.Descriptor instead.
 func (*LinkNameRequest) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{24}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *LinkNameRequest) GetId() int64 {
@@ -1674,7 +1880,7 @@ type MoveRequest struct {
 
 func (x *MoveRequest) Reset() {
 	*x = MoveRequest{}
-	mi := &file_proto_tasky_proto_msgTypes[25]
+	mi := &file_proto_tasky_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1686,7 +1892,7 @@ func (x *MoveRequest) String() string {
 func (*MoveRequest) ProtoMessage() {}
 
 func (x *MoveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[25]
+	mi := &file_proto_tasky_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1699,7 +1905,7 @@ func (x *MoveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MoveRequest.ProtoReflect.Descriptor instead.
 func (*MoveRequest) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{25}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *MoveRequest) GetId() int64 {
@@ -1726,7 +1932,7 @@ type TextRequest struct {
 
 func (x *TextRequest) Reset() {
 	*x = TextRequest{}
-	mi := &file_proto_tasky_proto_msgTypes[26]
+	mi := &file_proto_tasky_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1738,7 +1944,7 @@ func (x *TextRequest) String() string {
 func (*TextRequest) ProtoMessage() {}
 
 func (x *TextRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[26]
+	mi := &file_proto_tasky_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1751,7 +1957,7 @@ func (x *TextRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TextRequest.ProtoReflect.Descriptor instead.
 func (*TextRequest) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{26}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *TextRequest) GetId() int64 {
@@ -1778,7 +1984,7 @@ type TitleRequest struct {
 
 func (x *TitleRequest) Reset() {
 	*x = TitleRequest{}
-	mi := &file_proto_tasky_proto_msgTypes[27]
+	mi := &file_proto_tasky_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1790,7 +1996,7 @@ func (x *TitleRequest) String() string {
 func (*TitleRequest) ProtoMessage() {}
 
 func (x *TitleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[27]
+	mi := &file_proto_tasky_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1803,7 +2009,7 @@ func (x *TitleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TitleRequest.ProtoReflect.Descriptor instead.
 func (*TitleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{27}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *TitleRequest) GetId() int64 {
@@ -1830,7 +2036,7 @@ type JournalTextRequest struct {
 
 func (x *JournalTextRequest) Reset() {
 	*x = JournalTextRequest{}
-	mi := &file_proto_tasky_proto_msgTypes[28]
+	mi := &file_proto_tasky_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1842,7 +2048,7 @@ func (x *JournalTextRequest) String() string {
 func (*JournalTextRequest) ProtoMessage() {}
 
 func (x *JournalTextRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[28]
+	mi := &file_proto_tasky_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1855,7 +2061,7 @@ func (x *JournalTextRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JournalTextRequest.ProtoReflect.Descriptor instead.
 func (*JournalTextRequest) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{28}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *JournalTextRequest) GetId() int64 {
@@ -1888,7 +2094,7 @@ type ChecklistItem struct {
 
 func (x *ChecklistItem) Reset() {
 	*x = ChecklistItem{}
-	mi := &file_proto_tasky_proto_msgTypes[29]
+	mi := &file_proto_tasky_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1900,7 +2106,7 @@ func (x *ChecklistItem) String() string {
 func (*ChecklistItem) ProtoMessage() {}
 
 func (x *ChecklistItem) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[29]
+	mi := &file_proto_tasky_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1913,7 +2119,7 @@ func (x *ChecklistItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChecklistItem.ProtoReflect.Descriptor instead.
 func (*ChecklistItem) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{29}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *ChecklistItem) GetId() int64 {
@@ -1974,7 +2180,7 @@ type ChecklistItemListResponse struct {
 
 func (x *ChecklistItemListResponse) Reset() {
 	*x = ChecklistItemListResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[30]
+	mi := &file_proto_tasky_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1986,7 +2192,7 @@ func (x *ChecklistItemListResponse) String() string {
 func (*ChecklistItemListResponse) ProtoMessage() {}
 
 func (x *ChecklistItemListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[30]
+	mi := &file_proto_tasky_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1999,7 +2205,7 @@ func (x *ChecklistItemListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChecklistItemListResponse.ProtoReflect.Descriptor instead.
 func (*ChecklistItemListResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{30}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *ChecklistItemListResponse) GetItems() []*ChecklistItem {
@@ -2018,7 +2224,7 @@ type ChecklistItemResponse struct {
 
 func (x *ChecklistItemResponse) Reset() {
 	*x = ChecklistItemResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[31]
+	mi := &file_proto_tasky_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2030,7 +2236,7 @@ func (x *ChecklistItemResponse) String() string {
 func (*ChecklistItemResponse) ProtoMessage() {}
 
 func (x *ChecklistItemResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[31]
+	mi := &file_proto_tasky_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2043,7 +2249,7 @@ func (x *ChecklistItemResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChecklistItemResponse.ProtoReflect.Descriptor instead.
 func (*ChecklistItemResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{31}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ChecklistItemResponse) GetItem() *ChecklistItem {
@@ -2063,7 +2269,7 @@ type ChecklistStatusRequest struct {
 
 func (x *ChecklistStatusRequest) Reset() {
 	*x = ChecklistStatusRequest{}
-	mi := &file_proto_tasky_proto_msgTypes[32]
+	mi := &file_proto_tasky_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2075,7 +2281,7 @@ func (x *ChecklistStatusRequest) String() string {
 func (*ChecklistStatusRequest) ProtoMessage() {}
 
 func (x *ChecklistStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[32]
+	mi := &file_proto_tasky_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2088,7 +2294,7 @@ func (x *ChecklistStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChecklistStatusRequest.ProtoReflect.Descriptor instead.
 func (*ChecklistStatusRequest) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{32}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ChecklistStatusRequest) GetId() int64 {
@@ -2115,7 +2321,7 @@ type ChecklistCountsResponse struct {
 
 func (x *ChecklistCountsResponse) Reset() {
 	*x = ChecklistCountsResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[33]
+	mi := &file_proto_tasky_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2127,7 +2333,7 @@ func (x *ChecklistCountsResponse) String() string {
 func (*ChecklistCountsResponse) ProtoMessage() {}
 
 func (x *ChecklistCountsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[33]
+	mi := &file_proto_tasky_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2140,7 +2346,7 @@ func (x *ChecklistCountsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChecklistCountsResponse.ProtoReflect.Descriptor instead.
 func (*ChecklistCountsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{33}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *ChecklistCountsResponse) GetDone() map[int64]int64 {
@@ -2168,7 +2374,7 @@ type LinkOwnerRequest struct {
 
 func (x *LinkOwnerRequest) Reset() {
 	*x = LinkOwnerRequest{}
-	mi := &file_proto_tasky_proto_msgTypes[34]
+	mi := &file_proto_tasky_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2180,7 +2386,7 @@ func (x *LinkOwnerRequest) String() string {
 func (*LinkOwnerRequest) ProtoMessage() {}
 
 func (x *LinkOwnerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[34]
+	mi := &file_proto_tasky_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2193,7 +2399,7 @@ func (x *LinkOwnerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LinkOwnerRequest.ProtoReflect.Descriptor instead.
 func (*LinkOwnerRequest) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{34}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *LinkOwnerRequest) GetOwnerId() int64 {
@@ -2227,7 +2433,7 @@ type TimeRequest struct {
 
 func (x *TimeRequest) Reset() {
 	*x = TimeRequest{}
-	mi := &file_proto_tasky_proto_msgTypes[35]
+	mi := &file_proto_tasky_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2239,7 +2445,7 @@ func (x *TimeRequest) String() string {
 func (*TimeRequest) ProtoMessage() {}
 
 func (x *TimeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[35]
+	mi := &file_proto_tasky_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2252,7 +2458,7 @@ func (x *TimeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TimeRequest.ProtoReflect.Descriptor instead.
 func (*TimeRequest) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{35}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *TimeRequest) GetSubtaskId() int64 {
@@ -2280,7 +2486,7 @@ type RangeRequest struct {
 
 func (x *RangeRequest) Reset() {
 	*x = RangeRequest{}
-	mi := &file_proto_tasky_proto_msgTypes[36]
+	mi := &file_proto_tasky_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2292,7 +2498,7 @@ func (x *RangeRequest) String() string {
 func (*RangeRequest) ProtoMessage() {}
 
 func (x *RangeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[36]
+	mi := &file_proto_tasky_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2305,7 +2511,7 @@ func (x *RangeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RangeRequest.ProtoReflect.Descriptor instead.
 func (*RangeRequest) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{36}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *RangeRequest) GetFrom() int64 {
@@ -2339,7 +2545,7 @@ type RangeNoProjectRequest struct {
 
 func (x *RangeNoProjectRequest) Reset() {
 	*x = RangeNoProjectRequest{}
-	mi := &file_proto_tasky_proto_msgTypes[37]
+	mi := &file_proto_tasky_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2351,7 +2557,7 @@ func (x *RangeNoProjectRequest) String() string {
 func (*RangeNoProjectRequest) ProtoMessage() {}
 
 func (x *RangeNoProjectRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[37]
+	mi := &file_proto_tasky_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2364,7 +2570,7 @@ func (x *RangeNoProjectRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RangeNoProjectRequest.ProtoReflect.Descriptor instead.
 func (*RangeNoProjectRequest) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{37}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *RangeNoProjectRequest) GetFrom() int64 {
@@ -2394,7 +2600,7 @@ type StatusRequest struct {
 
 func (x *StatusRequest) Reset() {
 	*x = StatusRequest{}
-	mi := &file_proto_tasky_proto_msgTypes[38]
+	mi := &file_proto_tasky_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2406,7 +2612,7 @@ func (x *StatusRequest) String() string {
 func (*StatusRequest) ProtoMessage() {}
 
 func (x *StatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[38]
+	mi := &file_proto_tasky_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2419,7 +2625,7 @@ func (x *StatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatusRequest.ProtoReflect.Descriptor instead.
 func (*StatusRequest) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{38}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *StatusRequest) GetName() string {
@@ -2471,7 +2677,7 @@ type StatusUpdateRequest struct {
 
 func (x *StatusUpdateRequest) Reset() {
 	*x = StatusUpdateRequest{}
-	mi := &file_proto_tasky_proto_msgTypes[39]
+	mi := &file_proto_tasky_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2483,7 +2689,7 @@ func (x *StatusUpdateRequest) String() string {
 func (*StatusUpdateRequest) ProtoMessage() {}
 
 func (x *StatusUpdateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[39]
+	mi := &file_proto_tasky_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2496,7 +2702,7 @@ func (x *StatusUpdateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatusUpdateRequest.ProtoReflect.Descriptor instead.
 func (*StatusUpdateRequest) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{39}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *StatusUpdateRequest) GetId() int64 {
@@ -2554,7 +2760,7 @@ type SetStatusRequest struct {
 
 func (x *SetStatusRequest) Reset() {
 	*x = SetStatusRequest{}
-	mi := &file_proto_tasky_proto_msgTypes[40]
+	mi := &file_proto_tasky_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2566,7 +2772,7 @@ func (x *SetStatusRequest) String() string {
 func (*SetStatusRequest) ProtoMessage() {}
 
 func (x *SetStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[40]
+	mi := &file_proto_tasky_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2579,7 +2785,7 @@ func (x *SetStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetStatusRequest.ProtoReflect.Descriptor instead.
 func (*SetStatusRequest) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{40}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *SetStatusRequest) GetOwner() StatusOwner {
@@ -2627,7 +2833,7 @@ type HistoryRequest struct {
 
 func (x *HistoryRequest) Reset() {
 	*x = HistoryRequest{}
-	mi := &file_proto_tasky_proto_msgTypes[41]
+	mi := &file_proto_tasky_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2639,7 +2845,7 @@ func (x *HistoryRequest) String() string {
 func (*HistoryRequest) ProtoMessage() {}
 
 func (x *HistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[41]
+	mi := &file_proto_tasky_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2652,7 +2858,7 @@ func (x *HistoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HistoryRequest.ProtoReflect.Descriptor instead.
 func (*HistoryRequest) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{41}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *HistoryRequest) GetOwner() StatusOwner {
@@ -2680,7 +2886,7 @@ type TagTypeRequest struct {
 
 func (x *TagTypeRequest) Reset() {
 	*x = TagTypeRequest{}
-	mi := &file_proto_tasky_proto_msgTypes[42]
+	mi := &file_proto_tasky_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2692,7 +2898,7 @@ func (x *TagTypeRequest) String() string {
 func (*TagTypeRequest) ProtoMessage() {}
 
 func (x *TagTypeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[42]
+	mi := &file_proto_tasky_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2705,7 +2911,7 @@ func (x *TagTypeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TagTypeRequest.ProtoReflect.Descriptor instead.
 func (*TagTypeRequest) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{42}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *TagTypeRequest) GetName() string {
@@ -2741,7 +2947,7 @@ type TagTypeUpdateRequest struct {
 
 func (x *TagTypeUpdateRequest) Reset() {
 	*x = TagTypeUpdateRequest{}
-	mi := &file_proto_tasky_proto_msgTypes[43]
+	mi := &file_proto_tasky_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2753,7 +2959,7 @@ func (x *TagTypeUpdateRequest) String() string {
 func (*TagTypeUpdateRequest) ProtoMessage() {}
 
 func (x *TagTypeUpdateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[43]
+	mi := &file_proto_tasky_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2766,7 +2972,7 @@ func (x *TagTypeUpdateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TagTypeUpdateRequest.ProtoReflect.Descriptor instead.
 func (*TagTypeUpdateRequest) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{43}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *TagTypeUpdateRequest) GetId() int64 {
@@ -2809,7 +3015,7 @@ type TagRequest struct {
 
 func (x *TagRequest) Reset() {
 	*x = TagRequest{}
-	mi := &file_proto_tasky_proto_msgTypes[44]
+	mi := &file_proto_tasky_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2821,7 +3027,7 @@ func (x *TagRequest) String() string {
 func (*TagRequest) ProtoMessage() {}
 
 func (x *TagRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[44]
+	mi := &file_proto_tasky_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2834,7 +3040,7 @@ func (x *TagRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TagRequest.ProtoReflect.Descriptor instead.
 func (*TagRequest) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{44}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *TagRequest) GetTaskId() int64 {
@@ -2877,7 +3083,7 @@ type TagUpdateRequest struct {
 
 func (x *TagUpdateRequest) Reset() {
 	*x = TagUpdateRequest{}
-	mi := &file_proto_tasky_proto_msgTypes[45]
+	mi := &file_proto_tasky_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2889,7 +3095,7 @@ func (x *TagUpdateRequest) String() string {
 func (*TagUpdateRequest) ProtoMessage() {}
 
 func (x *TagUpdateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[45]
+	mi := &file_proto_tasky_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2902,7 +3108,7 @@ func (x *TagUpdateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TagUpdateRequest.ProtoReflect.Descriptor instead.
 func (*TagUpdateRequest) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{45}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *TagUpdateRequest) GetId() int64 {
@@ -2943,7 +3149,7 @@ type SettingRequest struct {
 
 func (x *SettingRequest) Reset() {
 	*x = SettingRequest{}
-	mi := &file_proto_tasky_proto_msgTypes[46]
+	mi := &file_proto_tasky_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2955,7 +3161,7 @@ func (x *SettingRequest) String() string {
 func (*SettingRequest) ProtoMessage() {}
 
 func (x *SettingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[46]
+	mi := &file_proto_tasky_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2968,7 +3174,7 @@ func (x *SettingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SettingRequest.ProtoReflect.Descriptor instead.
 func (*SettingRequest) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{46}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *SettingRequest) GetKey() string {
@@ -2995,7 +3201,7 @@ type GetSettingResponse struct {
 
 func (x *GetSettingResponse) Reset() {
 	*x = GetSettingResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[47]
+	mi := &file_proto_tasky_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3007,7 +3213,7 @@ func (x *GetSettingResponse) String() string {
 func (*GetSettingResponse) ProtoMessage() {}
 
 func (x *GetSettingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[47]
+	mi := &file_proto_tasky_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3020,7 +3226,7 @@ func (x *GetSettingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSettingResponse.ProtoReflect.Descriptor instead.
 func (*GetSettingResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{47}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *GetSettingResponse) GetValue() string {
@@ -3046,7 +3252,7 @@ type JournalTextsResponse struct {
 
 func (x *JournalTextsResponse) Reset() {
 	*x = JournalTextsResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[48]
+	mi := &file_proto_tasky_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3058,7 +3264,7 @@ func (x *JournalTextsResponse) String() string {
 func (*JournalTextsResponse) ProtoMessage() {}
 
 func (x *JournalTextsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[48]
+	mi := &file_proto_tasky_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3071,7 +3277,7 @@ func (x *JournalTextsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JournalTextsResponse.ProtoReflect.Descriptor instead.
 func (*JournalTextsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{48}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *JournalTextsResponse) GetTexts() map[int64]string {
@@ -3090,7 +3296,7 @@ type ProjectLinksTextsResponse struct {
 
 func (x *ProjectLinksTextsResponse) Reset() {
 	*x = ProjectLinksTextsResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[49]
+	mi := &file_proto_tasky_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3102,7 +3308,7 @@ func (x *ProjectLinksTextsResponse) String() string {
 func (*ProjectLinksTextsResponse) ProtoMessage() {}
 
 func (x *ProjectLinksTextsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[49]
+	mi := &file_proto_tasky_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3115,7 +3321,7 @@ func (x *ProjectLinksTextsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProjectLinksTextsResponse.ProtoReflect.Descriptor instead.
 func (*ProjectLinksTextsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{49}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *ProjectLinksTextsResponse) GetTexts() map[int64]string {
@@ -3134,7 +3340,7 @@ type TagsMapResponse struct {
 
 func (x *TagsMapResponse) Reset() {
 	*x = TagsMapResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[50]
+	mi := &file_proto_tasky_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3146,7 +3352,7 @@ func (x *TagsMapResponse) String() string {
 func (*TagsMapResponse) ProtoMessage() {}
 
 func (x *TagsMapResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[50]
+	mi := &file_proto_tasky_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3159,7 +3365,7 @@ func (x *TagsMapResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TagsMapResponse.ProtoReflect.Descriptor instead.
 func (*TagsMapResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{50}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *TagsMapResponse) GetTags() map[int64]*TagList {
@@ -3178,7 +3384,7 @@ type ProjectListResponse struct {
 
 func (x *ProjectListResponse) Reset() {
 	*x = ProjectListResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[51]
+	mi := &file_proto_tasky_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3190,7 +3396,7 @@ func (x *ProjectListResponse) String() string {
 func (*ProjectListResponse) ProtoMessage() {}
 
 func (x *ProjectListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[51]
+	mi := &file_proto_tasky_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3203,7 +3409,7 @@ func (x *ProjectListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProjectListResponse.ProtoReflect.Descriptor instead.
 func (*ProjectListResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{51}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *ProjectListResponse) GetProjects() []*Project {
@@ -3222,7 +3428,7 @@ type ProjectResponse struct {
 
 func (x *ProjectResponse) Reset() {
 	*x = ProjectResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[52]
+	mi := &file_proto_tasky_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3234,7 +3440,7 @@ func (x *ProjectResponse) String() string {
 func (*ProjectResponse) ProtoMessage() {}
 
 func (x *ProjectResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[52]
+	mi := &file_proto_tasky_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3247,7 +3453,7 @@ func (x *ProjectResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProjectResponse.ProtoReflect.Descriptor instead.
 func (*ProjectResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{52}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *ProjectResponse) GetProject() *Project {
@@ -3266,7 +3472,7 @@ type LinkListResponse struct {
 
 func (x *LinkListResponse) Reset() {
 	*x = LinkListResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[53]
+	mi := &file_proto_tasky_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3278,7 +3484,7 @@ func (x *LinkListResponse) String() string {
 func (*LinkListResponse) ProtoMessage() {}
 
 func (x *LinkListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[53]
+	mi := &file_proto_tasky_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3291,7 +3497,7 @@ func (x *LinkListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LinkListResponse.ProtoReflect.Descriptor instead.
 func (*LinkListResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{53}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *LinkListResponse) GetLinks() []*Link {
@@ -3310,7 +3516,7 @@ type LinkResponse struct {
 
 func (x *LinkResponse) Reset() {
 	*x = LinkResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[54]
+	mi := &file_proto_tasky_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3322,7 +3528,7 @@ func (x *LinkResponse) String() string {
 func (*LinkResponse) ProtoMessage() {}
 
 func (x *LinkResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[54]
+	mi := &file_proto_tasky_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3335,7 +3541,7 @@ func (x *LinkResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LinkResponse.ProtoReflect.Descriptor instead.
 func (*LinkResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{54}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *LinkResponse) GetLink() *Link {
@@ -3354,7 +3560,7 @@ type TaskListResponse struct {
 
 func (x *TaskListResponse) Reset() {
 	*x = TaskListResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[55]
+	mi := &file_proto_tasky_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3366,7 +3572,7 @@ func (x *TaskListResponse) String() string {
 func (*TaskListResponse) ProtoMessage() {}
 
 func (x *TaskListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[55]
+	mi := &file_proto_tasky_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3379,7 +3585,7 @@ func (x *TaskListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TaskListResponse.ProtoReflect.Descriptor instead.
 func (*TaskListResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{55}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *TaskListResponse) GetTasks() []*Task {
@@ -3398,7 +3604,7 @@ type SubtaskListResponse struct {
 
 func (x *SubtaskListResponse) Reset() {
 	*x = SubtaskListResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[56]
+	mi := &file_proto_tasky_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3410,7 +3616,7 @@ func (x *SubtaskListResponse) String() string {
 func (*SubtaskListResponse) ProtoMessage() {}
 
 func (x *SubtaskListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[56]
+	mi := &file_proto_tasky_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3423,7 +3629,7 @@ func (x *SubtaskListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubtaskListResponse.ProtoReflect.Descriptor instead.
 func (*SubtaskListResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{56}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *SubtaskListResponse) GetSubtasks() []*SubtaskWithTime {
@@ -3442,7 +3648,7 @@ type TaskResponse struct {
 
 func (x *TaskResponse) Reset() {
 	*x = TaskResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[57]
+	mi := &file_proto_tasky_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3454,7 +3660,7 @@ func (x *TaskResponse) String() string {
 func (*TaskResponse) ProtoMessage() {}
 
 func (x *TaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[57]
+	mi := &file_proto_tasky_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3467,7 +3673,7 @@ func (x *TaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TaskResponse.ProtoReflect.Descriptor instead.
 func (*TaskResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{57}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *TaskResponse) GetTask() *Task {
@@ -3486,7 +3692,7 @@ type SubtaskResponse struct {
 
 func (x *SubtaskResponse) Reset() {
 	*x = SubtaskResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[58]
+	mi := &file_proto_tasky_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3498,7 +3704,7 @@ func (x *SubtaskResponse) String() string {
 func (*SubtaskResponse) ProtoMessage() {}
 
 func (x *SubtaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[58]
+	mi := &file_proto_tasky_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3511,7 +3717,7 @@ func (x *SubtaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubtaskResponse.ProtoReflect.Descriptor instead.
 func (*SubtaskResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{58}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *SubtaskResponse) GetSubtask() *SubtaskWithTime {
@@ -3530,7 +3736,7 @@ type TimeEntryListResponse struct {
 
 func (x *TimeEntryListResponse) Reset() {
 	*x = TimeEntryListResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[59]
+	mi := &file_proto_tasky_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3542,7 +3748,7 @@ func (x *TimeEntryListResponse) String() string {
 func (*TimeEntryListResponse) ProtoMessage() {}
 
 func (x *TimeEntryListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[59]
+	mi := &file_proto_tasky_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3555,7 +3761,7 @@ func (x *TimeEntryListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TimeEntryListResponse.ProtoReflect.Descriptor instead.
 func (*TimeEntryListResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{59}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *TimeEntryListResponse) GetEntries() []*TimeEntry {
@@ -3574,7 +3780,7 @@ type RunningSessionResponse struct {
 
 func (x *RunningSessionResponse) Reset() {
 	*x = RunningSessionResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[60]
+	mi := &file_proto_tasky_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3586,7 +3792,7 @@ func (x *RunningSessionResponse) String() string {
 func (*RunningSessionResponse) ProtoMessage() {}
 
 func (x *RunningSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[60]
+	mi := &file_proto_tasky_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3599,7 +3805,7 @@ func (x *RunningSessionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunningSessionResponse.ProtoReflect.Descriptor instead.
 func (*RunningSessionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{60}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *RunningSessionResponse) GetSubtask() *SubtaskWithTime {
@@ -3618,7 +3824,7 @@ type JournalEntryListResponse struct {
 
 func (x *JournalEntryListResponse) Reset() {
 	*x = JournalEntryListResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[61]
+	mi := &file_proto_tasky_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3630,7 +3836,7 @@ func (x *JournalEntryListResponse) String() string {
 func (*JournalEntryListResponse) ProtoMessage() {}
 
 func (x *JournalEntryListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[61]
+	mi := &file_proto_tasky_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3643,7 +3849,7 @@ func (x *JournalEntryListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JournalEntryListResponse.ProtoReflect.Descriptor instead.
 func (*JournalEntryListResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{61}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *JournalEntryListResponse) GetEntries() []*JournalEntry {
@@ -3662,7 +3868,7 @@ type JournalEntryResponse struct {
 
 func (x *JournalEntryResponse) Reset() {
 	*x = JournalEntryResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[62]
+	mi := &file_proto_tasky_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3674,7 +3880,7 @@ func (x *JournalEntryResponse) String() string {
 func (*JournalEntryResponse) ProtoMessage() {}
 
 func (x *JournalEntryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[62]
+	mi := &file_proto_tasky_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3687,7 +3893,7 @@ func (x *JournalEntryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JournalEntryResponse.ProtoReflect.Descriptor instead.
 func (*JournalEntryResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{62}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *JournalEntryResponse) GetEntry() *JournalEntry {
@@ -3706,7 +3912,7 @@ type StatusListResponse struct {
 
 func (x *StatusListResponse) Reset() {
 	*x = StatusListResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[63]
+	mi := &file_proto_tasky_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3718,7 +3924,7 @@ func (x *StatusListResponse) String() string {
 func (*StatusListResponse) ProtoMessage() {}
 
 func (x *StatusListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[63]
+	mi := &file_proto_tasky_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3731,7 +3937,7 @@ func (x *StatusListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatusListResponse.ProtoReflect.Descriptor instead.
 func (*StatusListResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{63}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *StatusListResponse) GetStatuses() []*StatusDef {
@@ -3750,7 +3956,7 @@ type StatusResponse struct {
 
 func (x *StatusResponse) Reset() {
 	*x = StatusResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[64]
+	mi := &file_proto_tasky_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3762,7 +3968,7 @@ func (x *StatusResponse) String() string {
 func (*StatusResponse) ProtoMessage() {}
 
 func (x *StatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[64]
+	mi := &file_proto_tasky_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3775,7 +3981,7 @@ func (x *StatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatusResponse.ProtoReflect.Descriptor instead.
 func (*StatusResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{64}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *StatusResponse) GetStatus() *StatusDef {
@@ -3794,7 +4000,7 @@ type HistoryListResponse struct {
 
 func (x *HistoryListResponse) Reset() {
 	*x = HistoryListResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[65]
+	mi := &file_proto_tasky_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3806,7 +4012,7 @@ func (x *HistoryListResponse) String() string {
 func (*HistoryListResponse) ProtoMessage() {}
 
 func (x *HistoryListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[65]
+	mi := &file_proto_tasky_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3819,7 +4025,7 @@ func (x *HistoryListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HistoryListResponse.ProtoReflect.Descriptor instead.
 func (*HistoryListResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{65}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *HistoryListResponse) GetEntries() []*StatusHistoryEntry {
@@ -3838,7 +4044,7 @@ type TagTypeListResponse struct {
 
 func (x *TagTypeListResponse) Reset() {
 	*x = TagTypeListResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[66]
+	mi := &file_proto_tasky_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3850,7 +4056,7 @@ func (x *TagTypeListResponse) String() string {
 func (*TagTypeListResponse) ProtoMessage() {}
 
 func (x *TagTypeListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[66]
+	mi := &file_proto_tasky_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3863,7 +4069,7 @@ func (x *TagTypeListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TagTypeListResponse.ProtoReflect.Descriptor instead.
 func (*TagTypeListResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{66}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *TagTypeListResponse) GetTagTypes() []*TagType {
@@ -3882,7 +4088,7 @@ type TagTypeResponse struct {
 
 func (x *TagTypeResponse) Reset() {
 	*x = TagTypeResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[67]
+	mi := &file_proto_tasky_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3894,7 +4100,7 @@ func (x *TagTypeResponse) String() string {
 func (*TagTypeResponse) ProtoMessage() {}
 
 func (x *TagTypeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[67]
+	mi := &file_proto_tasky_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3907,7 +4113,7 @@ func (x *TagTypeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TagTypeResponse.ProtoReflect.Descriptor instead.
 func (*TagTypeResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{67}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *TagTypeResponse) GetTagType() *TagType {
@@ -3926,7 +4132,7 @@ type TagListResponse struct {
 
 func (x *TagListResponse) Reset() {
 	*x = TagListResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[68]
+	mi := &file_proto_tasky_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3938,7 +4144,7 @@ func (x *TagListResponse) String() string {
 func (*TagListResponse) ProtoMessage() {}
 
 func (x *TagListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[68]
+	mi := &file_proto_tasky_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3951,7 +4157,7 @@ func (x *TagListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TagListResponse.ProtoReflect.Descriptor instead.
 func (*TagListResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{68}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *TagListResponse) GetTags() []*Tag {
@@ -3970,7 +4176,7 @@ type TagResponse struct {
 
 func (x *TagResponse) Reset() {
 	*x = TagResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[69]
+	mi := &file_proto_tasky_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3982,7 +4188,7 @@ func (x *TagResponse) String() string {
 func (*TagResponse) ProtoMessage() {}
 
 func (x *TagResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[69]
+	mi := &file_proto_tasky_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3995,7 +4201,7 @@ func (x *TagResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TagResponse.ProtoReflect.Descriptor instead.
 func (*TagResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{69}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *TagResponse) GetTag() *Tag {
@@ -4014,7 +4220,7 @@ type ReportEntryListResponse struct {
 
 func (x *ReportEntryListResponse) Reset() {
 	*x = ReportEntryListResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[70]
+	mi := &file_proto_tasky_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4026,7 +4232,7 @@ func (x *ReportEntryListResponse) String() string {
 func (*ReportEntryListResponse) ProtoMessage() {}
 
 func (x *ReportEntryListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[70]
+	mi := &file_proto_tasky_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4039,7 +4245,7 @@ func (x *ReportEntryListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReportEntryListResponse.ProtoReflect.Descriptor instead.
 func (*ReportEntryListResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{70}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *ReportEntryListResponse) GetEntries() []*ReportEntry {
@@ -4058,7 +4264,7 @@ type ReportJournalEntryListResponse struct {
 
 func (x *ReportJournalEntryListResponse) Reset() {
 	*x = ReportJournalEntryListResponse{}
-	mi := &file_proto_tasky_proto_msgTypes[71]
+	mi := &file_proto_tasky_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4070,7 +4276,7 @@ func (x *ReportJournalEntryListResponse) String() string {
 func (*ReportJournalEntryListResponse) ProtoMessage() {}
 
 func (x *ReportJournalEntryListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[71]
+	mi := &file_proto_tasky_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4083,7 +4289,7 @@ func (x *ReportJournalEntryListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReportJournalEntryListResponse.ProtoReflect.Descriptor instead.
 func (*ReportJournalEntryListResponse) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{71}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *ReportJournalEntryListResponse) GetEntries() []*ReportJournalEntry {
@@ -4102,7 +4308,7 @@ type TagsByTasksRequest struct {
 
 func (x *TagsByTasksRequest) Reset() {
 	*x = TagsByTasksRequest{}
-	mi := &file_proto_tasky_proto_msgTypes[72]
+	mi := &file_proto_tasky_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4114,7 +4320,7 @@ func (x *TagsByTasksRequest) String() string {
 func (*TagsByTasksRequest) ProtoMessage() {}
 
 func (x *TagsByTasksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_tasky_proto_msgTypes[72]
+	mi := &file_proto_tasky_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4127,7 +4333,7 @@ func (x *TagsByTasksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TagsByTasksRequest.ProtoReflect.Descriptor instead.
 func (*TagsByTasksRequest) Descriptor() ([]byte, []int) {
-	return file_proto_tasky_proto_rawDescGZIP(), []int{72}
+	return file_proto_tasky_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *TagsByTasksRequest) GetTaskIds() []int64 {
@@ -4184,6 +4390,27 @@ const file_proto_tasky_proto_rawDesc = "" +
 	"started_at\x18\x03 \x01(\x03R\tstartedAt\x12\x1e\n" +
 	"\bended_at\x18\x04 \x01(\x03H\x00R\aendedAt\x88\x01\x01\x12\x12\n" +
 	"\x04note\x18\x05 \x01(\tR\x04noteB\v\n" +
+	"\t_ended_at\"\x85\x02\n" +
+	"\rTimeEntryInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1d\n" +
+	"\n" +
+	"subtask_id\x18\x02 \x01(\x03R\tsubtaskId\x12#\n" +
+	"\rsubtask_title\x18\x03 \x01(\tR\fsubtaskTitle\x12\x1d\n" +
+	"\n" +
+	"task_title\x18\x04 \x01(\tR\ttaskTitle\x12!\n" +
+	"\fproject_name\x18\x05 \x01(\tR\vprojectName\x12\x1d\n" +
+	"\n" +
+	"started_at\x18\x06 \x01(\x03R\tstartedAt\x12\x1e\n" +
+	"\bended_at\x18\a \x01(\x03H\x00R\aendedAt\x88\x01\x01\x12\x12\n" +
+	"\x04note\x18\b \x01(\tR\x04noteB\v\n" +
+	"\t_ended_at\"K\n" +
+	"\x19TimeEntryInfoListResponse\x12.\n" +
+	"\aentries\x18\x01 \x03(\v2\x14.tasky.TimeEntryInfoR\aentries\"t\n" +
+	"\x16UpdateTimeEntryRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1d\n" +
+	"\n" +
+	"started_at\x18\x02 \x01(\x03R\tstartedAt\x12\x1e\n" +
+	"\bended_at\x18\x03 \x01(\x03H\x00R\aendedAt\x88\x01\x01B\v\n" +
 	"\t_ended_at\"v\n" +
 	"\x04Link\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x19\n" +
@@ -4453,7 +4680,7 @@ const file_proto_tasky_proto_rawDesc = "" +
 	"\vStatusOwner\x12\x0e\n" +
 	"\n" +
 	"OWNER_TASK\x10\x00\x12\x11\n" +
-	"\rOWNER_SUBTASK\x10\x012\xdb!\n" +
+	"\rOWNER_SUBTASK\x10\x012\x9b#\n" +
 	"\x05Tasky\x128\n" +
 	"\fListProjects\x12\f.tasky.Empty\x1a\x1a.tasky.ProjectListResponse\x12B\n" +
 	"\rCreateProject\x12\x19.tasky.ProjectNameRequest\x1a\x16.tasky.ProjectResponse\x12/\n" +
@@ -4503,12 +4730,15 @@ const file_proto_tasky_proto_rawDesc = "" +
 	"\x13DeleteChecklistItem\x12\x10.tasky.IDRequest\x1a\f.tasky.Empty\x120\n" +
 	"\fStartSession\x12\x12.tasky.TimeRequest\x1a\f.tasky.Empty\x12/\n" +
 	"\vStopSession\x12\x12.tasky.TimeRequest\x1a\f.tasky.Empty\x12M\n" +
-	"\x14TimeEntriesBySubtask\x12\x17.tasky.SubtaskIDRequest\x1a\x1c.tasky.TimeEntryListResponse\x12=\n" +
+	"\x14TimeEntriesBySubtask\x12\x17.tasky.SubtaskIDRequest\x1a\x1c.tasky.TimeEntryListResponse\x12>\n" +
+	"\x0fUpdateTimeEntry\x12\x1d.tasky.UpdateTimeEntryRequest\x1a\f.tasky.Empty\x121\n" +
+	"\x0fDeleteTimeEntry\x12\x10.tasky.IDRequest\x1a\f.tasky.Empty\x12=\n" +
 	"\x0eRunningSession\x12\f.tasky.Empty\x1a\x1d.tasky.RunningSessionResponse\x123\n" +
 	"\n" +
 	"TodayTotal\x12\f.tasky.Empty\x1a\x17.tasky.DurationResponse\x124\n" +
 	"\vWeeklyTotal\x12\f.tasky.Empty\x1a\x17.tasky.DurationResponse\x12D\n" +
-	"\rReportEntries\x12\x13.tasky.RangeRequest\x1a\x1e.tasky.ReportEntryListResponse\x12\\\n" +
+	"\rReportEntries\x12\x13.tasky.RangeRequest\x1a\x1e.tasky.ReportEntryListResponse\x12K\n" +
+	"\x12TimeEntriesInRange\x12\x13.tasky.RangeRequest\x1a .tasky.TimeEntryInfoListResponse\x12\\\n" +
 	"\x15JournalEntriesByRange\x12\x1c.tasky.RangeNoProjectRequest\x1a%.tasky.ReportJournalEntryListResponse\x12@\n" +
 	"\vTagsByTasks\x12\x19.tasky.TagsByTasksRequest\x1a\x16.tasky.TagsMapResponse\x127\n" +
 	"\fListStatuses\x12\f.tasky.Empty\x1a\x19.tasky.StatusListResponse\x12;\n" +
@@ -4544,266 +4774,276 @@ func file_proto_tasky_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_tasky_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_tasky_proto_msgTypes = make([]protoimpl.MessageInfo, 78)
+var file_proto_tasky_proto_msgTypes = make([]protoimpl.MessageInfo, 81)
 var file_proto_tasky_proto_goTypes = []any{
 	(StatusOwner)(0),                       // 0: tasky.StatusOwner
 	(*Project)(nil),                        // 1: tasky.Project
 	(*Task)(nil),                           // 2: tasky.Task
 	(*SubtaskWithTime)(nil),                // 3: tasky.SubtaskWithTime
 	(*TimeEntry)(nil),                      // 4: tasky.TimeEntry
-	(*Link)(nil),                           // 5: tasky.Link
-	(*JournalEntry)(nil),                   // 6: tasky.JournalEntry
-	(*StatusDef)(nil),                      // 7: tasky.StatusDef
-	(*StatusHistoryEntry)(nil),             // 8: tasky.StatusHistoryEntry
-	(*TagType)(nil),                        // 9: tasky.TagType
-	(*Tag)(nil),                            // 10: tasky.Tag
-	(*ReportEntry)(nil),                    // 11: tasky.ReportEntry
-	(*ReportJournalEntry)(nil),             // 12: tasky.ReportJournalEntry
-	(*TagList)(nil),                        // 13: tasky.TagList
-	(*Empty)(nil),                          // 14: tasky.Empty
-	(*IDRequest)(nil),                      // 15: tasky.IDRequest
-	(*StringResponse)(nil),                 // 16: tasky.StringResponse
-	(*BoolResponse)(nil),                   // 17: tasky.BoolResponse
-	(*DurationResponse)(nil),               // 18: tasky.DurationResponse
-	(*ProjectNameRequest)(nil),             // 19: tasky.ProjectNameRequest
-	(*ProjectIDRequest)(nil),               // 20: tasky.ProjectIDRequest
-	(*TaskIDRequest)(nil),                  // 21: tasky.TaskIDRequest
-	(*CreateTaskRequest)(nil),              // 22: tasky.CreateTaskRequest
-	(*CreateSubtaskRequest)(nil),           // 23: tasky.CreateSubtaskRequest
-	(*SubtaskIDRequest)(nil),               // 24: tasky.SubtaskIDRequest
-	(*LinkNameRequest)(nil),                // 25: tasky.LinkNameRequest
-	(*MoveRequest)(nil),                    // 26: tasky.MoveRequest
-	(*TextRequest)(nil),                    // 27: tasky.TextRequest
-	(*TitleRequest)(nil),                   // 28: tasky.TitleRequest
-	(*JournalTextRequest)(nil),             // 29: tasky.JournalTextRequest
-	(*ChecklistItem)(nil),                  // 30: tasky.ChecklistItem
-	(*ChecklistItemListResponse)(nil),      // 31: tasky.ChecklistItemListResponse
-	(*ChecklistItemResponse)(nil),          // 32: tasky.ChecklistItemResponse
-	(*ChecklistStatusRequest)(nil),         // 33: tasky.ChecklistStatusRequest
-	(*ChecklistCountsResponse)(nil),        // 34: tasky.ChecklistCountsResponse
-	(*LinkOwnerRequest)(nil),               // 35: tasky.LinkOwnerRequest
-	(*TimeRequest)(nil),                    // 36: tasky.TimeRequest
-	(*RangeRequest)(nil),                   // 37: tasky.RangeRequest
-	(*RangeNoProjectRequest)(nil),          // 38: tasky.RangeNoProjectRequest
-	(*StatusRequest)(nil),                  // 39: tasky.StatusRequest
-	(*StatusUpdateRequest)(nil),            // 40: tasky.StatusUpdateRequest
-	(*SetStatusRequest)(nil),               // 41: tasky.SetStatusRequest
-	(*HistoryRequest)(nil),                 // 42: tasky.HistoryRequest
-	(*TagTypeRequest)(nil),                 // 43: tasky.TagTypeRequest
-	(*TagTypeUpdateRequest)(nil),           // 44: tasky.TagTypeUpdateRequest
-	(*TagRequest)(nil),                     // 45: tasky.TagRequest
-	(*TagUpdateRequest)(nil),               // 46: tasky.TagUpdateRequest
-	(*SettingRequest)(nil),                 // 47: tasky.SettingRequest
-	(*GetSettingResponse)(nil),             // 48: tasky.GetSettingResponse
-	(*JournalTextsResponse)(nil),           // 49: tasky.JournalTextsResponse
-	(*ProjectLinksTextsResponse)(nil),      // 50: tasky.ProjectLinksTextsResponse
-	(*TagsMapResponse)(nil),                // 51: tasky.TagsMapResponse
-	(*ProjectListResponse)(nil),            // 52: tasky.ProjectListResponse
-	(*ProjectResponse)(nil),                // 53: tasky.ProjectResponse
-	(*LinkListResponse)(nil),               // 54: tasky.LinkListResponse
-	(*LinkResponse)(nil),                   // 55: tasky.LinkResponse
-	(*TaskListResponse)(nil),               // 56: tasky.TaskListResponse
-	(*SubtaskListResponse)(nil),            // 57: tasky.SubtaskListResponse
-	(*TaskResponse)(nil),                   // 58: tasky.TaskResponse
-	(*SubtaskResponse)(nil),                // 59: tasky.SubtaskResponse
-	(*TimeEntryListResponse)(nil),          // 60: tasky.TimeEntryListResponse
-	(*RunningSessionResponse)(nil),         // 61: tasky.RunningSessionResponse
-	(*JournalEntryListResponse)(nil),       // 62: tasky.JournalEntryListResponse
-	(*JournalEntryResponse)(nil),           // 63: tasky.JournalEntryResponse
-	(*StatusListResponse)(nil),             // 64: tasky.StatusListResponse
-	(*StatusResponse)(nil),                 // 65: tasky.StatusResponse
-	(*HistoryListResponse)(nil),            // 66: tasky.HistoryListResponse
-	(*TagTypeListResponse)(nil),            // 67: tasky.TagTypeListResponse
-	(*TagTypeResponse)(nil),                // 68: tasky.TagTypeResponse
-	(*TagListResponse)(nil),                // 69: tasky.TagListResponse
-	(*TagResponse)(nil),                    // 70: tasky.TagResponse
-	(*ReportEntryListResponse)(nil),        // 71: tasky.ReportEntryListResponse
-	(*ReportJournalEntryListResponse)(nil), // 72: tasky.ReportJournalEntryListResponse
-	(*TagsByTasksRequest)(nil),             // 73: tasky.TagsByTasksRequest
-	nil,                                    // 74: tasky.ChecklistCountsResponse.DoneEntry
-	nil,                                    // 75: tasky.ChecklistCountsResponse.TotalEntry
-	nil,                                    // 76: tasky.JournalTextsResponse.TextsEntry
-	nil,                                    // 77: tasky.ProjectLinksTextsResponse.TextsEntry
-	nil,                                    // 78: tasky.TagsMapResponse.TagsEntry
+	(*TimeEntryInfo)(nil),                  // 5: tasky.TimeEntryInfo
+	(*TimeEntryInfoListResponse)(nil),      // 6: tasky.TimeEntryInfoListResponse
+	(*UpdateTimeEntryRequest)(nil),         // 7: tasky.UpdateTimeEntryRequest
+	(*Link)(nil),                           // 8: tasky.Link
+	(*JournalEntry)(nil),                   // 9: tasky.JournalEntry
+	(*StatusDef)(nil),                      // 10: tasky.StatusDef
+	(*StatusHistoryEntry)(nil),             // 11: tasky.StatusHistoryEntry
+	(*TagType)(nil),                        // 12: tasky.TagType
+	(*Tag)(nil),                            // 13: tasky.Tag
+	(*ReportEntry)(nil),                    // 14: tasky.ReportEntry
+	(*ReportJournalEntry)(nil),             // 15: tasky.ReportJournalEntry
+	(*TagList)(nil),                        // 16: tasky.TagList
+	(*Empty)(nil),                          // 17: tasky.Empty
+	(*IDRequest)(nil),                      // 18: tasky.IDRequest
+	(*StringResponse)(nil),                 // 19: tasky.StringResponse
+	(*BoolResponse)(nil),                   // 20: tasky.BoolResponse
+	(*DurationResponse)(nil),               // 21: tasky.DurationResponse
+	(*ProjectNameRequest)(nil),             // 22: tasky.ProjectNameRequest
+	(*ProjectIDRequest)(nil),               // 23: tasky.ProjectIDRequest
+	(*TaskIDRequest)(nil),                  // 24: tasky.TaskIDRequest
+	(*CreateTaskRequest)(nil),              // 25: tasky.CreateTaskRequest
+	(*CreateSubtaskRequest)(nil),           // 26: tasky.CreateSubtaskRequest
+	(*SubtaskIDRequest)(nil),               // 27: tasky.SubtaskIDRequest
+	(*LinkNameRequest)(nil),                // 28: tasky.LinkNameRequest
+	(*MoveRequest)(nil),                    // 29: tasky.MoveRequest
+	(*TextRequest)(nil),                    // 30: tasky.TextRequest
+	(*TitleRequest)(nil),                   // 31: tasky.TitleRequest
+	(*JournalTextRequest)(nil),             // 32: tasky.JournalTextRequest
+	(*ChecklistItem)(nil),                  // 33: tasky.ChecklistItem
+	(*ChecklistItemListResponse)(nil),      // 34: tasky.ChecklistItemListResponse
+	(*ChecklistItemResponse)(nil),          // 35: tasky.ChecklistItemResponse
+	(*ChecklistStatusRequest)(nil),         // 36: tasky.ChecklistStatusRequest
+	(*ChecklistCountsResponse)(nil),        // 37: tasky.ChecklistCountsResponse
+	(*LinkOwnerRequest)(nil),               // 38: tasky.LinkOwnerRequest
+	(*TimeRequest)(nil),                    // 39: tasky.TimeRequest
+	(*RangeRequest)(nil),                   // 40: tasky.RangeRequest
+	(*RangeNoProjectRequest)(nil),          // 41: tasky.RangeNoProjectRequest
+	(*StatusRequest)(nil),                  // 42: tasky.StatusRequest
+	(*StatusUpdateRequest)(nil),            // 43: tasky.StatusUpdateRequest
+	(*SetStatusRequest)(nil),               // 44: tasky.SetStatusRequest
+	(*HistoryRequest)(nil),                 // 45: tasky.HistoryRequest
+	(*TagTypeRequest)(nil),                 // 46: tasky.TagTypeRequest
+	(*TagTypeUpdateRequest)(nil),           // 47: tasky.TagTypeUpdateRequest
+	(*TagRequest)(nil),                     // 48: tasky.TagRequest
+	(*TagUpdateRequest)(nil),               // 49: tasky.TagUpdateRequest
+	(*SettingRequest)(nil),                 // 50: tasky.SettingRequest
+	(*GetSettingResponse)(nil),             // 51: tasky.GetSettingResponse
+	(*JournalTextsResponse)(nil),           // 52: tasky.JournalTextsResponse
+	(*ProjectLinksTextsResponse)(nil),      // 53: tasky.ProjectLinksTextsResponse
+	(*TagsMapResponse)(nil),                // 54: tasky.TagsMapResponse
+	(*ProjectListResponse)(nil),            // 55: tasky.ProjectListResponse
+	(*ProjectResponse)(nil),                // 56: tasky.ProjectResponse
+	(*LinkListResponse)(nil),               // 57: tasky.LinkListResponse
+	(*LinkResponse)(nil),                   // 58: tasky.LinkResponse
+	(*TaskListResponse)(nil),               // 59: tasky.TaskListResponse
+	(*SubtaskListResponse)(nil),            // 60: tasky.SubtaskListResponse
+	(*TaskResponse)(nil),                   // 61: tasky.TaskResponse
+	(*SubtaskResponse)(nil),                // 62: tasky.SubtaskResponse
+	(*TimeEntryListResponse)(nil),          // 63: tasky.TimeEntryListResponse
+	(*RunningSessionResponse)(nil),         // 64: tasky.RunningSessionResponse
+	(*JournalEntryListResponse)(nil),       // 65: tasky.JournalEntryListResponse
+	(*JournalEntryResponse)(nil),           // 66: tasky.JournalEntryResponse
+	(*StatusListResponse)(nil),             // 67: tasky.StatusListResponse
+	(*StatusResponse)(nil),                 // 68: tasky.StatusResponse
+	(*HistoryListResponse)(nil),            // 69: tasky.HistoryListResponse
+	(*TagTypeListResponse)(nil),            // 70: tasky.TagTypeListResponse
+	(*TagTypeResponse)(nil),                // 71: tasky.TagTypeResponse
+	(*TagListResponse)(nil),                // 72: tasky.TagListResponse
+	(*TagResponse)(nil),                    // 73: tasky.TagResponse
+	(*ReportEntryListResponse)(nil),        // 74: tasky.ReportEntryListResponse
+	(*ReportJournalEntryListResponse)(nil), // 75: tasky.ReportJournalEntryListResponse
+	(*TagsByTasksRequest)(nil),             // 76: tasky.TagsByTasksRequest
+	nil,                                    // 77: tasky.ChecklistCountsResponse.DoneEntry
+	nil,                                    // 78: tasky.ChecklistCountsResponse.TotalEntry
+	nil,                                    // 79: tasky.JournalTextsResponse.TextsEntry
+	nil,                                    // 80: tasky.ProjectLinksTextsResponse.TextsEntry
+	nil,                                    // 81: tasky.TagsMapResponse.TagsEntry
 }
 var file_proto_tasky_proto_depIdxs = []int32{
-	10,  // 0: tasky.TagList.tags:type_name -> tasky.Tag
-	30,  // 1: tasky.ChecklistItemListResponse.items:type_name -> tasky.ChecklistItem
-	30,  // 2: tasky.ChecklistItemResponse.item:type_name -> tasky.ChecklistItem
-	74,  // 3: tasky.ChecklistCountsResponse.done:type_name -> tasky.ChecklistCountsResponse.DoneEntry
-	75,  // 4: tasky.ChecklistCountsResponse.total:type_name -> tasky.ChecklistCountsResponse.TotalEntry
-	0,   // 5: tasky.SetStatusRequest.owner:type_name -> tasky.StatusOwner
-	0,   // 6: tasky.HistoryRequest.owner:type_name -> tasky.StatusOwner
-	76,  // 7: tasky.JournalTextsResponse.texts:type_name -> tasky.JournalTextsResponse.TextsEntry
-	77,  // 8: tasky.ProjectLinksTextsResponse.texts:type_name -> tasky.ProjectLinksTextsResponse.TextsEntry
-	78,  // 9: tasky.TagsMapResponse.tags:type_name -> tasky.TagsMapResponse.TagsEntry
-	1,   // 10: tasky.ProjectListResponse.projects:type_name -> tasky.Project
-	1,   // 11: tasky.ProjectResponse.project:type_name -> tasky.Project
-	5,   // 12: tasky.LinkListResponse.links:type_name -> tasky.Link
-	5,   // 13: tasky.LinkResponse.link:type_name -> tasky.Link
-	2,   // 14: tasky.TaskListResponse.tasks:type_name -> tasky.Task
-	3,   // 15: tasky.SubtaskListResponse.subtasks:type_name -> tasky.SubtaskWithTime
-	2,   // 16: tasky.TaskResponse.task:type_name -> tasky.Task
-	3,   // 17: tasky.SubtaskResponse.subtask:type_name -> tasky.SubtaskWithTime
-	4,   // 18: tasky.TimeEntryListResponse.entries:type_name -> tasky.TimeEntry
-	3,   // 19: tasky.RunningSessionResponse.subtask:type_name -> tasky.SubtaskWithTime
-	6,   // 20: tasky.JournalEntryListResponse.entries:type_name -> tasky.JournalEntry
-	6,   // 21: tasky.JournalEntryResponse.entry:type_name -> tasky.JournalEntry
-	7,   // 22: tasky.StatusListResponse.statuses:type_name -> tasky.StatusDef
-	7,   // 23: tasky.StatusResponse.status:type_name -> tasky.StatusDef
-	8,   // 24: tasky.HistoryListResponse.entries:type_name -> tasky.StatusHistoryEntry
-	9,   // 25: tasky.TagTypeListResponse.tag_types:type_name -> tasky.TagType
-	9,   // 26: tasky.TagTypeResponse.tag_type:type_name -> tasky.TagType
-	10,  // 27: tasky.TagListResponse.tags:type_name -> tasky.Tag
-	10,  // 28: tasky.TagResponse.tag:type_name -> tasky.Tag
-	11,  // 29: tasky.ReportEntryListResponse.entries:type_name -> tasky.ReportEntry
-	12,  // 30: tasky.ReportJournalEntryListResponse.entries:type_name -> tasky.ReportJournalEntry
-	13,  // 31: tasky.TagsMapResponse.TagsEntry.value:type_name -> tasky.TagList
-	14,  // 32: tasky.Tasky.ListProjects:input_type -> tasky.Empty
-	19,  // 33: tasky.Tasky.CreateProject:input_type -> tasky.ProjectNameRequest
-	15,  // 34: tasky.Tasky.DeleteProject:input_type -> tasky.IDRequest
-	15,  // 35: tasky.Tasky.ProjectDescription:input_type -> tasky.IDRequest
-	27,  // 36: tasky.Tasky.UpdateProjectDescription:input_type -> tasky.TextRequest
-	20,  // 37: tasky.Tasky.ProjectLinks:input_type -> tasky.ProjectIDRequest
-	35,  // 38: tasky.Tasky.CreateProjectLink:input_type -> tasky.LinkOwnerRequest
-	25,  // 39: tasky.Tasky.UpdateProjectLink:input_type -> tasky.LinkNameRequest
-	15,  // 40: tasky.Tasky.DeleteProjectLink:input_type -> tasky.IDRequest
-	14,  // 41: tasky.Tasky.ProjectLinksTexts:input_type -> tasky.Empty
-	20,  // 42: tasky.Tasky.TasksByProject:input_type -> tasky.ProjectIDRequest
-	20,  // 43: tasky.Tasky.SubtasksByProject:input_type -> tasky.ProjectIDRequest
-	21,  // 44: tasky.Tasky.SubtasksWithTime:input_type -> tasky.TaskIDRequest
-	22,  // 45: tasky.Tasky.CreateTask:input_type -> tasky.CreateTaskRequest
-	15,  // 46: tasky.Tasky.DeleteTask:input_type -> tasky.IDRequest
-	23,  // 47: tasky.Tasky.CreateSubtask:input_type -> tasky.CreateSubtaskRequest
-	15,  // 48: tasky.Tasky.DeleteSubtask:input_type -> tasky.IDRequest
-	26,  // 49: tasky.Tasky.MoveTask:input_type -> tasky.MoveRequest
-	26,  // 50: tasky.Tasky.MoveSubtask:input_type -> tasky.MoveRequest
-	28,  // 51: tasky.Tasky.UpdateTaskTitle:input_type -> tasky.TitleRequest
-	28,  // 52: tasky.Tasky.UpdateSubtaskTitle:input_type -> tasky.TitleRequest
-	15,  // 53: tasky.Tasky.TaskDescription:input_type -> tasky.IDRequest
-	15,  // 54: tasky.Tasky.SubtaskDescription:input_type -> tasky.IDRequest
-	27,  // 55: tasky.Tasky.UpdateTaskDescription:input_type -> tasky.TextRequest
-	27,  // 56: tasky.Tasky.UpdateSubtaskDescription:input_type -> tasky.TextRequest
-	21,  // 57: tasky.Tasky.TaskLinks:input_type -> tasky.TaskIDRequest
-	24,  // 58: tasky.Tasky.SubtaskLinks:input_type -> tasky.SubtaskIDRequest
-	35,  // 59: tasky.Tasky.CreateTaskLink:input_type -> tasky.LinkOwnerRequest
-	25,  // 60: tasky.Tasky.UpdateTaskLink:input_type -> tasky.LinkNameRequest
-	35,  // 61: tasky.Tasky.CreateSubtaskLink:input_type -> tasky.LinkOwnerRequest
-	25,  // 62: tasky.Tasky.UpdateSubtaskLink:input_type -> tasky.LinkNameRequest
-	15,  // 63: tasky.Tasky.DeleteTaskLink:input_type -> tasky.IDRequest
-	15,  // 64: tasky.Tasky.DeleteSubtaskLink:input_type -> tasky.IDRequest
-	24,  // 65: tasky.Tasky.JournalEntries:input_type -> tasky.SubtaskIDRequest
-	29,  // 66: tasky.Tasky.CreateJournalEntry:input_type -> tasky.JournalTextRequest
-	29,  // 67: tasky.Tasky.UpdateJournalEntry:input_type -> tasky.JournalTextRequest
-	20,  // 68: tasky.Tasky.JournalTexts:input_type -> tasky.ProjectIDRequest
-	24,  // 69: tasky.Tasky.ChecklistItems:input_type -> tasky.SubtaskIDRequest
-	20,  // 70: tasky.Tasky.ChecklistCounts:input_type -> tasky.ProjectIDRequest
-	29,  // 71: tasky.Tasky.CreateChecklistItem:input_type -> tasky.JournalTextRequest
-	29,  // 72: tasky.Tasky.UpdateChecklistItemText:input_type -> tasky.JournalTextRequest
-	33,  // 73: tasky.Tasky.SetChecklistItemStatus:input_type -> tasky.ChecklistStatusRequest
-	26,  // 74: tasky.Tasky.MoveChecklistItem:input_type -> tasky.MoveRequest
-	15,  // 75: tasky.Tasky.DeleteChecklistItem:input_type -> tasky.IDRequest
-	36,  // 76: tasky.Tasky.StartSession:input_type -> tasky.TimeRequest
-	36,  // 77: tasky.Tasky.StopSession:input_type -> tasky.TimeRequest
-	24,  // 78: tasky.Tasky.TimeEntriesBySubtask:input_type -> tasky.SubtaskIDRequest
-	14,  // 79: tasky.Tasky.RunningSession:input_type -> tasky.Empty
-	14,  // 80: tasky.Tasky.TodayTotal:input_type -> tasky.Empty
-	14,  // 81: tasky.Tasky.WeeklyTotal:input_type -> tasky.Empty
-	37,  // 82: tasky.Tasky.ReportEntries:input_type -> tasky.RangeRequest
-	38,  // 83: tasky.Tasky.JournalEntriesByRange:input_type -> tasky.RangeNoProjectRequest
-	73,  // 84: tasky.Tasky.TagsByTasks:input_type -> tasky.TagsByTasksRequest
-	14,  // 85: tasky.Tasky.ListStatuses:input_type -> tasky.Empty
-	39,  // 86: tasky.Tasky.CreateStatus:input_type -> tasky.StatusRequest
-	40,  // 87: tasky.Tasky.UpdateStatus:input_type -> tasky.StatusUpdateRequest
-	15,  // 88: tasky.Tasky.DeleteStatus:input_type -> tasky.IDRequest
-	41,  // 89: tasky.Tasky.SetStatus:input_type -> tasky.SetStatusRequest
-	42,  // 90: tasky.Tasky.StatusHistory:input_type -> tasky.HistoryRequest
-	14,  // 91: tasky.Tasky.ListTagTypes:input_type -> tasky.Empty
-	43,  // 92: tasky.Tasky.CreateTagType:input_type -> tasky.TagTypeRequest
-	44,  // 93: tasky.Tasky.UpdateTagType:input_type -> tasky.TagTypeUpdateRequest
-	15,  // 94: tasky.Tasky.DeleteTagType:input_type -> tasky.IDRequest
-	21,  // 95: tasky.Tasky.TaskTags:input_type -> tasky.TaskIDRequest
-	20,  // 96: tasky.Tasky.TagsByProject:input_type -> tasky.ProjectIDRequest
-	45,  // 97: tasky.Tasky.CreateTag:input_type -> tasky.TagRequest
-	46,  // 98: tasky.Tasky.UpdateTag:input_type -> tasky.TagUpdateRequest
-	15,  // 99: tasky.Tasky.DeleteTag:input_type -> tasky.IDRequest
-	47,  // 100: tasky.Tasky.GetSetting:input_type -> tasky.SettingRequest
-	47,  // 101: tasky.Tasky.SetSetting:input_type -> tasky.SettingRequest
-	52,  // 102: tasky.Tasky.ListProjects:output_type -> tasky.ProjectListResponse
-	53,  // 103: tasky.Tasky.CreateProject:output_type -> tasky.ProjectResponse
-	14,  // 104: tasky.Tasky.DeleteProject:output_type -> tasky.Empty
-	16,  // 105: tasky.Tasky.ProjectDescription:output_type -> tasky.StringResponse
-	14,  // 106: tasky.Tasky.UpdateProjectDescription:output_type -> tasky.Empty
-	54,  // 107: tasky.Tasky.ProjectLinks:output_type -> tasky.LinkListResponse
-	55,  // 108: tasky.Tasky.CreateProjectLink:output_type -> tasky.LinkResponse
-	55,  // 109: tasky.Tasky.UpdateProjectLink:output_type -> tasky.LinkResponse
-	14,  // 110: tasky.Tasky.DeleteProjectLink:output_type -> tasky.Empty
-	50,  // 111: tasky.Tasky.ProjectLinksTexts:output_type -> tasky.ProjectLinksTextsResponse
-	56,  // 112: tasky.Tasky.TasksByProject:output_type -> tasky.TaskListResponse
-	57,  // 113: tasky.Tasky.SubtasksByProject:output_type -> tasky.SubtaskListResponse
-	57,  // 114: tasky.Tasky.SubtasksWithTime:output_type -> tasky.SubtaskListResponse
-	58,  // 115: tasky.Tasky.CreateTask:output_type -> tasky.TaskResponse
-	14,  // 116: tasky.Tasky.DeleteTask:output_type -> tasky.Empty
-	59,  // 117: tasky.Tasky.CreateSubtask:output_type -> tasky.SubtaskResponse
-	14,  // 118: tasky.Tasky.DeleteSubtask:output_type -> tasky.Empty
-	14,  // 119: tasky.Tasky.MoveTask:output_type -> tasky.Empty
-	14,  // 120: tasky.Tasky.MoveSubtask:output_type -> tasky.Empty
-	14,  // 121: tasky.Tasky.UpdateTaskTitle:output_type -> tasky.Empty
-	14,  // 122: tasky.Tasky.UpdateSubtaskTitle:output_type -> tasky.Empty
-	16,  // 123: tasky.Tasky.TaskDescription:output_type -> tasky.StringResponse
-	16,  // 124: tasky.Tasky.SubtaskDescription:output_type -> tasky.StringResponse
-	14,  // 125: tasky.Tasky.UpdateTaskDescription:output_type -> tasky.Empty
-	14,  // 126: tasky.Tasky.UpdateSubtaskDescription:output_type -> tasky.Empty
-	54,  // 127: tasky.Tasky.TaskLinks:output_type -> tasky.LinkListResponse
-	54,  // 128: tasky.Tasky.SubtaskLinks:output_type -> tasky.LinkListResponse
-	55,  // 129: tasky.Tasky.CreateTaskLink:output_type -> tasky.LinkResponse
-	55,  // 130: tasky.Tasky.UpdateTaskLink:output_type -> tasky.LinkResponse
-	55,  // 131: tasky.Tasky.CreateSubtaskLink:output_type -> tasky.LinkResponse
-	55,  // 132: tasky.Tasky.UpdateSubtaskLink:output_type -> tasky.LinkResponse
-	14,  // 133: tasky.Tasky.DeleteTaskLink:output_type -> tasky.Empty
-	14,  // 134: tasky.Tasky.DeleteSubtaskLink:output_type -> tasky.Empty
-	62,  // 135: tasky.Tasky.JournalEntries:output_type -> tasky.JournalEntryListResponse
-	63,  // 136: tasky.Tasky.CreateJournalEntry:output_type -> tasky.JournalEntryResponse
-	14,  // 137: tasky.Tasky.UpdateJournalEntry:output_type -> tasky.Empty
-	49,  // 138: tasky.Tasky.JournalTexts:output_type -> tasky.JournalTextsResponse
-	31,  // 139: tasky.Tasky.ChecklistItems:output_type -> tasky.ChecklistItemListResponse
-	34,  // 140: tasky.Tasky.ChecklistCounts:output_type -> tasky.ChecklistCountsResponse
-	32,  // 141: tasky.Tasky.CreateChecklistItem:output_type -> tasky.ChecklistItemResponse
-	14,  // 142: tasky.Tasky.UpdateChecklistItemText:output_type -> tasky.Empty
-	14,  // 143: tasky.Tasky.SetChecklistItemStatus:output_type -> tasky.Empty
-	14,  // 144: tasky.Tasky.MoveChecklistItem:output_type -> tasky.Empty
-	14,  // 145: tasky.Tasky.DeleteChecklistItem:output_type -> tasky.Empty
-	14,  // 146: tasky.Tasky.StartSession:output_type -> tasky.Empty
-	14,  // 147: tasky.Tasky.StopSession:output_type -> tasky.Empty
-	60,  // 148: tasky.Tasky.TimeEntriesBySubtask:output_type -> tasky.TimeEntryListResponse
-	61,  // 149: tasky.Tasky.RunningSession:output_type -> tasky.RunningSessionResponse
-	18,  // 150: tasky.Tasky.TodayTotal:output_type -> tasky.DurationResponse
-	18,  // 151: tasky.Tasky.WeeklyTotal:output_type -> tasky.DurationResponse
-	71,  // 152: tasky.Tasky.ReportEntries:output_type -> tasky.ReportEntryListResponse
-	72,  // 153: tasky.Tasky.JournalEntriesByRange:output_type -> tasky.ReportJournalEntryListResponse
-	51,  // 154: tasky.Tasky.TagsByTasks:output_type -> tasky.TagsMapResponse
-	64,  // 155: tasky.Tasky.ListStatuses:output_type -> tasky.StatusListResponse
-	65,  // 156: tasky.Tasky.CreateStatus:output_type -> tasky.StatusResponse
-	14,  // 157: tasky.Tasky.UpdateStatus:output_type -> tasky.Empty
-	14,  // 158: tasky.Tasky.DeleteStatus:output_type -> tasky.Empty
-	14,  // 159: tasky.Tasky.SetStatus:output_type -> tasky.Empty
-	66,  // 160: tasky.Tasky.StatusHistory:output_type -> tasky.HistoryListResponse
-	67,  // 161: tasky.Tasky.ListTagTypes:output_type -> tasky.TagTypeListResponse
-	68,  // 162: tasky.Tasky.CreateTagType:output_type -> tasky.TagTypeResponse
-	14,  // 163: tasky.Tasky.UpdateTagType:output_type -> tasky.Empty
-	14,  // 164: tasky.Tasky.DeleteTagType:output_type -> tasky.Empty
-	69,  // 165: tasky.Tasky.TaskTags:output_type -> tasky.TagListResponse
-	51,  // 166: tasky.Tasky.TagsByProject:output_type -> tasky.TagsMapResponse
-	70,  // 167: tasky.Tasky.CreateTag:output_type -> tasky.TagResponse
-	14,  // 168: tasky.Tasky.UpdateTag:output_type -> tasky.Empty
-	14,  // 169: tasky.Tasky.DeleteTag:output_type -> tasky.Empty
-	48,  // 170: tasky.Tasky.GetSetting:output_type -> tasky.GetSettingResponse
-	14,  // 171: tasky.Tasky.SetSetting:output_type -> tasky.Empty
-	102, // [102:172] is the sub-list for method output_type
-	32,  // [32:102] is the sub-list for method input_type
-	32,  // [32:32] is the sub-list for extension type_name
-	32,  // [32:32] is the sub-list for extension extendee
-	0,   // [0:32] is the sub-list for field type_name
+	5,   // 0: tasky.TimeEntryInfoListResponse.entries:type_name -> tasky.TimeEntryInfo
+	13,  // 1: tasky.TagList.tags:type_name -> tasky.Tag
+	33,  // 2: tasky.ChecklistItemListResponse.items:type_name -> tasky.ChecklistItem
+	33,  // 3: tasky.ChecklistItemResponse.item:type_name -> tasky.ChecklistItem
+	77,  // 4: tasky.ChecklistCountsResponse.done:type_name -> tasky.ChecklistCountsResponse.DoneEntry
+	78,  // 5: tasky.ChecklistCountsResponse.total:type_name -> tasky.ChecklistCountsResponse.TotalEntry
+	0,   // 6: tasky.SetStatusRequest.owner:type_name -> tasky.StatusOwner
+	0,   // 7: tasky.HistoryRequest.owner:type_name -> tasky.StatusOwner
+	79,  // 8: tasky.JournalTextsResponse.texts:type_name -> tasky.JournalTextsResponse.TextsEntry
+	80,  // 9: tasky.ProjectLinksTextsResponse.texts:type_name -> tasky.ProjectLinksTextsResponse.TextsEntry
+	81,  // 10: tasky.TagsMapResponse.tags:type_name -> tasky.TagsMapResponse.TagsEntry
+	1,   // 11: tasky.ProjectListResponse.projects:type_name -> tasky.Project
+	1,   // 12: tasky.ProjectResponse.project:type_name -> tasky.Project
+	8,   // 13: tasky.LinkListResponse.links:type_name -> tasky.Link
+	8,   // 14: tasky.LinkResponse.link:type_name -> tasky.Link
+	2,   // 15: tasky.TaskListResponse.tasks:type_name -> tasky.Task
+	3,   // 16: tasky.SubtaskListResponse.subtasks:type_name -> tasky.SubtaskWithTime
+	2,   // 17: tasky.TaskResponse.task:type_name -> tasky.Task
+	3,   // 18: tasky.SubtaskResponse.subtask:type_name -> tasky.SubtaskWithTime
+	4,   // 19: tasky.TimeEntryListResponse.entries:type_name -> tasky.TimeEntry
+	3,   // 20: tasky.RunningSessionResponse.subtask:type_name -> tasky.SubtaskWithTime
+	9,   // 21: tasky.JournalEntryListResponse.entries:type_name -> tasky.JournalEntry
+	9,   // 22: tasky.JournalEntryResponse.entry:type_name -> tasky.JournalEntry
+	10,  // 23: tasky.StatusListResponse.statuses:type_name -> tasky.StatusDef
+	10,  // 24: tasky.StatusResponse.status:type_name -> tasky.StatusDef
+	11,  // 25: tasky.HistoryListResponse.entries:type_name -> tasky.StatusHistoryEntry
+	12,  // 26: tasky.TagTypeListResponse.tag_types:type_name -> tasky.TagType
+	12,  // 27: tasky.TagTypeResponse.tag_type:type_name -> tasky.TagType
+	13,  // 28: tasky.TagListResponse.tags:type_name -> tasky.Tag
+	13,  // 29: tasky.TagResponse.tag:type_name -> tasky.Tag
+	14,  // 30: tasky.ReportEntryListResponse.entries:type_name -> tasky.ReportEntry
+	15,  // 31: tasky.ReportJournalEntryListResponse.entries:type_name -> tasky.ReportJournalEntry
+	16,  // 32: tasky.TagsMapResponse.TagsEntry.value:type_name -> tasky.TagList
+	17,  // 33: tasky.Tasky.ListProjects:input_type -> tasky.Empty
+	22,  // 34: tasky.Tasky.CreateProject:input_type -> tasky.ProjectNameRequest
+	18,  // 35: tasky.Tasky.DeleteProject:input_type -> tasky.IDRequest
+	18,  // 36: tasky.Tasky.ProjectDescription:input_type -> tasky.IDRequest
+	30,  // 37: tasky.Tasky.UpdateProjectDescription:input_type -> tasky.TextRequest
+	23,  // 38: tasky.Tasky.ProjectLinks:input_type -> tasky.ProjectIDRequest
+	38,  // 39: tasky.Tasky.CreateProjectLink:input_type -> tasky.LinkOwnerRequest
+	28,  // 40: tasky.Tasky.UpdateProjectLink:input_type -> tasky.LinkNameRequest
+	18,  // 41: tasky.Tasky.DeleteProjectLink:input_type -> tasky.IDRequest
+	17,  // 42: tasky.Tasky.ProjectLinksTexts:input_type -> tasky.Empty
+	23,  // 43: tasky.Tasky.TasksByProject:input_type -> tasky.ProjectIDRequest
+	23,  // 44: tasky.Tasky.SubtasksByProject:input_type -> tasky.ProjectIDRequest
+	24,  // 45: tasky.Tasky.SubtasksWithTime:input_type -> tasky.TaskIDRequest
+	25,  // 46: tasky.Tasky.CreateTask:input_type -> tasky.CreateTaskRequest
+	18,  // 47: tasky.Tasky.DeleteTask:input_type -> tasky.IDRequest
+	26,  // 48: tasky.Tasky.CreateSubtask:input_type -> tasky.CreateSubtaskRequest
+	18,  // 49: tasky.Tasky.DeleteSubtask:input_type -> tasky.IDRequest
+	29,  // 50: tasky.Tasky.MoveTask:input_type -> tasky.MoveRequest
+	29,  // 51: tasky.Tasky.MoveSubtask:input_type -> tasky.MoveRequest
+	31,  // 52: tasky.Tasky.UpdateTaskTitle:input_type -> tasky.TitleRequest
+	31,  // 53: tasky.Tasky.UpdateSubtaskTitle:input_type -> tasky.TitleRequest
+	18,  // 54: tasky.Tasky.TaskDescription:input_type -> tasky.IDRequest
+	18,  // 55: tasky.Tasky.SubtaskDescription:input_type -> tasky.IDRequest
+	30,  // 56: tasky.Tasky.UpdateTaskDescription:input_type -> tasky.TextRequest
+	30,  // 57: tasky.Tasky.UpdateSubtaskDescription:input_type -> tasky.TextRequest
+	24,  // 58: tasky.Tasky.TaskLinks:input_type -> tasky.TaskIDRequest
+	27,  // 59: tasky.Tasky.SubtaskLinks:input_type -> tasky.SubtaskIDRequest
+	38,  // 60: tasky.Tasky.CreateTaskLink:input_type -> tasky.LinkOwnerRequest
+	28,  // 61: tasky.Tasky.UpdateTaskLink:input_type -> tasky.LinkNameRequest
+	38,  // 62: tasky.Tasky.CreateSubtaskLink:input_type -> tasky.LinkOwnerRequest
+	28,  // 63: tasky.Tasky.UpdateSubtaskLink:input_type -> tasky.LinkNameRequest
+	18,  // 64: tasky.Tasky.DeleteTaskLink:input_type -> tasky.IDRequest
+	18,  // 65: tasky.Tasky.DeleteSubtaskLink:input_type -> tasky.IDRequest
+	27,  // 66: tasky.Tasky.JournalEntries:input_type -> tasky.SubtaskIDRequest
+	32,  // 67: tasky.Tasky.CreateJournalEntry:input_type -> tasky.JournalTextRequest
+	32,  // 68: tasky.Tasky.UpdateJournalEntry:input_type -> tasky.JournalTextRequest
+	23,  // 69: tasky.Tasky.JournalTexts:input_type -> tasky.ProjectIDRequest
+	27,  // 70: tasky.Tasky.ChecklistItems:input_type -> tasky.SubtaskIDRequest
+	23,  // 71: tasky.Tasky.ChecklistCounts:input_type -> tasky.ProjectIDRequest
+	32,  // 72: tasky.Tasky.CreateChecklistItem:input_type -> tasky.JournalTextRequest
+	32,  // 73: tasky.Tasky.UpdateChecklistItemText:input_type -> tasky.JournalTextRequest
+	36,  // 74: tasky.Tasky.SetChecklistItemStatus:input_type -> tasky.ChecklistStatusRequest
+	29,  // 75: tasky.Tasky.MoveChecklistItem:input_type -> tasky.MoveRequest
+	18,  // 76: tasky.Tasky.DeleteChecklistItem:input_type -> tasky.IDRequest
+	39,  // 77: tasky.Tasky.StartSession:input_type -> tasky.TimeRequest
+	39,  // 78: tasky.Tasky.StopSession:input_type -> tasky.TimeRequest
+	27,  // 79: tasky.Tasky.TimeEntriesBySubtask:input_type -> tasky.SubtaskIDRequest
+	7,   // 80: tasky.Tasky.UpdateTimeEntry:input_type -> tasky.UpdateTimeEntryRequest
+	18,  // 81: tasky.Tasky.DeleteTimeEntry:input_type -> tasky.IDRequest
+	17,  // 82: tasky.Tasky.RunningSession:input_type -> tasky.Empty
+	17,  // 83: tasky.Tasky.TodayTotal:input_type -> tasky.Empty
+	17,  // 84: tasky.Tasky.WeeklyTotal:input_type -> tasky.Empty
+	40,  // 85: tasky.Tasky.ReportEntries:input_type -> tasky.RangeRequest
+	40,  // 86: tasky.Tasky.TimeEntriesInRange:input_type -> tasky.RangeRequest
+	41,  // 87: tasky.Tasky.JournalEntriesByRange:input_type -> tasky.RangeNoProjectRequest
+	76,  // 88: tasky.Tasky.TagsByTasks:input_type -> tasky.TagsByTasksRequest
+	17,  // 89: tasky.Tasky.ListStatuses:input_type -> tasky.Empty
+	42,  // 90: tasky.Tasky.CreateStatus:input_type -> tasky.StatusRequest
+	43,  // 91: tasky.Tasky.UpdateStatus:input_type -> tasky.StatusUpdateRequest
+	18,  // 92: tasky.Tasky.DeleteStatus:input_type -> tasky.IDRequest
+	44,  // 93: tasky.Tasky.SetStatus:input_type -> tasky.SetStatusRequest
+	45,  // 94: tasky.Tasky.StatusHistory:input_type -> tasky.HistoryRequest
+	17,  // 95: tasky.Tasky.ListTagTypes:input_type -> tasky.Empty
+	46,  // 96: tasky.Tasky.CreateTagType:input_type -> tasky.TagTypeRequest
+	47,  // 97: tasky.Tasky.UpdateTagType:input_type -> tasky.TagTypeUpdateRequest
+	18,  // 98: tasky.Tasky.DeleteTagType:input_type -> tasky.IDRequest
+	24,  // 99: tasky.Tasky.TaskTags:input_type -> tasky.TaskIDRequest
+	23,  // 100: tasky.Tasky.TagsByProject:input_type -> tasky.ProjectIDRequest
+	48,  // 101: tasky.Tasky.CreateTag:input_type -> tasky.TagRequest
+	49,  // 102: tasky.Tasky.UpdateTag:input_type -> tasky.TagUpdateRequest
+	18,  // 103: tasky.Tasky.DeleteTag:input_type -> tasky.IDRequest
+	50,  // 104: tasky.Tasky.GetSetting:input_type -> tasky.SettingRequest
+	50,  // 105: tasky.Tasky.SetSetting:input_type -> tasky.SettingRequest
+	55,  // 106: tasky.Tasky.ListProjects:output_type -> tasky.ProjectListResponse
+	56,  // 107: tasky.Tasky.CreateProject:output_type -> tasky.ProjectResponse
+	17,  // 108: tasky.Tasky.DeleteProject:output_type -> tasky.Empty
+	19,  // 109: tasky.Tasky.ProjectDescription:output_type -> tasky.StringResponse
+	17,  // 110: tasky.Tasky.UpdateProjectDescription:output_type -> tasky.Empty
+	57,  // 111: tasky.Tasky.ProjectLinks:output_type -> tasky.LinkListResponse
+	58,  // 112: tasky.Tasky.CreateProjectLink:output_type -> tasky.LinkResponse
+	58,  // 113: tasky.Tasky.UpdateProjectLink:output_type -> tasky.LinkResponse
+	17,  // 114: tasky.Tasky.DeleteProjectLink:output_type -> tasky.Empty
+	53,  // 115: tasky.Tasky.ProjectLinksTexts:output_type -> tasky.ProjectLinksTextsResponse
+	59,  // 116: tasky.Tasky.TasksByProject:output_type -> tasky.TaskListResponse
+	60,  // 117: tasky.Tasky.SubtasksByProject:output_type -> tasky.SubtaskListResponse
+	60,  // 118: tasky.Tasky.SubtasksWithTime:output_type -> tasky.SubtaskListResponse
+	61,  // 119: tasky.Tasky.CreateTask:output_type -> tasky.TaskResponse
+	17,  // 120: tasky.Tasky.DeleteTask:output_type -> tasky.Empty
+	62,  // 121: tasky.Tasky.CreateSubtask:output_type -> tasky.SubtaskResponse
+	17,  // 122: tasky.Tasky.DeleteSubtask:output_type -> tasky.Empty
+	17,  // 123: tasky.Tasky.MoveTask:output_type -> tasky.Empty
+	17,  // 124: tasky.Tasky.MoveSubtask:output_type -> tasky.Empty
+	17,  // 125: tasky.Tasky.UpdateTaskTitle:output_type -> tasky.Empty
+	17,  // 126: tasky.Tasky.UpdateSubtaskTitle:output_type -> tasky.Empty
+	19,  // 127: tasky.Tasky.TaskDescription:output_type -> tasky.StringResponse
+	19,  // 128: tasky.Tasky.SubtaskDescription:output_type -> tasky.StringResponse
+	17,  // 129: tasky.Tasky.UpdateTaskDescription:output_type -> tasky.Empty
+	17,  // 130: tasky.Tasky.UpdateSubtaskDescription:output_type -> tasky.Empty
+	57,  // 131: tasky.Tasky.TaskLinks:output_type -> tasky.LinkListResponse
+	57,  // 132: tasky.Tasky.SubtaskLinks:output_type -> tasky.LinkListResponse
+	58,  // 133: tasky.Tasky.CreateTaskLink:output_type -> tasky.LinkResponse
+	58,  // 134: tasky.Tasky.UpdateTaskLink:output_type -> tasky.LinkResponse
+	58,  // 135: tasky.Tasky.CreateSubtaskLink:output_type -> tasky.LinkResponse
+	58,  // 136: tasky.Tasky.UpdateSubtaskLink:output_type -> tasky.LinkResponse
+	17,  // 137: tasky.Tasky.DeleteTaskLink:output_type -> tasky.Empty
+	17,  // 138: tasky.Tasky.DeleteSubtaskLink:output_type -> tasky.Empty
+	65,  // 139: tasky.Tasky.JournalEntries:output_type -> tasky.JournalEntryListResponse
+	66,  // 140: tasky.Tasky.CreateJournalEntry:output_type -> tasky.JournalEntryResponse
+	17,  // 141: tasky.Tasky.UpdateJournalEntry:output_type -> tasky.Empty
+	52,  // 142: tasky.Tasky.JournalTexts:output_type -> tasky.JournalTextsResponse
+	34,  // 143: tasky.Tasky.ChecklistItems:output_type -> tasky.ChecklistItemListResponse
+	37,  // 144: tasky.Tasky.ChecklistCounts:output_type -> tasky.ChecklistCountsResponse
+	35,  // 145: tasky.Tasky.CreateChecklistItem:output_type -> tasky.ChecklistItemResponse
+	17,  // 146: tasky.Tasky.UpdateChecklistItemText:output_type -> tasky.Empty
+	17,  // 147: tasky.Tasky.SetChecklistItemStatus:output_type -> tasky.Empty
+	17,  // 148: tasky.Tasky.MoveChecklistItem:output_type -> tasky.Empty
+	17,  // 149: tasky.Tasky.DeleteChecklistItem:output_type -> tasky.Empty
+	17,  // 150: tasky.Tasky.StartSession:output_type -> tasky.Empty
+	17,  // 151: tasky.Tasky.StopSession:output_type -> tasky.Empty
+	63,  // 152: tasky.Tasky.TimeEntriesBySubtask:output_type -> tasky.TimeEntryListResponse
+	17,  // 153: tasky.Tasky.UpdateTimeEntry:output_type -> tasky.Empty
+	17,  // 154: tasky.Tasky.DeleteTimeEntry:output_type -> tasky.Empty
+	64,  // 155: tasky.Tasky.RunningSession:output_type -> tasky.RunningSessionResponse
+	21,  // 156: tasky.Tasky.TodayTotal:output_type -> tasky.DurationResponse
+	21,  // 157: tasky.Tasky.WeeklyTotal:output_type -> tasky.DurationResponse
+	74,  // 158: tasky.Tasky.ReportEntries:output_type -> tasky.ReportEntryListResponse
+	6,   // 159: tasky.Tasky.TimeEntriesInRange:output_type -> tasky.TimeEntryInfoListResponse
+	75,  // 160: tasky.Tasky.JournalEntriesByRange:output_type -> tasky.ReportJournalEntryListResponse
+	54,  // 161: tasky.Tasky.TagsByTasks:output_type -> tasky.TagsMapResponse
+	67,  // 162: tasky.Tasky.ListStatuses:output_type -> tasky.StatusListResponse
+	68,  // 163: tasky.Tasky.CreateStatus:output_type -> tasky.StatusResponse
+	17,  // 164: tasky.Tasky.UpdateStatus:output_type -> tasky.Empty
+	17,  // 165: tasky.Tasky.DeleteStatus:output_type -> tasky.Empty
+	17,  // 166: tasky.Tasky.SetStatus:output_type -> tasky.Empty
+	69,  // 167: tasky.Tasky.StatusHistory:output_type -> tasky.HistoryListResponse
+	70,  // 168: tasky.Tasky.ListTagTypes:output_type -> tasky.TagTypeListResponse
+	71,  // 169: tasky.Tasky.CreateTagType:output_type -> tasky.TagTypeResponse
+	17,  // 170: tasky.Tasky.UpdateTagType:output_type -> tasky.Empty
+	17,  // 171: tasky.Tasky.DeleteTagType:output_type -> tasky.Empty
+	72,  // 172: tasky.Tasky.TaskTags:output_type -> tasky.TagListResponse
+	54,  // 173: tasky.Tasky.TagsByProject:output_type -> tasky.TagsMapResponse
+	73,  // 174: tasky.Tasky.CreateTag:output_type -> tasky.TagResponse
+	17,  // 175: tasky.Tasky.UpdateTag:output_type -> tasky.Empty
+	17,  // 176: tasky.Tasky.DeleteTag:output_type -> tasky.Empty
+	51,  // 177: tasky.Tasky.GetSetting:output_type -> tasky.GetSettingResponse
+	17,  // 178: tasky.Tasky.SetSetting:output_type -> tasky.Empty
+	106, // [106:179] is the sub-list for method output_type
+	33,  // [33:106] is the sub-list for method input_type
+	33,  // [33:33] is the sub-list for extension type_name
+	33,  // [33:33] is the sub-list for extension extendee
+	0,   // [0:33] is the sub-list for field type_name
 }
 
 func init() { file_proto_tasky_proto_init() }
@@ -4814,13 +5054,15 @@ func file_proto_tasky_proto_init() {
 	file_proto_tasky_proto_msgTypes[1].OneofWrappers = []any{}
 	file_proto_tasky_proto_msgTypes[2].OneofWrappers = []any{}
 	file_proto_tasky_proto_msgTypes[3].OneofWrappers = []any{}
+	file_proto_tasky_proto_msgTypes[4].OneofWrappers = []any{}
+	file_proto_tasky_proto_msgTypes[6].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_tasky_proto_rawDesc), len(file_proto_tasky_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   78,
+			NumMessages:   81,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

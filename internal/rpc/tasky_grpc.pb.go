@@ -66,10 +66,13 @@ const (
 	Tasky_StartSession_FullMethodName             = "/tasky.Tasky/StartSession"
 	Tasky_StopSession_FullMethodName              = "/tasky.Tasky/StopSession"
 	Tasky_TimeEntriesBySubtask_FullMethodName     = "/tasky.Tasky/TimeEntriesBySubtask"
+	Tasky_UpdateTimeEntry_FullMethodName          = "/tasky.Tasky/UpdateTimeEntry"
+	Tasky_DeleteTimeEntry_FullMethodName          = "/tasky.Tasky/DeleteTimeEntry"
 	Tasky_RunningSession_FullMethodName           = "/tasky.Tasky/RunningSession"
 	Tasky_TodayTotal_FullMethodName               = "/tasky.Tasky/TodayTotal"
 	Tasky_WeeklyTotal_FullMethodName              = "/tasky.Tasky/WeeklyTotal"
 	Tasky_ReportEntries_FullMethodName            = "/tasky.Tasky/ReportEntries"
+	Tasky_TimeEntriesInRange_FullMethodName       = "/tasky.Tasky/TimeEntriesInRange"
 	Tasky_JournalEntriesByRange_FullMethodName    = "/tasky.Tasky/JournalEntriesByRange"
 	Tasky_TagsByTasks_FullMethodName              = "/tasky.Tasky/TagsByTasks"
 	Tasky_ListStatuses_FullMethodName             = "/tasky.Tasky/ListStatuses"
@@ -150,11 +153,14 @@ type TaskyClient interface {
 	StartSession(ctx context.Context, in *TimeRequest, opts ...grpc.CallOption) (*Empty, error)
 	StopSession(ctx context.Context, in *TimeRequest, opts ...grpc.CallOption) (*Empty, error)
 	TimeEntriesBySubtask(ctx context.Context, in *SubtaskIDRequest, opts ...grpc.CallOption) (*TimeEntryListResponse, error)
+	UpdateTimeEntry(ctx context.Context, in *UpdateTimeEntryRequest, opts ...grpc.CallOption) (*Empty, error)
+	DeleteTimeEntry(ctx context.Context, in *IDRequest, opts ...grpc.CallOption) (*Empty, error)
 	RunningSession(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*RunningSessionResponse, error)
 	TodayTotal(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*DurationResponse, error)
 	WeeklyTotal(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*DurationResponse, error)
 	// Отчёты.
 	ReportEntries(ctx context.Context, in *RangeRequest, opts ...grpc.CallOption) (*ReportEntryListResponse, error)
+	TimeEntriesInRange(ctx context.Context, in *RangeRequest, opts ...grpc.CallOption) (*TimeEntryInfoListResponse, error)
 	JournalEntriesByRange(ctx context.Context, in *RangeNoProjectRequest, opts ...grpc.CallOption) (*ReportJournalEntryListResponse, error)
 	TagsByTasks(ctx context.Context, in *TagsByTasksRequest, opts ...grpc.CallOption) (*TagsMapResponse, error)
 	// Каталог статусов и история.
@@ -657,6 +663,26 @@ func (c *taskyClient) TimeEntriesBySubtask(ctx context.Context, in *SubtaskIDReq
 	return out, nil
 }
 
+func (c *taskyClient) UpdateTimeEntry(ctx context.Context, in *UpdateTimeEntryRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, Tasky_UpdateTimeEntry_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskyClient) DeleteTimeEntry(ctx context.Context, in *IDRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, Tasky_DeleteTimeEntry_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *taskyClient) RunningSession(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*RunningSessionResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RunningSessionResponse)
@@ -691,6 +717,16 @@ func (c *taskyClient) ReportEntries(ctx context.Context, in *RangeRequest, opts 
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ReportEntryListResponse)
 	err := c.cc.Invoke(ctx, Tasky_ReportEntries_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskyClient) TimeEntriesInRange(ctx context.Context, in *RangeRequest, opts ...grpc.CallOption) (*TimeEntryInfoListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TimeEntryInfoListResponse)
+	err := c.cc.Invoke(ctx, Tasky_TimeEntriesInRange_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -946,11 +982,14 @@ type TaskyServer interface {
 	StartSession(context.Context, *TimeRequest) (*Empty, error)
 	StopSession(context.Context, *TimeRequest) (*Empty, error)
 	TimeEntriesBySubtask(context.Context, *SubtaskIDRequest) (*TimeEntryListResponse, error)
+	UpdateTimeEntry(context.Context, *UpdateTimeEntryRequest) (*Empty, error)
+	DeleteTimeEntry(context.Context, *IDRequest) (*Empty, error)
 	RunningSession(context.Context, *Empty) (*RunningSessionResponse, error)
 	TodayTotal(context.Context, *Empty) (*DurationResponse, error)
 	WeeklyTotal(context.Context, *Empty) (*DurationResponse, error)
 	// Отчёты.
 	ReportEntries(context.Context, *RangeRequest) (*ReportEntryListResponse, error)
+	TimeEntriesInRange(context.Context, *RangeRequest) (*TimeEntryInfoListResponse, error)
 	JournalEntriesByRange(context.Context, *RangeNoProjectRequest) (*ReportJournalEntryListResponse, error)
 	TagsByTasks(context.Context, *TagsByTasksRequest) (*TagsMapResponse, error)
 	// Каталог статусов и история.
@@ -1124,6 +1163,12 @@ func (UnimplementedTaskyServer) StopSession(context.Context, *TimeRequest) (*Emp
 func (UnimplementedTaskyServer) TimeEntriesBySubtask(context.Context, *SubtaskIDRequest) (*TimeEntryListResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method TimeEntriesBySubtask not implemented")
 }
+func (UnimplementedTaskyServer) UpdateTimeEntry(context.Context, *UpdateTimeEntryRequest) (*Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateTimeEntry not implemented")
+}
+func (UnimplementedTaskyServer) DeleteTimeEntry(context.Context, *IDRequest) (*Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteTimeEntry not implemented")
+}
 func (UnimplementedTaskyServer) RunningSession(context.Context, *Empty) (*RunningSessionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RunningSession not implemented")
 }
@@ -1135,6 +1180,9 @@ func (UnimplementedTaskyServer) WeeklyTotal(context.Context, *Empty) (*DurationR
 }
 func (UnimplementedTaskyServer) ReportEntries(context.Context, *RangeRequest) (*ReportEntryListResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ReportEntries not implemented")
+}
+func (UnimplementedTaskyServer) TimeEntriesInRange(context.Context, *RangeRequest) (*TimeEntryInfoListResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method TimeEntriesInRange not implemented")
 }
 func (UnimplementedTaskyServer) JournalEntriesByRange(context.Context, *RangeNoProjectRequest) (*ReportJournalEntryListResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method JournalEntriesByRange not implemented")
@@ -2060,6 +2108,42 @@ func _Tasky_TimeEntriesBySubtask_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Tasky_UpdateTimeEntry_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateTimeEntryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskyServer).UpdateTimeEntry(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Tasky_UpdateTimeEntry_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskyServer).UpdateTimeEntry(ctx, req.(*UpdateTimeEntryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Tasky_DeleteTimeEntry_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IDRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskyServer).DeleteTimeEntry(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Tasky_DeleteTimeEntry_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskyServer).DeleteTimeEntry(ctx, req.(*IDRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Tasky_RunningSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Empty)
 	if err := dec(in); err != nil {
@@ -2128,6 +2212,24 @@ func _Tasky_ReportEntries_Handler(srv interface{}, ctx context.Context, dec func
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(TaskyServer).ReportEntries(ctx, req.(*RangeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Tasky_TimeEntriesInRange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RangeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskyServer).TimeEntriesInRange(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Tasky_TimeEntriesInRange_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskyServer).TimeEntriesInRange(ctx, req.(*RangeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2670,6 +2772,14 @@ var Tasky_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Tasky_TimeEntriesBySubtask_Handler,
 		},
 		{
+			MethodName: "UpdateTimeEntry",
+			Handler:    _Tasky_UpdateTimeEntry_Handler,
+		},
+		{
+			MethodName: "DeleteTimeEntry",
+			Handler:    _Tasky_DeleteTimeEntry_Handler,
+		},
+		{
 			MethodName: "RunningSession",
 			Handler:    _Tasky_RunningSession_Handler,
 		},
@@ -2684,6 +2794,10 @@ var Tasky_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReportEntries",
 			Handler:    _Tasky_ReportEntries_Handler,
+		},
+		{
+			MethodName: "TimeEntriesInRange",
+			Handler:    _Tasky_TimeEntriesInRange_Handler,
 		},
 		{
 			MethodName: "JournalEntriesByRange",

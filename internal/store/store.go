@@ -70,9 +70,14 @@ type Store interface {
 	StartSession(subtaskID int64, now time.Time) error
 	StopSession(subtaskID int64, now time.Time) error
 	TimeEntriesBySubtask(subtaskID int64) ([]db.TimeEntry, error)
+	UpdateTimeEntry(id int64, startedAt time.Time, endedAt *time.Time) error
+	DeleteTimeEntry(id int64) error
 	RunningSession() (*db.SubtaskWithTime, error)
 	TodayTotal(now time.Time) (time.Duration, error)
 	WeeklyTotal(now time.Time) (time.Duration, error)
+
+	// Записи времени для отчёта и пересечений.
+	TimeEntriesInRange(from, to time.Time, projectID int64) ([]db.TimeEntryInfo, error)
 
 	// Отчёты.
 	ReportEntries(from, to time.Time, projectID int64) ([]db.ReportEntry, error)

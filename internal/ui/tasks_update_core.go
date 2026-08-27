@@ -123,6 +123,9 @@ func (m *model) updateTasksBase(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "c":
 		s.openStatusPick()
 		return m, nil
+	case "t":
+		s.openTimeEntries()
+		return m, nil
 	}
 
 	// стрелки вверх/вниз — навигация по списку (через s.list.Update ниже);

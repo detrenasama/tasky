@@ -231,7 +231,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.tasks.mode == taskTagEdit || m.tasks.mode == taskTagTypePick ||
 				m.tasks.mode == taskTagConfirm || m.tasks.mode == taskTitleEdit ||
 				m.tasks.mode == taskChecklist || m.tasks.mode == taskChecklistConfirm ||
-				m.tasks.mode == taskJournalDiscard) {
+				m.tasks.mode == taskJournalDiscard ||
+				m.tasks.mode == taskTimeList || m.tasks.mode == taskTimeEdit ||
+				m.tasks.mode == taskTimeDelete) {
 			return m.updateTasks(msg)
 		}
 		if m.screen == screenSettings && m.settings.mode != settingsBrowse {

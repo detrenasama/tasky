@@ -152,6 +152,43 @@ func FromTimeEntries(es []*TimeEntry) []db.TimeEntry {
 	return out
 }
 
+func ToTimeEntryInfo(e db.TimeEntryInfo) *TimeEntryInfo {
+	p := &TimeEntryInfo{Id: e.ID, SubtaskId: e.SubtaskID, SubtaskTitle: e.SubtaskTitle,
+		TaskTitle: e.TaskTitle, ProjectName: e.ProjectName, StartedAt: e.StartedAt.Unix(),
+		Note: e.Note}
+	if e.EndedAt != nil {
+		p.EndedAt = Int64Ptr(e.EndedAt.Unix())
+	}
+	return p
+}
+
+func FromTimeEntryInfo(e *TimeEntryInfo) db.TimeEntryInfo {
+	out := db.TimeEntryInfo{ID: e.Id, SubtaskID: e.SubtaskId, SubtaskTitle: e.SubtaskTitle,
+		TaskTitle: e.TaskTitle, ProjectName: e.ProjectName,
+		StartedAt: time.Unix(e.StartedAt, 0), Note: e.Note}
+	if e.EndedAt != nil {
+		t := time.Unix(*e.EndedAt, 0)
+		out.EndedAt = &t
+	}
+	return out
+}
+
+func ToTimeEntryInfos(es []db.TimeEntryInfo) []*TimeEntryInfo {
+	out := make([]*TimeEntryInfo, len(es))
+	for i, e := range es {
+		out[i] = ToTimeEntryInfo(e)
+	}
+	return out
+}
+
+func FromTimeEntryInfos(es []*TimeEntryInfo) []db.TimeEntryInfo {
+	out := make([]db.TimeEntryInfo, len(es))
+	for i, e := range es {
+		out[i] = FromTimeEntryInfo(e)
+	}
+	return out
+}
+
 func ToLink(l db.Link) *Link {
 	return &Link{Id: l.ID, OwnerId: l.OwnerID, Name: l.Name, Url: l.URL,
 		CreatedAt: l.CreatedAt.Unix()}

@@ -244,6 +244,44 @@ func (s *tasksScreen) dialog() (string, bool) {
 			body:    fmt.Sprintf("Удалить пункт «%s»?", label),
 			primary: "y — удалить", esc: "n — нет"}
 		return d.render(), true
+
+	case taskTimeList:
+		var body string
+		if len(s.timePick.items) == 0 {
+			body = theme.Faint("Записей времени нет.")
+		} else {
+			body = s.timePick.view()
+		}
+		if s.lastErr != nil {
+			body += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
+		}
+		d := dialog{title: "Записи времени",
+			body:    body,
+			primary: "Enter — изменить · d — удалить · Esc — закрыть"}
+		return d.render(), true
+	case taskTimeEdit:
+		primary := "Enter — сохранить · Esc — отмена"
+		if s.editHasEnd {
+			primary = "Enter — сохранить · Tab — начало/конец · Esc — отмена"
+		}
+		d := dialog{title: "Редактирование времени",
+			body:    s.renderTimeEdit(),
+			primary: primary}
+		return d.render(), true
+	case taskTimeDelete:
+		label := ""
+		for _, e := range s.entries {
+			if e.ID == s.confirmTimeID {
+				label = fmtTimeEntry(e.StartedAt)
+				if e.EndedAt != nil {
+					label += " -- " + fmtTimeEntry(*e.EndedAt)
+				}
+			}
+		}
+		d := dialog{title: "Удаление записи времени",
+			body:    fmt.Sprintf("Удалить запись «%s»?", label),
+			primary: "y — удалить", esc: "n — нет"}
+		return d.render(), true
 	}
 	return "", false
 }

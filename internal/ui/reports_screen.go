@@ -57,6 +57,10 @@ type reportsScreen struct {
 	repV      viewport.Model
 	lastErr   error
 	lastSave  string
+
+	// пересечения записей времени в периоде отчёта
+	overlaps       [][2]int
+	overlapEntries []db.TimeEntryInfo
 }
 
 func newReportsScreen(st store.Store, cfg *reportConfig) *reportsScreen {
@@ -113,6 +117,13 @@ func (s *reportsScreen) load() {
 				s.checklist[st.ID] = items
 			}
 		}
+	}
+	if entries, err := s.store.TimeEntriesInRange(from, to, s.cfg.projectID); err == nil {
+		s.overlapEntries = entries
+		s.overlaps = db.DetectOverlaps(entries)
+	} else {
+		s.overlapEntries = nil
+		s.overlaps = nil
 	}
 	s.refresh()
 }
@@ -214,9 +225,46 @@ func (s *reportsScreen) checklistSection(stID int64) []string {
 	return out
 }
 
+// overlapLines возвращает строки секции пересечений времени (с подсветкой)
+// для viewport отчёта.
+func (s *reportsScreen) overlapLines() []string {
+	if len(s.overlaps) == 0 {
+		return nil
+	}
+	var out []string
+	out = append(out, theme.ErrorStyle.Render("⚠ Пересечения времени:"))
+	for _, p := range s.overlaps {
+		a, b := s.overlapEntries[p[0]], s.overlapEntries[p[1]]
+		line := fmt.Sprintf("«%s» %s–%s пересекается с «%s» %s–%s",
+			a.SubtaskTitle, fmtTimeEntry(a.StartedAt), fmtTimeEntry(*a.EndedAt),
+			b.SubtaskTitle, fmtTimeEntry(b.StartedAt), fmtTimeEntry(*b.EndedAt))
+		out = append(out, "  "+theme.ErrorStyle.Render(line))
+	}
+	out = append(out, "")
+	return out
+}
+
+// overlapLinesPlain — то же, что overlapLines, но без ANSI-кодов (для файла).
+func (s *reportsScreen) overlapLinesPlain() []string {
+	if len(s.overlaps) == 0 {
+		return nil
+	}
+	var out []string
+	out = append(out, "Пересечения времени:")
+	for _, p := range s.overlaps {
+		a, b := s.overlapEntries[p[0]], s.overlapEntries[p[1]]
+		out = append(out, fmt.Sprintf("  «%s» %s–%s пересекается с «%s» %s–%s",
+			a.SubtaskTitle, fmtTimeEntry(a.StartedAt), fmtTimeEntry(*a.EndedAt),
+			b.SubtaskTitle, fmtTimeEntry(b.StartedAt), fmtTimeEntry(*b.EndedAt)))
+	}
+	out = append(out, "")
+	return out
+}
+
 // refresh пересобирает контент viewport отчёта.
 func (s *reportsScreen) refresh() {
 	var body []string
+	body = append(body, s.overlapLines()...)
 	if s.total == 0 {
 		body = append(body, theme.Faint("Времени за период ещё не учтено."))
 	} else {
@@ -252,6 +300,9 @@ func (s *reportsScreen) save() {
 	}
 	var sb strings.Builder
 	sb.WriteString(s.periodLabel() + "\n\n")
+	for _, line := range s.overlapLinesPlain() {
+		sb.WriteString(line + "\n")
+	}
 	for _, t := range s.rep {
 		sb.WriteString(fmt.Sprintf("%s%s · %s\n", t.TaskTitle,
 			tagsLine(t.Tags), fmtDur(time.Duration(t.Seconds)*time.Second)))

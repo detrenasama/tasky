@@ -41,6 +41,19 @@ type TimeEntry struct {
 	Note      string
 }
 
+// TimeEntryInfo — запись учёта времени вместе с названиями подзадачи/задачи/
+// проекта (для отчёта и обнаружения пересечений).
+type TimeEntryInfo struct {
+	ID           int64
+	SubtaskID    int64
+	SubtaskTitle string
+	TaskTitle    string
+	ProjectName  string
+	StartedAt    time.Time
+	EndedAt      *time.Time
+	Note         string
+}
+
 // Link — ссылка проекта/задачи/подзадачи (поле OwnerID — id владельца).
 type Link struct {
 	ID        int64

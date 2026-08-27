@@ -141,6 +141,13 @@ func (s *SQLite) StopSession(subtaskID int64, now time.Time) error {
 func (s *SQLite) TimeEntriesBySubtask(subtaskID int64) ([]db.TimeEntry, error) {
 	return db.TimeEntriesBySubtask(s.conn, subtaskID)
 }
+func (s *SQLite) UpdateTimeEntry(id int64, startedAt time.Time, endedAt *time.Time) error {
+	return db.UpdateTimeEntry(s.conn, id, startedAt, endedAt)
+}
+func (s *SQLite) DeleteTimeEntry(id int64) error { return db.DeleteTimeEntry(s.conn, id) }
+func (s *SQLite) TimeEntriesInRange(from, to time.Time, projectID int64) ([]db.TimeEntryInfo, error) {
+	return db.TimeEntriesInRange(s.conn, from, to, projectID)
+}
 func (s *SQLite) RunningSession() (*db.SubtaskWithTime, error) { return db.RunningSession(s.conn) }
 func (s *SQLite) TodayTotal(now time.Time) (time.Duration, error) {
 	return db.TodayTotal(s.conn, now)

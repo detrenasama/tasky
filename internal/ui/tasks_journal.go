@@ -14,6 +14,7 @@ func (s *tasksScreen) startJournal() {
 	}
 	s.lastErr = nil
 	s.journalText.SetValue("")
+	s.journalOrig = ""
 	s.journalEditID = 0
 	s.mode = taskJournal
 	s.journalText.Focus()
@@ -40,6 +41,7 @@ func (s *tasksScreen) editTodayJournal() {
 	s.lastErr = nil
 	s.journalEditID = target.ID
 	s.journalText.SetValue(target.Text)
+	s.journalOrig = target.Text
 	s.journalText.CursorEnd()
 	s.mode = taskJournal
 	s.journalText.Focus()

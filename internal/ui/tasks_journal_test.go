@@ -24,11 +24,25 @@ func TestTaskJournalAddAndEdit(t *testing.T) {
 		t.Error("запись журнала не рендерится как модалка")
 	}
 
-	// Esc отменяет
+	// Esc с несохранёнными изменениями — подтверждение, а не выход
 	s.journalText.SetValue("не сохранять")
 	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
+	if s.mode != taskJournalDiscard {
+		t.Fatalf("Esc с изменениями должен открыть подтверждение (mode=%d)", s.mode)
+	}
+	if entries, _ := db.JournalEntries(conn, st.ID); len(entries) != 0 {
+		t.Errorf("подтверждение создало запись: %d", len(entries))
+	}
+	// Esc в подтверждении — возврат к редактированию
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
+	if s.mode != taskJournal {
+		t.Fatalf("Esc в подтверждении должен вернуть к редактированию (mode=%d)", s.mode)
+	}
+	// пустое (без изменений) — Esc сразу выходит
+	s.journalText.SetValue("")
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
 	if s.mode != taskBrowse {
-		t.Fatalf("Esc не отменил запись (mode=%d)", s.mode)
+		t.Fatalf("Esc без изменений должен выйти (mode=%d)", s.mode)
 	}
 	if entries, _ := db.JournalEntries(conn, st.ID); len(entries) != 0 {
 		t.Errorf("отменённая запись создалась: %d", len(entries))

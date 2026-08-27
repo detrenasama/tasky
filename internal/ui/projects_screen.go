@@ -19,7 +19,7 @@ const (
 	projBrowse projMode = iota
 	projInput
 	projConfirm
-	projDescEdit
+	projDescModal
 	projLinkEdit
 	projLinks
 	projLinkConfirm
@@ -71,6 +71,18 @@ type projectsScreen struct {
 	midH  int
 	listW int
 	descW int
+
+	notice      string
+	extEditPath string
+	extEditMode int
+	descViewer  *descViewer
+
+	// модалка описания
+	dmState  dmState
+	dmPrev   dmState
+	descWork string
+	fullW    int
+	fullH    int
 
 	listDelegate selDelegate
 	linkDelegate *list.DefaultDelegate
@@ -227,6 +239,8 @@ func (s *projectsScreen) resize(w, h int) {
 	s.descText.SetWidth(max(descW-frame, 1))
 	s.descText.SetHeight(max(s.midH-1, 1))
 	s.refreshDesc()
+	s.fullW = w + sideW + rightW + 4
+	s.fullH = h + 5
 }
 
 // retheme пересобирает стили делегатов списков после смены темы.

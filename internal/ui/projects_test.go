@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -125,49 +126,68 @@ func TestProjectsDescEdit(t *testing.T) {
 		t.Error("e не должен открывать редактирование")
 	}
 
-	// Enter открывает инлайн-редактирование описания
+	// Enter открывает крупную модалку описания
 	m.updateProjects(tea.KeyMsg{Type: tea.KeyEnter})
-	if m.proj.mode != projDescEdit {
-		t.Error("Enter должен открыть редактирование описания")
+	if m.proj.mode != projDescModal || m.proj.dmState != dmView {
+		t.Error("Enter должен открыть модалку описания")
 	}
 
-	// редактирование инлайн: колонка показывает textarea, модалки нет
+	// правка в модалке: e открывает textarea
+	m.updateProjects(key('e'))
+	if m.proj.dmState != dmEdit {
+		t.Error("e должен открыть правку описания")
+	}
 	m.proj.descText.SetValue("текст в textarea")
-	if !strings.Contains(m.proj.descBox(), "текст в textarea") {
-		t.Error("при редактировании в колонке не виден textarea")
+	dlg, open := m.proj.dialog()
+	if !open || !strings.Contains(dlg, "текст в textarea") {
+		t.Error("при правке в модалке не виден textarea")
 	}
-	if _, open := m.proj.dialog(); open {
-		t.Error("редактирование не должно открывать модалку")
+	if strings.Contains(dlg, "Несохранённые") {
+		t.Error("правка не должна открывать подтверждение")
 	}
 
-	// Ctrl+S сохраняет
+	// Ctrl+S сохраняет и остаётся в модалке
 	m.proj.descText.SetValue("новое описание")
 	m.updateProjects(tea.KeyMsg{Type: tea.KeyCtrlS})
-	if m.proj.mode != projBrowse {
-		t.Error("Ctrl+S не закрыл редактирование")
+	if m.proj.mode != projDescModal || m.proj.dmState != dmView {
+		t.Error("Ctrl+S должен остаться в модалке")
 	}
 	got, _ := db.ProjectDescription(conn, p.ID)
 	if got != "новое описание" {
 		t.Errorf("описание в БД = %q, ожидалось «новое описание»", got)
 	}
 
-	// Esc отменяет без сохранения
-	m.updateProjects(tea.KeyMsg{Type: tea.KeyEnter})
+	// Esc с несохранёнными изменениями — подтверждение
+	m.updateProjects(key('e'))
 	m.proj.descText.SetValue("не сохранять")
 	m.updateProjects(tea.KeyMsg{Type: tea.KeyEsc})
-	if m.proj.mode != projBrowse {
-		t.Error("Esc не закрыл редактирование")
+	if m.proj.dmState != dmDiscard {
+		t.Fatalf("Esc с изменениями должен открыть подтверждение, dm=%d", m.proj.dmState)
 	}
 	if got, _ := db.ProjectDescription(conn, p.ID); got != "новое описание" {
-		t.Errorf("Esc сохранил изменения: %q", got)
+		t.Errorf("подтверждение не должно сохранять: %q", got)
+	}
+	// Esc в подтверждении — возврат к правке
+	m.updateProjects(tea.KeyMsg{Type: tea.KeyEsc})
+	if m.proj.dmState != dmEdit {
+		t.Fatalf("Esc в подтверждении должен вернуть к правке, dm=%d", m.proj.dmState)
+	}
+	// неизменённое описание — Esc в просмотр, затем выход
+	m.proj.descText.SetValue("новое описание")
+	m.updateProjects(tea.KeyMsg{Type: tea.KeyEsc})
+	if m.proj.dmState != dmView {
+		t.Fatalf("Esc без изменений должен выйти в просмотр, dm=%d", m.proj.dmState)
+	}
+	m.updateProjects(tea.KeyMsg{Type: tea.KeyEsc})
+	if m.proj.mode != projBrowse {
+		t.Fatalf("Esc без изменений должен выйти, mode=%d", m.proj.mode)
 	}
 
-	// снова длинное описание, чтобы был скролл: Enter → SetValue → Ctrl+S
-	m.updateProjects(tea.KeyMsg{Type: tea.KeyEnter})
-	m.proj.descText.SetValue(strings.Repeat("строка длинного описание ", 100))
-	m.updateProjects(tea.KeyMsg{Type: tea.KeyCtrlS})
-
-	// скролл описания по PgDn в browse
+	// снова длинное описание, чтобы был скролл в обзоре
+	if err := db.UpdateProjectDescription(conn, p.ID, strings.Repeat("строка длинного описание ", 100)); err != nil {
+		t.Fatal(err)
+	}
+	m.proj.loadDesc()
 	y0 := m.proj.descV.YOffset
 	m.updateProjects(tea.KeyMsg{Type: tea.KeyPgDown})
 	if m.proj.descV.YOffset <= y0 {
@@ -300,5 +320,48 @@ func TestProjectSearch(t *testing.T) {
 	}
 	if got := projectTitles(s); !equalStrings(got, []string{"GetJet", "Верстка"}) {
 		t.Errorf("после esc: %v", got)
+	}
+}
+
+// TestProjectsDescModalEditorUnchanged — если $EDITOR вернул тот же текст
+// (просто закрыли без правок), БД не меняется и заметка не показывается.
+func TestProjectsDescModalEditorUnchanged(t *testing.T) {
+	conn, err := db.Open(t.TempDir() + "/test.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	p, err := db.CreateProject(conn, "P")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.UpdateProjectDescription(conn, p.ID, "исходное"); err != nil {
+		t.Fatal(err)
+	}
+	m := model{proj: newProjectsScreen(store.NewSQLite(conn))}
+	m.proj.load()
+	m.proj.resize(150, 26)
+	m.proj.list.Select(0)
+	m.proj.loadDesc()
+	m.proj.startEditDescription()
+	m.updateProjects(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'E'}})
+	if m.proj.extEditMode != 2 {
+		t.Fatalf("extEditMode должен быть 2, =%d", m.proj.extEditMode)
+	}
+	f, err := os.CreateTemp("", "tasky-ed-*.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.WriteString("исходное")
+	f.Close()
+	m.proj.applyExternalEdit(editReturnMsg{path: f.Name(), err: nil})
+	if m.proj.dmState != dmView {
+		t.Fatalf("после редактора должен быть просмотр, dm=%d", m.proj.dmState)
+	}
+	if m.proj.notice != "" {
+		t.Errorf("при отсутствии изменений заметка не нужна: %q", m.proj.notice)
+	}
+	if got, _ := db.ProjectDescription(conn, p.ID); got != "исходное" {
+		t.Errorf("БД не должна меняться при отсутствии правок: %q", got)
 	}
 }

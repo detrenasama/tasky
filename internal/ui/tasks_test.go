@@ -346,38 +346,62 @@ func TestTasksDescEdit(t *testing.T) {
 		t.Error("ctrl+j для задачи открыл модалку или вернул команду")
 	}
 
-	// Enter открывает инлайн-редактирование описания
+	// Enter открывает крупную модалку описания
 	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEnter})
-	if s.mode != taskDescEdit {
-		t.Fatal("Enter не открыл редактирование описания")
+	if s.mode != taskDescModal || s.dmState != dmView {
+		t.Fatal("Enter не открыл модалку описания")
+	}
+	s.updateTasksMsg(key('e'))
+	if s.dmState != dmEdit {
+		t.Fatal("e не вошёл в правку описания")
 	}
 	s.descText.SetValue("новое описание")
-	if !strings.Contains(s.descBox(), "новое описание") {
-		t.Error("при редактировании в колонке не виден textarea")
+	dlg, open := s.dialog()
+	if !open || !strings.Contains(dlg, "новое описание") {
+		t.Error("при правке в модалке не виден textarea")
 	}
-	if _, open := s.dialog(); open {
-		t.Error("редактирование описания не должно открывать модалку")
+	if strings.Contains(dlg, "Несохранённые") {
+		t.Error("правка описания не должна открывать подтверждение")
 	}
 	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyCtrlS})
-	if s.mode != taskBrowse {
-		t.Fatal("Ctrl+S не закрыл редактирование")
+	if s.mode != taskDescModal || s.dmState != dmView {
+		t.Fatal("Ctrl+S должен остаться в модалке")
 	}
 	if got, _ := db.TaskDescription(conn, task.ID); got != "новое описание" {
 		t.Errorf("описание в БД = %q", got)
 	}
 
-	// Esc отменяет
-	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEnter})
+	// Esc с несохранёнными изменениями — подтверждение, а не выход
+	s.updateTasksMsg(key('e'))
 	s.descText.SetValue("не сохранять")
 	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
+	if s.dmState != dmDiscard {
+		t.Fatalf("Esc с изменениями должен открыть подтверждение, dm=%d", s.dmState)
+	}
 	if got, _ := db.TaskDescription(conn, task.ID); got != "новое описание" {
-		t.Errorf("Esc сохранил изменения: %q", got)
+		t.Errorf("подтверждение не должно сохранять: %q", got)
+	}
+	// Esc в подтверждении — возврат к правке
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
+	if s.dmState != dmEdit {
+		t.Fatalf("Esc в подтверждении должен вернуть к правке, dm=%d", s.dmState)
+	}
+	// неизменённое описание — Esc из правки в просмотр, затем выход
+	s.descText.SetValue("новое описание")
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
+	if s.dmState != dmView {
+		t.Fatalf("Esc без изменений должен выйти в просмотр, dm=%d", s.dmState)
+	}
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
+	if s.mode != taskBrowse {
+		t.Fatalf("Esc без изменений должен выйти, mode=%d", s.mode)
 	}
 
-	// скролл viewport описания по PgDn в browse
-	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEnter})
-	s.descText.SetValue(strings.Repeat("строка длинного описания ", 100))
-	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyCtrlS})
+	// скролл описания по PgDn в обзоре
+	if err := db.UpdateTaskDescription(conn, task.ID, strings.Repeat("строка длинного описания ", 100)); err != nil {
+		t.Fatal(err)
+	}
+	s.loadDesc()
 	y0 := s.descV.YOffset
 	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyPgDown})
 	if s.descV.YOffset <= y0 {

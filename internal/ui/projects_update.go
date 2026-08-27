@@ -8,6 +8,7 @@ import (
 
 func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	s := m.proj
+	s.notice = ""
 	switch s.mode {
 	case projInput:
 		var cmd tea.Cmd
@@ -41,20 +42,133 @@ func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			s.mode = projBrowse
 		}
 		return m, nil
-	case projDescEdit:
-		var cmd tea.Cmd
-		s.descText, cmd = s.descText.Update(msg)
-		switch msg.String() {
-		case "ctrl+s":
-			s.store.UpdateProjectDescription(s.selectedProjectID(), s.descText.Value())
-			s.descText.Blur()
-			s.mode = projBrowse
-			s.loadDesc()
-		case "esc":
-			s.descText.Blur()
-			s.mode = projBrowse
+	case projDescModal:
+		switch s.dmState {
+		case dmView, dmSelect:
+			switch msg.String() {
+			case "up", "k":
+				if s.dmState == dmView {
+					s.descViewer.scrollUp(1)
+				} else {
+					s.descViewer.moveUp()
+				}
+			case "down", "j":
+				if s.dmState == dmView {
+					s.descViewer.scrollDown(1)
+				} else {
+					s.descViewer.moveDown()
+				}
+			case "pgup":
+				s.descViewer.scrollUp(s.descViewer.height)
+			case "pgdown":
+				s.descViewer.scrollDown(s.descViewer.height)
+			case "left", "h":
+				if s.dmState == dmSelect {
+					s.descViewer.moveLeft()
+				}
+			case "right", "l":
+				if s.dmState == dmSelect {
+					s.descViewer.moveRight()
+				}
+			case "e":
+				s.descText.SetValue(s.descWork)
+				s.descText.Focus()
+				s.dmState = dmEdit
+			case "E", "shift+e":
+				path, cmd, err := openInEditor(s.descWork)
+				if err != nil {
+					s.notice = "Не удалось открыть редактор: " + err.Error()
+					return m, nil
+				}
+				s.extEditPath = path
+				s.extEditMode = 2
+				return m, cmd
+			case "alt+enter":
+				path, cmd, err := openInEditor(s.descWork)
+				if err != nil {
+					s.notice = "Не удалось открыть редактор: " + err.Error()
+					return m, nil
+				}
+				s.extEditPath = path
+				s.extEditMode = 2
+				return m, cmd
+			case "v":
+				if s.dmState == dmView {
+					lines := s.descViewer.layout()
+					top := s.descViewer.scroll
+					if top < 0 || top >= len(lines) {
+						top = 0
+					}
+					s.descViewer.plain = false
+					s.descViewer.cursor = lines[top].start
+					s.descViewer.anchor = -1
+					s.dmState = dmSelect
+				} else {
+					s.descViewer.plain = true
+					s.descViewer.anchor = -1
+					s.descViewer.scroll = s.descViewer.lineOfCursor(s.descViewer.layout())
+					s.dmState = dmView
+				}
+			case " ":
+				if s.dmState == dmSelect {
+					s.descViewer.anchor = s.descViewer.cursor
+				}
+			case "enter":
+				if s.dmState == dmSelect {
+					s.copyDescSelection()
+				}
+			case "y":
+				s.copyDescSelection()
+			case "d":
+				if s.dmState == dmSelect && s.descViewer.anchor >= 0 {
+					s.deleteDescSelection()
+					s.dmState = dmView
+				}
+			case "ctrl+s":
+				s.descWork = s.descText.Value()
+				s.saveDescWork()
+				s.dmState = dmView
+				s.refreshDescViewer()
+			case "esc":
+				if s.descWork != s.desc {
+					s.dmPrev = s.dmState
+					s.dmState = dmDiscard
+				} else {
+					s.mode = projBrowse
+				}
+			}
+			return m, nil
+		case dmEdit:
+			var cmd tea.Cmd
+			s.descText, cmd = s.descText.Update(msg)
+			switch msg.String() {
+			case "ctrl+s":
+				s.descWork = s.descText.Value()
+				s.saveDescWork()
+				s.descText.Blur()
+				s.dmState = dmView
+				s.refreshDescViewer()
+			case "esc":
+				if s.descText.Value() != s.descWork {
+					s.dmPrev = dmEdit
+					s.dmState = dmDiscard
+				} else {
+					s.descText.Blur()
+					s.dmState = dmView
+				}
+			}
+			return m, cmd
+		case dmDiscard:
+			switch msg.String() {
+			case "y":
+				s.descWork = s.desc
+				s.refreshDescViewer()
+				s.dmState = dmView
+			case "n", "esc":
+				s.dmState = s.dmPrev
+			}
+			return m, nil
 		}
-		return m, cmd
 	case projLinkEdit:
 		var cmd tea.Cmd
 		if s.linkName.Focused() {
@@ -203,6 +317,31 @@ func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "d":
 		s.startDelete()
 		return m, nil
+	case "y":
+		if s.focus == projFocusDesc {
+			if err := copyToClipboard(s.desc); err != nil {
+				s.notice = "Не удалось скопировать: " + err.Error()
+			} else {
+				s.notice = "Описание скопировано в буфер обмена"
+			}
+			return m, nil
+		}
+	case "v":
+		if s.focus == projFocusDesc {
+			s.openDescModal(true)
+			return m, nil
+		}
+	case "alt+enter":
+		if s.focus == projFocusDesc {
+			path, cmd, err := openInEditor(s.desc)
+			if err != nil {
+				s.notice = "Не удалось открыть редактор: " + err.Error()
+				return m, nil
+			}
+			s.extEditPath = path
+			s.extEditMode = 0
+			return m, cmd
+		}
 	}
 
 	var cmd tea.Cmd

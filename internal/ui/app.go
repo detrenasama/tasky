@@ -164,10 +164,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.height < 4 {
 			m.height = 4
 		}
-		m.tasks.resize(m.width-sideW-rightW, m.height-1)
-		m.proj.resize(m.width-sideW-rightW, m.height-1)
-		m.reports.resize(m.width-sideW-rightW, m.height-1)
-		m.settings.resize(m.width-sideW-rightW, m.height-1)
+		// Внутренние размеры центральной области: view() рендерится в boxStyle
+		// (горизонтальный паддинг 4, вертикальный — 4 с учётом подвала),
+		// поэтому экраны должны раскладываться ровно в эти размеры, иначе
+		// нижние/правые строки колонок (в т.ч. описания) усекаются.
+		innerW := m.width - sideW - rightW - 4
+		innerH := m.height - 5
+		m.tasks.resize(innerW, innerH)
+		m.proj.resize(innerW, innerH)
+		m.reports.resize(innerW, innerH)
+		m.settings.resize(innerW, innerH)
+		return m, nil
+	case editReturnMsg:
+		if m.screen == screenProjects {
+			m.proj.applyExternalEdit(msg)
+		} else {
+			m.tasks.applyExternalEdit(msg)
+		}
 		return m, nil
 	case tea.KeyMsg:
 		if m.quitting {
@@ -206,18 +219,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateTasks(msg)
 		}
 		if m.screen == screenProjects &&
-			(m.proj.mode == projDescEdit || m.proj.mode == projLinkEdit || m.proj.mode == projLinks || m.proj.mode == projLinkConfirm ||
+			(m.proj.mode == projDescModal || m.proj.mode == projLinkEdit || m.proj.mode == projLinks || m.proj.mode == projLinkConfirm ||
 				m.proj.mode == projSearch) {
 			return m.updateProjects(msg)
 		}
 		if m.screen == screenTasks &&
-			(m.tasks.mode == taskDescEdit || m.tasks.mode == taskLinkEdit || m.tasks.mode == taskLinks ||
+			(m.tasks.mode == taskDescModal || m.tasks.mode == taskLinkEdit || m.tasks.mode == taskLinks ||
 				m.tasks.mode == taskLinkConfirm || m.tasks.mode == taskJournal ||
 				m.tasks.mode == taskStatusPick || m.tasks.mode == taskStatusNote ||
 				m.tasks.mode == taskSearch || m.tasks.mode == taskTags ||
 				m.tasks.mode == taskTagEdit || m.tasks.mode == taskTagTypePick ||
 				m.tasks.mode == taskTagConfirm || m.tasks.mode == taskTitleEdit ||
-				m.tasks.mode == taskChecklist || m.tasks.mode == taskChecklistConfirm) {
+				m.tasks.mode == taskChecklist || m.tasks.mode == taskChecklistConfirm ||
+				m.tasks.mode == taskJournalDiscard) {
 			return m.updateTasks(msg)
 		}
 		if m.screen == screenSettings && m.settings.mode != settingsBrowse {
@@ -404,7 +418,12 @@ func (m model) View() string {
 	full := strings.Join(out, "\n")
 
 	if modalOpen {
-		full = overlay(full, dlg, w, h, dialogMaxW(w))
+		// крупная модалка описания уже имеет нужный размер — не переносить
+		modalMaxW := dialogMaxW(w)
+		if m.tasks.mode == taskDescModal || m.proj.mode == projDescModal {
+			modalMaxW = 0
+		}
+		full = overlay(full, dlg, w, h, modalMaxW)
 	}
 	if m.paletteOpen {
 		d, _ := m.paletteDialog()

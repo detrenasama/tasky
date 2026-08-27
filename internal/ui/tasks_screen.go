@@ -9,6 +9,7 @@ import (
 	"github.com/detrenasama/tasky/internal/db"
 	"github.com/detrenasama/tasky/internal/store"
 	"github.com/detrenasama/tasky/internal/ui/theme"
+	"os"
 	"time"
 )
 
@@ -19,7 +20,7 @@ const (
 	taskInput
 	taskTitleEdit
 	taskConfirm
-	taskDescEdit
+	taskDescModal
 	taskLinkEdit
 	taskLinks
 	taskLinkConfirm
@@ -33,6 +34,17 @@ const (
 	taskTagConfirm
 	taskChecklist
 	taskChecklistConfirm
+	taskJournalDiscard
+)
+
+// dmState — подсостояние модалки описания (taskDescModal).
+type dmState int
+
+const (
+	dmView dmState = iota
+	dmSelect
+	dmEdit
+	dmDiscard
 )
 
 type taskFocus int
@@ -181,6 +193,20 @@ type tasksScreen struct {
 	checklistEditID    int64
 	checklistNew       bool
 	checklistConfirmID int64
+
+	notice      string
+	extEditPath string
+	extEditMode int
+	descViewer  *descViewer
+
+	// модалка описания
+	dmState  dmState
+	dmPrev   dmState
+	descWork string
+	fullW    int
+	fullH    int
+
+	journalOrig string
 }
 
 func newTasksScreen(st store.Store) *tasksScreen {
@@ -340,6 +366,8 @@ func (s *tasksScreen) resize(w, h int) {
 	s.journalText.SetHeight(10)
 	s.checklistPick.setVisible(max(4, min(h-8, 12)))
 	s.refreshDesc()
+	s.fullW = w + sideW + rightW + 4
+	s.fullH = h + 5
 }
 
 // retheme пересобирает стили делегатов списков после смены темы.
@@ -348,4 +376,48 @@ func (s *tasksScreen) retheme() {
 	s.list.SetDelegate(s.listDelegate)
 	theme.ApplyToDelegate(s.linkDelegate)
 	s.linkList.SetDelegate(s.linkDelegate)
+}
+
+// applyExternalEdit вызывается после завершения внешнего редактора ($EDITOR):
+// читает временный файл и либо подгружает текст в textarea (режим правки
+// описания), либо сразу сохраняет в выбранный элемент (режим просмотра).
+func (s *tasksScreen) applyExternalEdit(msg editReturnMsg) {
+	defer os.Remove(msg.path)
+	if msg.err != nil {
+		s.notice = "Ошибка редактора: " + msg.err.Error()
+		return
+	}
+	data, err := os.ReadFile(msg.path)
+	if err != nil {
+		s.notice = "Не удалось прочитать файл: " + err.Error()
+		return
+	}
+	text := string(data)
+	if s.extEditMode == 1 {
+		s.descText.SetValue(text)
+		return
+	}
+	if s.extEditMode == 2 {
+		// модалка описания: текст сразу сохраняется в БД (если изменился),
+		// возврат в просмотр; без изменений — ничего не пишем
+		s.descWork = text
+		if text != s.desc {
+			s.saveDescWork()
+			s.notice = "Описание обновлено"
+		}
+		s.refreshDescViewer()
+		s.dmState = dmView
+		s.extEditMode = 0
+		s.extEditPath = ""
+		return
+	}
+	kind, id := s.selectedKindID()
+	switch kind {
+	case kindTask:
+		s.store.UpdateTaskDescription(id, text)
+	case kindSubtask:
+		s.store.UpdateSubtaskDescription(id, text)
+	}
+	s.loadDesc()
+	s.notice = "Описание обновлено"
 }

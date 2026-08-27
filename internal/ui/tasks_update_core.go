@@ -68,6 +68,31 @@ func (m *model) updateTasksBase(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+l":
 		s.toggleTimer()
 		return m, nil
+	case "y":
+		if s.focus == taskFocusDesc {
+			if err := copyToClipboard(s.desc); err != nil {
+				s.notice = "Не удалось скопировать: " + err.Error()
+			} else {
+				s.notice = "Описание скопировано в буфер обмена"
+			}
+			return m, nil
+		}
+	case "v":
+		if s.focus == taskFocusDesc {
+			s.openDescModal(true)
+			return m, nil
+		}
+	case "alt+enter":
+		if s.focus == taskFocusDesc {
+			path, cmd, err := openInEditor(s.desc)
+			if err != nil {
+				s.notice = "Не удалось открыть редактор: " + err.Error()
+				return m, nil
+			}
+			s.extEditPath = path
+			s.extEditMode = 0
+			return m, cmd
+		}
 	case "[":
 		s.switchProject(-1)
 		return m, nil

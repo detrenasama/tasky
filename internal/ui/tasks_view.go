@@ -7,11 +7,100 @@ import (
 )
 
 func (s *tasksScreen) footer(w int) string {
-	if s.mode == taskDescEdit {
+	// подсказки и заметки (успех/ошибка) рисуются внутри модалки описания
+	// (descModalFooter / renderDescModal), в общей панели подсказок не дублируем
+	return ""
+}
+
+// descTitle возвращает заголовок выбранной задачи/подзадачи для контекста
+// в модалке описания.
+func (s *tasksScreen) descTitle() string {
+	kind, id := s.selectedKindID()
+	if kind == kindTask {
+		for _, t := range s.tasks {
+			if t.ID == id {
+				return t.Title
+			}
+		}
+	} else {
+		for _, st := range s.subs {
+			if st.ID == id {
+				return st.Title
+			}
+		}
+	}
+	return ""
+}
+
+func (s *tasksScreen) descModalFooter() string {
+	switch s.dmState {
+	case dmView:
+		return "↑↓/PgUp/PgDn — прокрутка · e — править · E — редактор · v — выделение · y — копировать · Esc — выйти"
+	case dmSelect:
+		return "←→↑↓/hjkl — движение · Space — начать выделение · Enter — копировать · v/Esc — выход · d — удалить"
+	case dmEdit:
 		return "Ctrl+S — сохранить · Esc — отмена"
 	}
-	// подсказки действий перенесены в палитру команд (Ctrl+P); здесь не выводим
 	return ""
+}
+
+// renderDescModal строит крупную модалку описания (просмотр/выделение/
+// правка/подтверждение отмены). Возвращаемая строка уже имеет размер
+// модалки и центрируется через overlay.
+func (s *tasksScreen) renderDescModal() string {
+	mW, mH := s.descModalDims()
+	style := theme.ModalStyle
+	hFrame := style.GetHorizontalFrameSize()
+	vFrame := style.GetVerticalFrameSize()
+	innerW := max(mW-hFrame, 1)
+	innerH := max(mH-vFrame, 1)
+	bodyH := max(innerH-3, 1)
+	noticeLine := ""
+	if s.notice != "" {
+		bodyH = max(innerH-4, 1)
+		st := theme.SaveOKStyle
+		if strings.HasPrefix(s.notice, "Не удалось") {
+			st = theme.ErrorStyle
+		}
+		noticeLine = "\n" + padW(st.Render(s.notice), innerW)
+	}
+
+	s.descViewer.width = innerW
+	s.descViewer.height = bodyH
+	s.descText.SetWidth(innerW)
+	s.descText.SetHeight(bodyH)
+
+	title := theme.HeaderStyle.Render("Описание")
+	if t := s.descTitle(); t != "" {
+		title += " · " + theme.Faint(t)
+	}
+	var body string
+	if s.dmState == dmEdit {
+		body = s.descText.View()
+	} else {
+		body = s.descViewer.view()
+	}
+	footer := s.descModalFooter()
+
+	var b strings.Builder
+	b.WriteString(padW(title, innerW))
+	b.WriteString("\n")
+	b.WriteString(padW("", innerW))
+	b.WriteString("\n")
+	b.WriteString(body)
+	b.WriteString(noticeLine)
+	b.WriteString("\n")
+	b.WriteString(padW(footer, innerW))
+	inner := padLines(b.String(), innerW, innerH)
+	box := renderPane(style, inner)
+
+	if s.dmState == dmDiscard {
+		d := dialog{title: "Несохранённые изменения",
+			body:    "Описание изменено, но не сохранено.",
+			primary: "y — отбросить", esc: "Esc — остаться"}
+		box = overlay(box, d.render(), mW, mH, 0)
+	}
+	return box
 }
 
 func (s *tasksScreen) view(w, h int) string {
@@ -85,8 +174,7 @@ func (s *tasksScreen) rightContent(h int) string {
 
 func (s *tasksScreen) descBox() string {
 	style := theme.Pane(false)
-	if s.mode == taskDescEdit {
-		return renderPane(style, padLines(s.descText.View(), max(s.descW-style.GetHorizontalFrameSize(), 0), max(s.midH-style.GetVerticalFrameSize(), 0)))
-	}
+	// модалка описания (taskDescModal) рисуется поверх через overlay;
+	// здесь колонка показывает только read-only описание.
 	return renderPane(style, s.descV.View())
 }

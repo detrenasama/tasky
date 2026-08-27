@@ -59,8 +59,13 @@ func (s *tasksScreen) dialog() (string, bool) {
 				primary: "y — да", esc: "n — нет"}
 		}
 		return d.render(), true
-	case taskDescEdit:
-		return "", false
+	case taskDescModal:
+		return s.renderDescModal(), true
+	case taskJournalDiscard:
+		d := dialog{title: "Несохранённые изменения",
+			body:    "Запись в журнале изменена, но не сохранена.",
+			primary: "y — отбросить · Ctrl+S — сохранить", esc: "Esc — к редактированию"}
+		return d.render(), true
 	case taskLinkEdit:
 		title := "Добавить ссылку"
 		if s.editLinkID != 0 {

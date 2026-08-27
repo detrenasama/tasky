@@ -71,13 +71,114 @@ func (s *tasksScreen) startEditTitle() {
 	s.input.Focus()
 }
 
-// startEditDescription открывает инлайн-редактирование описания выбранной
-// задачи/подзадачи (Enter в списке — то же, что раньше «e» в колонке описания).
+// startEditDescription открывает модалку описания в режиме просмотра
+// (Enter в списке). Аналогично openDescModal(false).
 func (s *tasksScreen) startEditDescription() {
+	s.openDescModal(false)
+}
+
+// openDescModal открывает крупную модалку описания. sel=true — сразу в режиме
+// визуального выделения (клавиша v в фокусе описания).
+func (s *tasksScreen) openDescModal(sel bool) {
 	s.lastErr = nil
-	s.descText.SetValue(s.desc)
-	s.mode = taskDescEdit
-	s.descText.Focus()
+	s.notice = ""
+	s.loadDesc()
+	s.descWork = s.desc
+	mW, mH := s.descModalDims()
+	v := newDescViewer(s.descWork, mW-4, mH-4)
+	v.plain = true
+	v.scroll = 0
+	if sel {
+		v.plain = false
+		v.cursor = 0
+		v.anchor = 0
+		s.dmState = dmSelect
+	} else {
+		s.dmState = dmView
+	}
+	s.descViewer = v
+	s.mode = taskDescModal
+}
+
+// descModalDims — размеры модалки описания (~4/5 экрана, крупная).
+func (s *tasksScreen) descModalDims() (int, int) {
+	fw, fh := s.fullW, s.fullH
+	if fw <= 0 {
+		fw = 150
+	}
+	if fh <= 0 {
+		fh = 40
+	}
+	mW := max(fw*4/5, 60)
+	if mW > fw-4 {
+		mW = max(fw-4, 20)
+	}
+	mH := max(fh*4/5, 20)
+	if mH > fh-4 {
+		mH = max(fh-4, 10)
+	}
+	return mW, mH
+}
+
+// refreshDescViewer пересоздаёт descViewer из рабочей копии (после правки/
+// удаления), в режиме plain с прокруткой с начала.
+func (s *tasksScreen) refreshDescViewer() {
+	mW, mH := s.descModalDims()
+	v := newDescViewer(s.descWork, mW-4, mH-4)
+	v.plain = true
+	v.scroll = 0
+	s.descViewer = v
+}
+
+// deleteDescSelection удаляет выделенный диапазон из рабочей копии описания.
+func (s *tasksScreen) deleteDescSelection() {
+	rs := []rune(s.descWork)
+	a, b := s.descViewer.anchor, s.descViewer.cursor
+	if a > b {
+		a, b = b, a
+	}
+	if a < 0 {
+		a = 0
+	}
+	if b > len(rs) {
+		b = len(rs)
+	}
+	s.descWork = string(append(rs[:a], rs[b:]...))
+	s.refreshDescViewer()
+}
+
+// saveDescWork сохраняет рабочую копию описания в БД в зависимости от
+// выбранной задачи/подзадачи.
+func (s *tasksScreen) saveDescWork() {
+	kind, id := s.selectedKindID()
+	if kind == kindTask {
+		s.store.UpdateTaskDescription(id, s.descWork)
+	} else {
+		s.store.UpdateSubtaskDescription(id, s.descWork)
+	}
+	s.desc = s.descWork
+	s.loadDesc()
+}
+
+// copyDescSelection копирует выделенное (или весь текст, если выделения нет)
+// в буфер обмена и сбрасывает выделение, возвращаясь в режим просмотра.
+func (s *tasksScreen) copyDescSelection() {
+	text := s.descWork
+	if s.dmState == dmSelect {
+		text = s.descViewer.selectedText()
+	}
+	if text == "" {
+		text = s.descWork
+	}
+	if err := copyToClipboard(text); err != nil {
+		s.notice = "Не удалось скопировать: " + err.Error()
+	} else {
+		s.notice = "Скопировано в буфер обмена"
+	}
+	s.descViewer.plain = true
+	s.descViewer.anchor = -1
+	s.descViewer.scroll = s.descViewer.lineOfCursor(s.descViewer.layout())
+	s.dmState = dmView
 }
 
 // startLinkEdit открывает модалку ссылки выбранного элемента: id=0 — новая,
@@ -115,6 +216,7 @@ func (s *tasksScreen) startSearch() {
 // updateTasks — диспетчер экран задач: сначала маршрутизация модальных
 // режимов (updateTasksModal), затем базовая навигация (updateTasksBase).
 func (m *model) updateTasks(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	m.tasks.notice = ""
 	if mm, cmd, handled := m.updateTasksModal(msg); handled {
 		return mm, cmd
 	}

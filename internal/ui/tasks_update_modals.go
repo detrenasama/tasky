@@ -87,25 +87,132 @@ func (m *model) updateTasksModal(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 			s.mode = taskBrowse
 		}
 		return m, nil, true
-	case taskDescEdit:
-		var cmd tea.Cmd
-		s.descText, cmd = s.descText.Update(msg)
-		switch msg.String() {
-		case "ctrl+s":
-			kind, id := s.selectedKindID()
-			if kind == kindTask {
-				s.store.UpdateTaskDescription(id, s.descText.Value())
-			} else {
-				s.store.UpdateSubtaskDescription(id, s.descText.Value())
+	case taskDescModal:
+		switch s.dmState {
+		case dmView, dmSelect:
+			switch msg.String() {
+			case "up", "k":
+				if s.dmState == dmView {
+					s.descViewer.scrollUp(1)
+				} else {
+					s.descViewer.moveUp()
+				}
+			case "down", "j":
+				if s.dmState == dmView {
+					s.descViewer.scrollDown(1)
+				} else {
+					s.descViewer.moveDown()
+				}
+			case "pgup":
+				s.descViewer.scrollUp(s.descViewer.height)
+			case "pgdown":
+				s.descViewer.scrollDown(s.descViewer.height)
+			case "left", "h":
+				if s.dmState == dmSelect {
+					s.descViewer.moveLeft()
+				}
+			case "right", "l":
+				if s.dmState == dmSelect {
+					s.descViewer.moveRight()
+				}
+			case "e":
+				s.descText.SetValue(s.descWork)
+				s.descText.Focus()
+				s.dmState = dmEdit
+			case "E", "shift+e":
+				path, cmd, err := openInEditor(s.descWork)
+				if err != nil {
+					s.notice = "Не удалось открыть редактор: " + err.Error()
+					return m, nil, true
+				}
+				s.extEditPath = path
+				s.extEditMode = 2
+				return m, cmd, true
+			case "alt+enter":
+				path, cmd, err := openInEditor(s.descWork)
+				if err != nil {
+					s.notice = "Не удалось открыть редактор: " + err.Error()
+					return m, nil, true
+				}
+				s.extEditPath = path
+				s.extEditMode = 2
+				return m, cmd, true
+			case "v":
+				if s.dmState == dmView {
+					lines := s.descViewer.layout()
+					top := s.descViewer.scroll
+					if top < 0 || top >= len(lines) {
+						top = 0
+					}
+					s.descViewer.plain = false
+					s.descViewer.cursor = lines[top].start
+					s.descViewer.anchor = -1
+					s.dmState = dmSelect
+				} else {
+					s.descViewer.plain = true
+					s.descViewer.anchor = -1
+					s.descViewer.scroll = s.descViewer.lineOfCursor(s.descViewer.layout())
+					s.dmState = dmView
+				}
+			case " ":
+				if s.dmState == dmSelect {
+					s.descViewer.anchor = s.descViewer.cursor
+				}
+			case "enter":
+				if s.dmState == dmSelect {
+					s.copyDescSelection()
+				}
+			case "y":
+				s.copyDescSelection()
+			case "d":
+				if s.dmState == dmSelect && s.descViewer.anchor >= 0 {
+					s.deleteDescSelection()
+					s.dmState = dmView
+				}
+			case "ctrl+s":
+				s.saveDescWork()
+				s.dmState = dmView
+				s.refreshDescViewer()
+			case "esc":
+				if s.descWork != s.desc {
+					s.dmPrev = s.dmState
+					s.dmState = dmDiscard
+				} else {
+					s.mode = taskBrowse
+				}
 			}
-			s.descText.Blur()
-			s.mode = taskBrowse
-			s.loadDesc()
-		case "esc":
-			s.descText.Blur()
-			s.mode = taskBrowse
+			return m, nil, true
+		case dmEdit:
+			var cmd tea.Cmd
+			s.descText, cmd = s.descText.Update(msg)
+			switch msg.String() {
+			case "ctrl+s":
+				s.descWork = s.descText.Value()
+				s.saveDescWork()
+				s.descText.Blur()
+				s.dmState = dmView
+				s.refreshDescViewer()
+			case "esc":
+				if s.descText.Value() != s.descWork {
+					s.dmPrev = dmEdit
+					s.dmState = dmDiscard
+				} else {
+					s.descText.Blur()
+					s.dmState = dmView
+				}
+			}
+			return m, cmd, true
+		case dmDiscard:
+			switch msg.String() {
+			case "y":
+				s.descWork = s.desc
+				s.refreshDescViewer()
+				s.dmState = dmView
+			case "n", "esc":
+				s.dmState = s.dmPrev
+			}
+			return m, nil, true
 		}
-		return m, cmd, true
 	case taskLinkEdit:
 		var cmd tea.Cmd
 		if s.linkName.Focused() {
@@ -236,10 +343,40 @@ func (m *model) updateTasksModal(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 			s.loadDesc()
 			s.descV.GotoBottom()
 		case "esc":
+			if s.journalText.Value() != s.journalOrig {
+				s.mode = taskJournalDiscard
+				break
+			}
 			s.journalText.Blur()
 			s.mode = taskBrowse
 		}
 		return m, cmd, true
+	case taskJournalDiscard:
+		switch msg.String() {
+		case "ctrl+s":
+			text := strings.TrimSpace(s.journalText.Value())
+			kind, id := s.selectedKindID()
+			if kind == kindSubtask && id != 0 && text != "" {
+				if s.journalEditID != 0 {
+					s.store.UpdateJournalEntry(s.journalEditID, text)
+				} else {
+					s.store.CreateJournalEntry(id, text)
+				}
+			}
+			s.journalText.Blur()
+			s.mode = taskBrowse
+			s.loadDesc()
+			s.descV.GotoBottom()
+		case "y":
+			s.journalText.Blur()
+			s.mode = taskBrowse
+			s.loadDesc()
+			s.descV.GotoBottom()
+		case "n", "esc":
+			s.mode = taskJournal
+			s.journalText.Focus()
+		}
+		return m, nil, true
 	case taskStatusPick:
 		switch msg.String() {
 		case "up":

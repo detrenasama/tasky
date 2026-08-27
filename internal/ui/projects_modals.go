@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/detrenasama/tasky/internal/ui/theme"
 )
@@ -21,12 +22,76 @@ func (s *projectsScreen) startDelete() {
 	s.mode = projConfirm
 }
 
-// startEditDescription открывает инлайн-редактирование описания проекта
-// (Enter в списке — то же, что раньше «e» в колонке описания).
+// startEditDescription открывает модалку описания проекта в режиме просмотра
+// (Enter в списке).
 func (s *projectsScreen) startEditDescription() {
-	s.descText.SetValue(s.desc)
-	s.mode = projDescEdit
-	s.descText.Focus()
+	s.openDescModal(false)
+}
+
+// openDescModal открывает крупную модалку описания проекта. sel=true — сразу
+// в режиме визуального выделения.
+func (s *projectsScreen) openDescModal(sel bool) {
+	s.lastErr = nil
+	s.notice = ""
+	s.loadDesc()
+	s.descWork = s.desc
+	mW, mH := s.descModalDims()
+	v := newDescViewer(s.descWork, mW-4, mH-4)
+	v.plain = true
+	v.scroll = 0
+	if sel {
+		v.plain = false
+		v.cursor = 0
+		v.anchor = 0
+		s.dmState = dmSelect
+	} else {
+		s.dmState = dmView
+	}
+	s.descViewer = v
+	s.mode = projDescModal
+}
+
+func (s *projectsScreen) descModalDims() (int, int) {
+	fw, fh := s.fullW, s.fullH
+	if fw <= 0 {
+		fw = 150
+	}
+	if fh <= 0 {
+		fh = 40
+	}
+	mW := max(fw*4/5, 60)
+	if mW > fw-4 {
+		mW = max(fw-4, 20)
+	}
+	mH := max(fh*4/5, 20)
+	if mH > fh-4 {
+		mH = max(fh-4, 10)
+	}
+	return mW, mH
+}
+
+func (s *projectsScreen) refreshDescViewer() {
+	mW, mH := s.descModalDims()
+	v := newDescViewer(s.descWork, mW-4, mH-4)
+	v.plain = true
+	v.scroll = 0
+	s.descViewer = v
+}
+
+func (s *projectsScreen) deleteDescSelection() {
+	rs := []rune(s.descWork)
+	a, b := s.descViewer.anchor, s.descViewer.cursor
+	if a > b {
+		a, b = b, a
+	}
+	if a < 0 {
+		a = 0
+	}
+	if b > len(rs) {
+		b = len(rs)
+	}
+	s.descWork = string(append(rs[:a], rs[b:]...))
+	s.refreshDescViewer()
 }
 
 // startLinkEdit открывает модалку ссылки проекта: id=0 — новая, иначе —
@@ -83,8 +148,8 @@ func (s *projectsScreen) dialog() (string, bool) {
 			body:    fmt.Sprintf("Удалить проект «%s» и всё его время?", name),
 			primary: "y — удалить", esc: "n — нет"}
 		return d.render(), true
-	case projDescEdit:
-		return "", false
+	case projDescModal:
+		return s.renderDescModal(), true
 	case projLinkEdit:
 		title := "Добавить ссылку"
 		if s.editLinkID != 0 {
@@ -139,4 +204,70 @@ func (s *projectsScreen) dialog() (string, bool) {
 		return d.render(), true
 	}
 	return "", false
+}
+
+// applyExternalEdit вызывается после завершения внешнего редактора ($EDITOR):
+// читает временный файл и либо подгружает текст в textarea (режим правки
+// описания), либо сразу сохраняет в проект (режим просмотра).
+func (s *projectsScreen) applyExternalEdit(msg editReturnMsg) {
+	defer os.Remove(msg.path)
+	if msg.err != nil {
+		s.notice = "Ошибка редактора: " + msg.err.Error()
+		return
+	}
+	data, err := os.ReadFile(msg.path)
+	if err != nil {
+		s.notice = "Не удалось прочитать файл: " + err.Error()
+		return
+	}
+	text := string(data)
+	if s.extEditMode == 1 {
+		s.descText.SetValue(text)
+		return
+	}
+	if s.extEditMode == 2 {
+		// модалка описания: текст сразу сохраняется в БД (если изменился),
+		// возврат в просмотр; без изменений — ничего не пишем
+		s.descWork = text
+		if text != s.desc {
+			s.saveDescWork()
+			s.notice = "Описание обновлено"
+		}
+		s.refreshDescViewer()
+		s.dmState = dmView
+		s.extEditMode = 0
+		s.extEditPath = ""
+		return
+	}
+	s.store.UpdateProjectDescription(s.selectedProjectID(), text)
+	s.loadDesc()
+	s.notice = "Описание обновлено"
+}
+
+// saveDescWork сохраняет рабочую копию описания выбранного проекта в БД.
+func (s *projectsScreen) saveDescWork() {
+	s.store.UpdateProjectDescription(s.selectedProjectID(), s.descWork)
+	s.desc = s.descWork
+	s.loadDesc()
+}
+
+// copyDescSelection копирует выделенное (или весь текст, если выделения нет)
+// в буфер обмена и сбрасывает выделение, возвращаясь в режим просмотра.
+func (s *projectsScreen) copyDescSelection() {
+	text := s.descWork
+	if s.dmState == dmSelect {
+		text = s.descViewer.selectedText()
+	}
+	if text == "" {
+		text = s.descWork
+	}
+	if err := copyToClipboard(text); err != nil {
+		s.notice = "Не удалось скопировать: " + err.Error()
+	} else {
+		s.notice = "Скопировано в буфер обмена"
+	}
+	s.descViewer.plain = true
+	s.descViewer.anchor = -1
+	s.descViewer.scroll = s.descViewer.lineOfCursor(s.descViewer.layout())
+	s.dmState = dmView
 }

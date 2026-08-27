@@ -60,14 +60,27 @@ func (p *pickList) setVisible(n int) {
 }
 
 func (p *pickList) clampScroll() {
-	if p.sel < p.scroll {
-		p.scroll = p.sel
+	// отступ сверху/снизу (как vim scrolloff) — держим listScrollOff
+	// элементов видимыми вокруг курсора, если окно достаточно велико.
+	off := listScrollOff
+	if p.visible <= 2*off {
+		off = 0
 	}
-	if p.sel >= p.scroll+p.visible {
-		p.scroll = p.sel - p.visible + 1
+	if p.sel < p.scroll+off {
+		p.scroll = p.sel - off
+	}
+	if p.sel > p.scroll+p.visible-1-off {
+		p.scroll = p.sel - p.visible + 1 + off
 	}
 	if p.scroll < 0 {
 		p.scroll = 0
+	}
+	maxScroll := len(p.items) - p.visible
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	if p.scroll > maxScroll {
+		p.scroll = maxScroll
 	}
 }
 

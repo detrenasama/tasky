@@ -72,6 +72,11 @@ type projectsScreen struct {
 	listW int
 	descW int
 
+	// плавная прокрутка: listTop — верхняя видимая строка, listH — высота
+	// окна; bubbles/list «разворачивается» на все элементы (см. scroll.go).
+	listTop int
+	listH   int
+
 	notice      string
 	extEditPath string
 	extEditMode int
@@ -167,6 +172,9 @@ func (s *projectsScreen) loadDesc() {
 		items[i] = linkItem{l}
 	}
 	s.linkList.SetItems(items)
+	// разворачиваем список ссылок на все элементы, чтобы bubbles/list не
+	// прыгал страницами (в модалке список ссылок не ограничен окном).
+	sizeListHeight(&s.linkList, s.linkDelegate, len(s.links), 8)
 	s.refreshDesc()
 }
 
@@ -233,7 +241,9 @@ func (s *projectsScreen) resize(w, h int) {
 		colW = s.listW + 2
 	}
 	s.list.SetWidth(colW)
-	s.list.SetHeight(max(s.midH-2, 1))
+	s.listH = max(s.midH-2, 1)
+	s.sizeList()
+	s.syncScroll()
 	s.descV.Width = max(descW-frame, 1)
 	s.descV.Height = max(s.midH-1, 1)
 	s.descText.SetWidth(max(descW-frame, 1))

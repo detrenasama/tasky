@@ -347,6 +347,7 @@ func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	beforeID := s.selectedProjectID()
 	s.list, cmd = s.list.Update(msg)
+	s.syncScroll()
 	if s.selectedProjectID() != beforeID {
 		s.loadDesc()
 		s.descV.GotoTop()

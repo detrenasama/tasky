@@ -134,6 +134,7 @@ func (m *model) updateTasksBase(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	beforeKind, beforeID := s.selectedKindID()
 	s.list, cmd = s.list.Update(msg)
+	s.syncScroll()
 	afterKind, afterID := s.selectedKindID()
 	if beforeKind != afterKind || beforeID != afterID {
 		s.loadInfo()

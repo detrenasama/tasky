@@ -111,9 +111,9 @@ func (s *projectsScreen) view(w, h int) string {
 	case s.searchQuery != "" && len(s.items) == 0:
 		body = renderPane(leftStyle, padLines("Ничего не найдено по запросу\n«"+s.searchQuery+"».", W, max(H-2, 1)))
 	default:
-		// bubbles/list не дополняет строки до ширины — паддинг внутри
-		// делегата (selDelegate закрашивает каждую строку целиком)
-		body = s.list.View()
+		// bubbles/list «развёрнут» на все элементы; listView() режет
+		// видимое окно с плавной прокруткой и отступом listScrollOff.
+		body = s.listView()
 	}
 	// заголовок страницы (фон контента) + отступ 1 строка + тело списка
 	// (строки несут собственный фон: серый для выделенной, контент для

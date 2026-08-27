@@ -117,18 +117,24 @@ func (m *model) paletteRebuild() {
 	m.clampPaletteScroll()
 }
 
-// clampPaletteScroll удерживает выбранную строку в видимой области.
+// clampPaletteScroll удерживает выбранную строку в видимой области с отступом
+// listScrollOff строк сверху и снизу (как vim scrolloff), если окно достаточно
+// велико; иначе прижимает к краю без отступа.
 func (m *model) clampPaletteScroll() {
 	v := m.paletteVisible()
+	off := listScrollOff
+	if v <= 2*off {
+		off = 0
+	}
 	if m.paletteSel < 0 {
 		m.paletteScroll = 0
 		return
 	}
-	if m.paletteSel < m.paletteScroll {
-		m.paletteScroll = m.paletteSel
+	if m.paletteSel < m.paletteScroll+off {
+		m.paletteScroll = m.paletteSel - off
 	}
-	if m.paletteSel >= m.paletteScroll+v {
-		m.paletteScroll = m.paletteSel - v + 1
+	if m.paletteSel > m.paletteScroll+v-1-off {
+		m.paletteScroll = m.paletteSel - v + 1 + off
 	}
 	if m.paletteScroll < 0 {
 		m.paletteScroll = 0

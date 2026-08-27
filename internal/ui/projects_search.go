@@ -34,6 +34,27 @@ func (s *projectsScreen) buildItems() {
 		}
 		s.list.Select(idx)
 	}
+	s.sizeList()
+	s.syncScroll()
+}
+
+// sizeList «разворачивает» bubbles/list на все элементы, чтобы он не прыгал
+// страницами, и обновляет верхнюю видимую строку.
+func (s *projectsScreen) sizeList() {
+	sizeListHeight(&s.list, s.listDelegate, len(s.items), s.listH)
+}
+
+// syncScroll удерживает курсор в отступе listScrollOff от краёв окна.
+func (s *projectsScreen) syncScroll() {
+	syncListTop(&s.list, &s.listTop, s.listDelegate, len(s.items), s.listH)
+}
+
+// listView возвращает только видимое окно списка (плавная прокрутка).
+func (s *projectsScreen) listView() string {
+	if len(s.items) == 0 {
+		return strings.Repeat("\n", max(s.listH-1, 0))
+	}
+	return clipList(s.list, s.listTop, s.listH)
 }
 
 // loadDesc подгружает описание и ссылки выбранного проекта и пересобирает

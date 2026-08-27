@@ -140,6 +140,12 @@ type tasksScreen struct {
 	listW int
 	descW int
 
+	// плавная прокрутка: listTop — верхняя видимая строка, listH — высота
+	// видимого окна; bubbles/list «разворачивается» на все элементы, а окно
+	// режется в listView() с отступом listScrollOff (см. scroll.go).
+	listTop int
+	listH   int
+
 	mode        taskMode
 	input       textinput.Model
 	inputKind   paneKind
@@ -370,7 +376,9 @@ func (s *tasksScreen) resize(w, h int) {
 		colW = s.listW + 2
 	}
 	s.list.SetWidth(colW)
-	s.list.SetHeight(max(s.midH-2, 1))
+	s.listH = max(s.midH-2, 1)
+	s.sizeList()
+	s.syncScroll()
 	s.descV.Width = max(descW-frame, 1)
 	s.descV.Height = max(s.midH-1, 1)
 	s.descText.SetWidth(max(descW-frame, 1))

@@ -29,6 +29,10 @@ func (s *tasksScreen) updateTasksMsg(msg tea.KeyMsg) {
 	(&model{tasks: s}).updateTasks(msg)
 }
 
+func (s *projectsScreen) updateProjectsMsg(msg tea.KeyMsg) {
+	(&model{proj: s}).updateProjects(msg)
+}
+
 func indexRune(runes []rune, r rune) int {
 	for i, rr := range runes {
 		if rr == r {

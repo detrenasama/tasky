@@ -76,6 +76,9 @@ func (s *tasksScreen) loadDesc() {
 		items[i] = linkItem{l}
 	}
 	s.linkList.SetItems(items)
+	// разворачиваем список ссылок на все элементы, чтобы bubbles/list не
+	// прыгал страницами (в модалке список ссылок не ограничен окном).
+	sizeListHeight(&s.linkList, s.linkDelegate, len(s.links), 8)
 	s.refreshDesc()
 }
 
@@ -252,6 +255,27 @@ func (s *tasksScreen) finishBuildItems() {
 		}
 		s.list.Select(idx)
 	}
+	s.sizeList()
+	s.syncScroll()
+}
+
+// sizeList «разворачивает» bubbles/list на все элементы, чтобы он не
+// прыгал страницами, и обновляет верхнюю видимую строку.
+func (s *tasksScreen) sizeList() {
+	sizeListHeight(&s.list, s.listDelegate, len(s.items), s.listH)
+}
+
+// syncScroll удерживает курсор в отступе listScrollOff от краёв окна.
+func (s *tasksScreen) syncScroll() {
+	syncListTop(&s.list, &s.listTop, s.listDelegate, len(s.items), s.listH)
+}
+
+// listView возвращает только видимое окно списка (плавная прокрутка).
+func (s *tasksScreen) listView() string {
+	if len(s.items) == 0 {
+		return strings.Repeat("\n", max(s.listH-1, 0))
+	}
+	return clipList(s.list, s.listTop, s.listH)
 }
 
 func (s *tasksScreen) selectedKindID() (paneKind, int64) {
@@ -289,6 +313,7 @@ func (s *tasksScreen) selectByKindID(kind paneKind, id int64) {
 		return
 	}
 	s.list.Select(idx)
+	s.syncScroll()
 }
 
 func (s *tasksScreen) selectedKind() paneKind {

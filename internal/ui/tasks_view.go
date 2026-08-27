@@ -9,7 +9,7 @@ import (
 func (s *tasksScreen) footer(w int) string {
 	// подсказки и заметки (успех/ошибка) рисуются внутри модалки описания
 	// (descModalFooter / renderDescModal), в общей панели подсказок не дублируем
-	return "t — время"
+	return ""
 }
 
 // descTitle возвращает заголовок выбранной задачи/подзадачи для контекста

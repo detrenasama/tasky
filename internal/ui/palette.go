@@ -61,6 +61,7 @@ func (m *model) paletteGroups() []cmdGroup {
 			{title: "Статус: предыдущий", keys: "z", run: func(m *model) { m.tasks.shiftStatus(-1) }},
 			{title: "Статус: выбрать", keys: "c", run: func(m *model) { m.tasks.openStatusPick() }},
 			{title: "Запустить/пауза", keys: "ctrl+l", run: func(m *model) { m.tasks.toggleTimer() }},
+			{title: "Время", keys: "t", run: func(m *model) { m.tasks.openTimeEntries() }},
 			{title: "Проект ←", keys: "[", run: func(m *model) { m.tasks.switchProject(-1) }},
 			{title: "Проект →", keys: "]", run: func(m *model) { m.tasks.switchProject(1) }},
 			{title: "Переместить вверх", keys: "ctrl+up", run: func(m *model) { m.tasks.moveSelected(-1) }},

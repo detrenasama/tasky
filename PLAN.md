@@ -187,7 +187,7 @@
   (projects/tasks/subtasks/time/status/tags/journal/checklist/reports/settings),
   маппинг ошибок через `DBErrorToStatus` из `internal/rpc/convert.go`, JSON-теги
   на `db`-типах, время — RFC3339, длительности — секунды.
-- [ ] **W2. Статика в бинаре** — `//go:embed web/dist` в `internal/server`,
+- [x] **W2. Статика в бинаре** — `//go:embed web/dist` в `internal/server`,
   `http.FileServer` на `/` после `/api` и `/status`; fallback при отсутствии
   сборки фронта.
 - [ ] **W3. Фронтенд skeleton** — `web/` Vite+React+TS: api-клиент + TS-типы,

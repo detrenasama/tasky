@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -26,7 +27,7 @@ func startHTTP(t *testing.T) (*store.SQLite, string, func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hs := ServeHTTP(lis, st)
+	hs := ServeHTTP(lis, st, nil)
 	return st, lis.Addr().String(), func() {
 		hs.Close()
 		conn.Close()
@@ -108,12 +109,18 @@ func TestHTTPStatusNotFound(t *testing.T) {
 	_, addr, done := startHTTP(t)
 	defer done()
 
+	// Неизвестный путь без расширения отдаёт SPA-оболочку (заглушку, т.к.
+	// фронтенд в тестах не собран) — 200, а не 404.
 	resp, err := http.Get("http://" + addr + "/nope")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusNotFound {
-		t.Errorf("code = %d, ожидался 404", resp.StatusCode)
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("code = %d, ожидался 200 (SPA-фоллбэк)", resp.StatusCode)
+	}
+	if !strings.Contains(string(body), "Веб-интерфейс не собран") {
+		t.Errorf("ожидалась заглушка фронтенда, получено: %q", string(body))
 	}
 }

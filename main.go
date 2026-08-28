@@ -104,7 +104,7 @@ func startHTTP(args []string, st store.Store) *http.Server {
 		log.Printf("HTTP-сервер (%s) не запущен: %v", addr, err)
 		return nil
 	}
-	return server.ServeHTTP(lis, st)
+	return server.ServeHTTP(lis, st, webDist)
 }
 
 // runTUI запускает интерфейс поверх хранилища и возвращает код выхода.

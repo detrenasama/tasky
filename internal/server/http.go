@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"io/fs"
 	"net"
 	"net/http"
 	"os"
@@ -21,12 +22,15 @@ func ListenHTTP(addr string) (net.Listener, error) {
 }
 
 // ServeHTTP запускает HTTP-сервер интеграций в фоновой горутине. Возвращает
-// *http.Server для остановки через Close.
-func ServeHTTP(lis net.Listener, st store.Store) *http.Server {
+// *http.Server для остановки через Close. webFS — встроенный фронтенд
+// (web/dist), отдаваемый по корню.
+func ServeHTTP(lis net.Listener, st store.Store, webFS fs.FS) *http.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/status", handleStatus(st))
 	// JSON API для веб-интерфейса (зеркало Store).
 	web.Register(mux, st)
+	// Статика фронтенда (SPA) по корню — регистрируется последней.
+	web.RegisterStatic(mux, webFS)
 	srv := &http.Server{Handler: mux}
 	go func() {
 		if err := srv.Serve(lis); err != nil && err != http.ErrServerClosed {

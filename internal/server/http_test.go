@@ -27,7 +27,7 @@ func startHTTP(t *testing.T) (*store.SQLite, string, func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hs := ServeHTTP(lis, st, nil)
+	hs := ServeHTTP(lis, st, nil, "test")
 	return st, lis.Addr().String(), func() {
 		hs.Close()
 		conn.Close()

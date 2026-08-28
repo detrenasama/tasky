@@ -125,6 +125,7 @@ export default function Projects({ onError }: { onError: (m: string) => void }) 
               }}
             >
               <span className="title">{p.name}</span>
+              <Button className="danger small" onClick={(e) => { e.stopPropagation(); del(p) }}>✕</Button>
             </li>
           ))}
         </ul>

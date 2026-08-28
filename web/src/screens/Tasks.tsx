@@ -170,6 +170,7 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
                 </span>
                 <span className="title">{t.title}</span>
                 {t.sub_count > 0 && <span className="muted small">{t.sub_count}</span>}
+                <Button className="danger small" onClick={(e) => { e.stopPropagation(); delTask(t) }}>✕</Button>
               </div>
               {expanded.has(t.id) && (
                 <ul className="list" style={{ marginLeft: 16 }}>
@@ -187,6 +188,7 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
                       <span className="title">{s.title}</span>
                       <span className="muted small">{fmtDuration(s.total_seconds)}</span>
                       {runningId === s.id && <span className="running">●</span>}
+                      <Button className="danger small" onClick={(e) => { e.stopPropagation(); delSub(s) }}>✕</Button>
                     </li>
                   ))}
                 </ul>

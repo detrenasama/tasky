@@ -167,4 +167,7 @@ export const api = {
   getSetting: (key: string) => req<{ value: string }>('GET', `/settings/${key}`),
   setSetting: (key: string, value: string) =>
     req<{ ok: boolean }>('PUT', `/settings/${key}`, { value }),
+
+  // Версия бинаря (для шапки).
+  version: () => req<{ version: string }>('GET', '/version'),
 }

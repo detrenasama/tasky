@@ -11,8 +11,8 @@ import (
 // placeholderHTML — страница-заглушка, когда фронтенд не собран (web/dist
 // пуст). Собирается в бинарь вместе с embed, чтобы не ломать компиляцию.
 const placeholderHTML = `<!doctype html><html lang="ru"><head><meta charset="utf-8">` +
-	`<title>Tasky</title></head><body style="font-family:sans-serif;max-width:40rem;margin:3rem auto;padding:0 1rem">` +
-	`<h1>Tasky</h1>` +
+	`<title>Tasky</title></head><body style="font-family:sans-serif;background:#f4f6fa;color:#232733;max-width:40rem;margin:3rem auto;padding:0 1rem">` +
+	`<h1 style="color:#3b6fd4">Tasky</h1>` +
 	`<p>Веб-интерфейс не собран. Выполните <code>just web-build</code> ` +
 	`(или <code>npm run build</code> в каталоге <code>web/</code>) и пересоберите бинарник.</p>` +
 	`</body></html>`

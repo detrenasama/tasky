@@ -1,17 +1,17 @@
 :root {
-  --bg: #1e1e2e;
-  --panel: #27293d;
-  --panel2: #313347;
-  --element: #32334a;
-  --border: #3a3c54;
-  --text: #cdd6f4;
-  --muted: #a6adc8;
-  --accent: #89b4fa;
-  --green: #a6e3a1;
-  --red: #f38ba8;
-  --yellow: #f9e2af;
-  --blue: #74c7ec;
-  --grey: #6c7086;
+  --bg: #f4f6fa;
+  --panel: #ffffff;
+  --panel2: #eef1f6;
+  --element: #e7ebf2;
+  --border: #d6dbe5;
+  --text: #232733;
+  --muted: #6b7280;
+  --accent: #3b6fd4;
+  --green: #2e9e5b;
+  --red: #d8556a;
+  --yellow: #c79a16;
+  --blue: #2f80c4;
+  --grey: #9aa0ad;
 }
 
 * {
@@ -34,53 +34,67 @@ body {
 
 .app {
   display: flex;
+  flex-direction: column;
   height: 100vh;
 }
 
-.sidebar {
-  width: 90px;
-  background: var(--panel);
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  padding: 8px 0;
-  gap: 4px;
-}
-
-.sidebar .tab {
-  padding: 12px 4px;
-  text-align: center;
-  cursor: pointer;
-  color: var(--muted);
-  border-left: 3px solid transparent;
-  font-size: 12px;
-}
-
-.sidebar .tab.active {
-  background: var(--element);
-  color: var(--text);
-  border-left-color: var(--accent);
-}
-
-.content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
+/* Верхняя шапка: бренд слева, навигация, время справа. */
 .topbar {
-  height: 42px;
+  height: 54px;
+  flex: 0 0 54px;
+  background: var(--panel);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  gap: 20px;
-  padding: 0 16px;
-  background: var(--panel);
+  gap: 24px;
+  padding: 0 18px;
 }
 
-.topbar .running {
+.brand {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.brand .muted {
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.nav {
+  display: flex;
+  gap: 4px;
+}
+
+.nav-tab {
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--muted);
+  user-select: none;
+}
+
+.nav-tab:hover {
+  background: var(--panel2);
+  color: var(--text);
+}
+
+.nav-tab.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.topright {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.topright .running {
   color: var(--green);
+  font-weight: 600;
 }
 
 .main {
@@ -94,8 +108,8 @@ body {
 .panel {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px;
+  border-radius: 10px;
+  padding: 14px;
 }
 
 .col {
@@ -160,7 +174,7 @@ body {
 
 .btn.primary {
   background: var(--accent);
-  color: #11111b;
+  color: #fff;
   border-color: var(--accent);
 }
 
@@ -169,17 +183,23 @@ body {
   color: var(--red);
 }
 
+.btn.small {
+  padding: 3px 8px;
+  font-size: 12px;
+}
+
 .toolbar {
   display: flex;
   gap: 8px;
   margin-bottom: 8px;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 input,
 textarea,
 select {
-  background: var(--bg);
+  background: #fff;
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -197,7 +217,7 @@ textarea {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -207,7 +227,7 @@ textarea {
 .modal {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 12px;
   min-width: 320px;
   max-width: 90vw;
   max-height: 90vh;
@@ -235,7 +255,7 @@ textarea {
   padding: 4px;
   z-index: 200;
   min-width: 160px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
 }
 
 .ctx-item {
@@ -258,7 +278,7 @@ textarea {
   left: 50%;
   transform: translateX(-50%);
   background: var(--red);
-  color: #11111b;
+  color: #fff;
   padding: 8px 16px;
   border-radius: 8px;
   z-index: 300;
@@ -277,6 +297,7 @@ textarea {
   height: 10px;
   border-radius: 50%;
   display: inline-block;
+  flex: 0 0 auto;
 }
 
 .flex {

@@ -182,7 +182,7 @@
 
 - [x] **W0. Аудит domain-логики** — подтверждено, что Store уже содержит всю
   мутационную логику; веб = чистый клиент Store.
-- [ ] **W1. JSON API (бэкенд)** — пакет `internal/web`: нативный роутинг
+- [x] **W1. JSON API (бэкенд)** — пакет `internal/web`: нативный роутинг
   Go 1.22 (`GET/POST/... /api/.../{id}`), эндпоинты-зеркала `Store`
   (projects/tasks/subtasks/time/status/tags/journal/checklist/reports/settings),
   маппинг ошибок через `DBErrorToStatus` из `internal/rpc/convert.go`, JSON-теги

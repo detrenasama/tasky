@@ -10,6 +10,7 @@ import (
 	"github.com/detrenasama/tasky/internal/db"
 	"github.com/detrenasama/tasky/internal/status"
 	"github.com/detrenasama/tasky/internal/store"
+	"github.com/detrenasama/tasky/internal/web"
 )
 
 // ListenHTTP открывает TCP-слушатель для HTTP-эндпоинтов интеграций
@@ -24,6 +25,8 @@ func ListenHTTP(addr string) (net.Listener, error) {
 func ServeHTTP(lis net.Listener, st store.Store) *http.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/status", handleStatus(st))
+	// JSON API для веб-интерфейса (зеркало Store).
+	web.Register(mux, st)
 	srv := &http.Server{Handler: mux}
 	go func() {
 		if err := srv.Serve(lis); err != nil && err != http.ErrServerClosed {

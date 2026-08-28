@@ -27,9 +27,13 @@ install: build
 test:
     go test ./...
 
-check: test
+check: test check-web
     go vet ./...
     @if test -n "`gofmt -l .`"; then gofmt -l .; exit 1; fi
+
+# Проверка типов/линт фронтенда (tsc --noEmit).
+check-web:
+    cd web && npm run lint
 
 run:
     go run .

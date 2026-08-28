@@ -196,5 +196,5 @@
 - [x] **W4. Сборка и dev** — `Justfile` (`web-install`/`web-build`, `build`
   зависит от сборки фронта), `.gitignore` (`web/node_modules`,`web/dist`),
   `README` (запуск коллегой: `tasky` + браузер :9110), Vite proxy `/api`.
-- [ ] **W5. Тесты и качество** — `internal/web` через `httptest`+временная БД,
+- [x] **W5. Тесты и качество** — `internal/web` через `httptest`+временная БД,
   `just check` добавляет `npm run lint`/`tsc`.

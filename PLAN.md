@@ -158,3 +158,43 @@
 Редактор (модалка `taskChecklist` поверх `taskChecklistConfirm`): ↑/↓ перемещают курсор, `Enter` переключает выделенный пункт `new ↔ done`, ←/→ циклически меняют статус по кругу (`new → in_progress → done → cancelled → new`), `ctrl+↑`/`ctrl+↓` меняют порядок, `e` — редактировать текст выделенного (Enter сохраняет), `n` — добавить пункт (Enter сохраняет), `d` — удалить с подтверждением (`y`/`n`), `Esc` — закрыть. Счётчик значка и info-панель пересчитываются после каждого изменения.
 
 Реализация: `internal/db/checklist.go` (таблица `checklist_items` в `schema.go`, `ChecklistItems`/`ChecklistCounts`/`CreateChecklistItem`/`UpdateChecklistItemText`/`SetChecklistItemStatus`/`MoveChecklistItem`/`DeleteChecklistItem`; `MoveChecklistItem` через `moveOrderedRow`), `internal/db/types.go` (`ChecklistItem`), `internal/store` (интерфейс + `NewSQLite`), `proto/tasky.proto` + сгенерированный `internal/rpc` (`just proto`) + `convert.go`, `internal/server`/`internal/client`, `internal/ui/tasks_screen.go` (режимы `taskChecklist`/`taskChecklistConfirm`, поля, `openChecklist`/`checklistLoad`/`updateChecklist`, значок в `subItem.Title`, раздел в `infoTop`, `checkIndicator`), `internal/ui/app.go` (маршрутизация), `internal/ui/palette.go` (команда «Чеклист»), тесты `internal/db/checklist_test.go`.
+
+## Веб-интерфейс (для коллеги, не работающей в терминале)
+
+Цель: богатый веб-UI с тем же функционалом, что TUI, но с кнопками и
+контекстными менюми. Решения (зафиксированы): тот же репозиторий; JSON API
+поверх существующего Go HTTP-сервера; фронтенд React + TypeScript + Vite.
+
+### Архитектура
+
+Единый бинарник `tasky`. TUI — gRPC-клиент (unix-сокет), веб — HTTP/JSON-клиент
+(127.0.0.1:9110). Оба висят на `store.Store` (шов). Сервер уже поднимает HTTP
+на этом порту — туда же коллега откроет браузер: `/status` (индикаторы),
+`/api/*` (веб-API) и статика самого веба.
+
+Критично: domain-логика (слияние истории статусов `statusMergeWindow` в
+`internal/db/statuses.go`, суммы времени, отчёты, журнал, теги) уже в
+`internal/db`/`internal/store`, НЕ в TUI. TUI-специфично только представление
+(`hiddenDue`, quick-цепочка, темы) — веб реализует его против тех же данных.
+Извлекать логику не требуется.
+
+### Этапы
+
+- [x] **W0. Аудит domain-логики** — подтверждено, что Store уже содержит всю
+  мутационную логику; веб = чистый клиент Store.
+- [ ] **W1. JSON API (бэкенд)** — пакет `internal/web`: нативный роутинг
+  Go 1.22 (`GET/POST/... /api/.../{id}`), эндпоинты-зеркала `Store`
+  (projects/tasks/subtasks/time/status/tags/journal/checklist/reports/settings),
+  маппинг ошибок через `DBErrorToStatus` из `internal/rpc/convert.go`, JSON-теги
+  на `db`-типах, время — RFC3339, длительности — секунды.
+- [ ] **W2. Статика в бинаре** — `//go:embed web/dist` в `internal/server`,
+  `http.FileServer` на `/` после `/api` и `/status`; fallback при отсутствии
+  сборки фронта.
+- [ ] **W3. Фронтенд skeleton** — `web/` Vite+React+TS: api-клиент + TS-типы,
+  экраны Проекты/Задачи(дерево)/Отчёты/Настройки, контекстные меню, модалки,
+  drag-drop сортировка, поллинг `/api/status`.
+- [ ] **W4. Сборка и dev** — `Justfile` (`web-install`/`web-build`, `build`
+  зависит от сборки фронта), `.gitignore` (`web/node_modules`,`web/dist`),
+  `README` (запуск коллегой: `tasky` + браузер :9110), Vite proxy `/api`.
+- [ ] **W5. Тесты и качество** — `internal/web` через `httptest`+временная БД,
+  `just check` добавляет `npm run lint`/`tsc`.

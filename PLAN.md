@@ -193,7 +193,7 @@
 - [x] **W3. Фронтенд skeleton** — `web/` Vite+React+TS: api-клиент + TS-типы,
   экраны Проекты/Задачи(дерево)/Отчёты/Настройки, контекстные меню, модалки,
   drag-drop сортировка, поллинг `/api/status`.
-- [ ] **W4. Сборка и dev** — `Justfile` (`web-install`/`web-build`, `build`
+- [x] **W4. Сборка и dev** — `Justfile` (`web-install`/`web-build`, `build`
   зависит от сборки фронта), `.gitignore` (`web/node_modules`,`web/dist`),
   `README` (запуск коллегой: `tasky` + браузер :9110), Vite proxy `/api`.
 - [ ] **W5. Тесты и качество** — `internal/web` через `httptest`+временная БД,

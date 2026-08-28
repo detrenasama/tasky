@@ -3,9 +3,22 @@ RELEASES := "linux-amd64"
 
 default: check
 
-# Сборка для текущей платформы
-build:
+# Сборка для текущей платформы (включая фронтенд, встраиваемый в бинарь)
+build: web-build
     CGO_ENABLED=0 go build -ldflags "-s -w -X main.version={{VERSION}}" -o dist/tasky .
+
+# Установка зависимостей фронтенда (web/)
+web-install:
+    cd web && npm install
+
+# Сборка фронтенда → web/dist (встраивается в бинарь через //go:embed)
+web-build: web-install
+    cd web && npm run build
+
+# Локальная разработка: фоновый сервер tasky + Vite dev-сервер (HMR, прокси /api)
+web-dev:
+    go run . serve &
+    cd web && npm run dev
 
 # Установка в ~/.local/bin (переопределить: PREFIX=/usr/local)
 install: build
@@ -34,6 +47,6 @@ build-target os arch ver:
     CGO_ENABLED=0 GOOS={{os}} GOARCH={{arch}} go build -ldflags "-s -w -X main.version={{ver}}" \
         -o dist/release/tasky-{{os}}-{{arch}} .
 
-# Релиз: выбор версии (тег или ввод) + все таргеты + tar.gz + SHA256SUMS + подсказка
-release:
+# Релиз: сборка фронтенда + выбор версии + все таргеты + tar.gz + SHA256SUMS
+release: web-build
     RELEASES="{{RELEASES}}" bash scripts/release.sh

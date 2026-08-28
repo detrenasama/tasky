@@ -2,7 +2,9 @@ package web
 
 import (
 	"io/fs"
+	"mime"
 	"net/http"
+	"path"
 	"strings"
 )
 
@@ -16,9 +18,9 @@ const placeholderHTML = `<!doctype html><html lang="ru"><head><meta charset="utf
 	`</body></html>`
 
 // RegisterStatic отдаёт собранный фронтенд (web/dist) по корню «/».
-// SPA-фоллбэк: маршруты без расширения отдают index.html (или заглушку,
-// если фронтенд не собран). Не перехватывает /api/* и /status — те
-// зарегистрированы ранее и имеют приоритет в http.ServeMux.
+// SPA-фоллбэк: маршруты без расширения, для которых нет файла, отдают
+// index.html. Не перехватывает /api/* и /status — те зарегистрированы ранее
+// и имеют приоритет в http.ServeMux.
 func RegisterStatic(mux *http.ServeMux, webFS fs.FS) {
 	if webFS == nil {
 		mux.Handle("/", placeholder())
@@ -29,26 +31,30 @@ func RegisterStatic(mux *http.ServeMux, webFS fs.FS) {
 		mux.Handle("/", placeholder())
 		return
 	}
-	fileServer := http.FileServer(http.FS(sub))
 	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Запрос конкретного файла (есть расширение) — отдаём как есть.
-		if strings.Contains(r.URL.Path, ".") {
-			fileServer.ServeHTTP(w, r)
-			return
-		}
-		// Фронтенд не собран — заглушка.
-		if _, err := fs.Stat(sub, "index.html"); err != nil {
-			placeholder().ServeHTTP(w, r)
-			return
-		}
-		// SPA-маршрут: если файл по пути не существует — отдаём index.html.
-		f, err := sub.Open(strings.TrimPrefix(r.URL.Path, "/"))
+		// Читаем файл по пути; при ошибке и отсутствии расширения —
+		// SPA-фоллбэк на index.html; иначе 404.
+		name := strings.TrimPrefix(path.Clean("/"+r.URL.Path), "/")
+		data, err := fs.ReadFile(sub, name)
 		if err != nil {
-			r.URL.Path = "/index.html"
-		} else {
-			_ = f.Close()
+			if !strings.Contains(r.URL.Path, ".") {
+				if idx, e2 := fs.ReadFile(sub, "index.html"); e2 == nil {
+					w.Header().Set("Content-Type", "text/html; charset=utf-8")
+					_, _ = w.Write(idx)
+					return
+				}
+				placeholder().ServeHTTP(w, r)
+				return
+			}
+			http.NotFound(w, r)
+			return
 		}
-		fileServer.ServeHTTP(w, r)
+		ct := mime.TypeByExtension(path.Ext(name))
+		if ct == "" {
+			ct = "application/octet-stream"
+		}
+		w.Header().Set("Content-Type", ct)
+		_, _ = w.Write(data)
 	}))
 }
 

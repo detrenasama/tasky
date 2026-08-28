@@ -190,7 +190,7 @@
 - [x] **W2. Статика в бинаре** — `//go:embed web/dist` в `internal/server`,
   `http.FileServer` на `/` после `/api` и `/status`; fallback при отсутствии
   сборки фронта.
-- [ ] **W3. Фронтенд skeleton** — `web/` Vite+React+TS: api-клиент + TS-типы,
+- [x] **W3. Фронтенд skeleton** — `web/` Vite+React+TS: api-клиент + TS-типы,
   экраны Проекты/Задачи(дерево)/Отчёты/Настройки, контекстные меню, модалки,
   drag-drop сортировка, поллинг `/api/status`.
 - [ ] **W4. Сборка и dev** — `Justfile` (`web-install`/`web-build`, `build`

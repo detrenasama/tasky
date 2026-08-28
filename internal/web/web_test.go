@@ -114,3 +114,55 @@ func TestAPIProjectsTasksSubtasks(t *testing.T) {
 func itoa(n int64) string {
 	return strconv.FormatInt(n, 10)
 }
+
+// rawBody выполняет запрос и возвращает тело ответа как строку (без декода).
+func rawBody(t *testing.T, srv *httptest.Server, method, path string) string {
+	t.Helper()
+	req, err := http.NewRequest(method, srv.URL+path, nil)
+	if err != nil {
+		t.Fatalf("newreq: %v", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("do: %v", err)
+	}
+	defer resp.Body.Close()
+	buf := new(bytes.Buffer)
+	_, _ = buf.ReadFrom(resp.Body)
+	return buf.String()
+}
+
+// TestEmptyCollectionsNotNull проверяет, что пустые коллекции кодируются как
+// [] / {} (а не null), иначе фронтенд падает на .map/.filter.
+func TestEmptyCollectionsNotNull(t *testing.T) {
+	srv, cleanup := newTestServer(t)
+	defer cleanup()
+
+	if b := rawBody(t, srv, "GET", "/api/projects"); b != "[]" {
+		t.Fatalf("empty projects: got %q, want []", b)
+	}
+
+	var proj db.Project
+	doJSON(t, srv, "POST", "/api/projects", map[string]string{"name": "Проект"}, &proj)
+	var task db.Task
+	doJSON(t, srv, "POST", "/api/projects/"+itoa(proj.ID)+"/tasks", map[string]string{"title": "Задача"}, &task)
+	var sub db.SubtaskWithTime
+	doJSON(t, srv, "POST", "/api/tasks/"+itoa(task.ID)+"/subtasks", map[string]string{"title": "Подзадача"}, &sub)
+
+	checks := []struct {
+		path string
+		want string
+	}{
+		{"/api/subtasks/" + itoa(sub.ID) + "/journal", "[]"},
+		{"/api/subtasks/" + itoa(sub.ID) + "/time", "[]"},
+		{"/api/subtasks/" + itoa(sub.ID) + "/checklist", "[]"},
+		{"/api/subtasks/" + itoa(sub.ID) + "/links", "[]"},
+		{"/api/tasks/" + itoa(task.ID) + "/tags", "[]"},
+		{"/api/reports?from=2100-01-01&to=2100-01-02", "[]"},
+	}
+	for _, c := range checks {
+		if b := rawBody(t, srv, "GET", c.path); b != c.want {
+			t.Fatalf("%s: got %q, want %q", c.path, b, c.want)
+		}
+	}
+}

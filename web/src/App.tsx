@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from './api'
 import type { StatusPoll } from './types'
 import { fmtDuration } from './fmt'
-import { useToast } from './ui'
+import { useToast, Modal, Button, ErrorBoundary } from './ui'
 import Projects from './screens/Projects'
 import Tasks from './screens/Tasks'
 import Reports from './screens/Reports'
@@ -65,12 +65,22 @@ export default function App() {
         </div>
       </header>
       <div className="main" style={{ display: 'block' }}>
-        {screen === 'projects' && <Projects onError={setToast} />}
-        {screen === 'tasks' && <Tasks onError={setToast} />}
-        {screen === 'reports' && <Reports onError={setToast} />}
-        {screen === 'settings' && <Settings onError={setToast} />}
+        <ErrorBoundary>
+          {screen === 'projects' && <Projects onError={setToast} />}
+          {screen === 'tasks' && <Tasks onError={setToast} />}
+          {screen === 'reports' && <Reports onError={setToast} />}
+          {screen === 'settings' && <Settings onError={setToast} />}
+        </ErrorBoundary>
       </div>
-      {toast && <div className="toast">{toast}</div>}
+      {toast && (
+        <Modal
+          title="Ошибка"
+          onClose={() => setToast(null)}
+          footer={<Button className="primary" onClick={() => setToast(null)}>OK</Button>}
+        >
+          <p className="muted">{toast}</p>
+        </Modal>
+      )}
     </div>
   )
 }

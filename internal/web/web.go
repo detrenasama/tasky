@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -50,9 +51,26 @@ func Register(mux *http.ServeMux, st store.Store) {
 // timeNow — текущее время (вынесено для переопределения в тестах).
 var timeNow = time.Now
 
-// writeJSON отправляет 200 + JSON.
+// writeJSON отправляет 200 + JSON. Пустые срезы/мапы кодируются как []
+// и {} (а не null), чтобы фронтенд мог безопасно делать .map/.filter.
+// Nil-указатели (напр. «нет активной сессии») остаются null.
 func writeJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
+	if v != nil {
+		rv := reflect.ValueOf(v)
+		switch rv.Kind() {
+		case reflect.Slice:
+			if rv.IsNil() {
+				_, _ = w.Write([]byte("[]"))
+				return
+			}
+		case reflect.Map:
+			if rv.IsNil() {
+				_, _ = w.Write([]byte("{}"))
+				return
+			}
+		}
+	}
 	if err := json.NewEncoder(w).Encode(v); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

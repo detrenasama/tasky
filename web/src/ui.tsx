@@ -106,3 +106,37 @@ export function useToast(): [string | null, (m: string | null) => void] {
   }, [msg])
   return [msg, setMsg]
 }
+
+// ErrorBoundary ловит необработанные ошибки рендера дочерних экранов и
+// показывает диалог с текстом ошибки вместо того, чтобы оставлять пустой
+// (белый) экран. Кнопка «OK» сбрасывает состояние — при повторном рендере
+// (если данные исправились) экран восстанавливается.
+export class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  state = { error: null as Error | null }
+
+  static getDerivedStateFromError(error: Error) {
+    return { error }
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <Modal
+          title="Ошибка"
+          onClose={() => this.setState({ error: null })}
+          footer={
+            <Button className="primary" onClick={() => this.setState({ error: null })}>
+              OK
+            </Button>
+          }
+        >
+          <p className="muted">{this.state.error.message}</p>
+        </Modal>
+      )
+    }
+    return this.props.children
+  }
+}

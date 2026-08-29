@@ -412,7 +412,7 @@ func extractFile(tarPath, name, dst string) error {
 		if err != nil {
 			return err
 		}
-		if hdr.Typeflag != tar.TypeReg || hdr.Name != name {
+		if hdr.Typeflag != tar.TypeReg || strings.TrimPrefix(hdr.Name, "./") != name {
 			continue
 		}
 		out, err := os.Create(dst)

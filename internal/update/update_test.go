@@ -121,6 +121,42 @@ func TestExtractFile(t *testing.T) {
 	}
 }
 
+// TestExtractFileDotPrefix проверяет, что имена с префиксом "./" (как их
+// сохраняет `tar czf … .`) корректно находятся extractFile/extractTar.
+// Регрессия: раньше сравнивалось точное имя hdr.Name == name, и "./tasky"
+// не совпадал с "tasky" → «в архиве нет файла tasky».
+func TestExtractFileDotPrefix(t *testing.T) {
+	tarBytes := makeTarMulti(t, map[string][]byte{
+		"./tasky":               []byte("MAINBIN"),
+		"./tasky-indicator.exe": []byte("INDBIN"),
+	})
+	tmp := t.TempDir()
+	tarPath := filepath.Join(tmp, "a.tar.gz")
+	if err := os.WriteFile(tarPath, tarBytes, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	got := filepath.Join(tmp, "out")
+	if err := extractFile(tarPath, "tasky", got); err != nil {
+		t.Fatalf("extractFile(./tasky): %v", err)
+	}
+	if data, err := os.ReadFile(got); err != nil || string(data) != "MAINBIN" {
+		t.Fatalf("содержимое = %q, %v", data, err)
+	}
+
+	if err := extractFile(tarPath, "tasky-indicator.exe", filepath.Join(tmp, "ind")); err != nil {
+		t.Fatalf("extractFile(./tasky-indicator.exe): %v", err)
+	}
+
+	mainOut := filepath.Join(tmp, "main")
+	if err := extractTar(tarPath, mainOut); err != nil {
+		t.Fatalf("extractTar: %v", err)
+	}
+	if data, err := os.ReadFile(mainOut); err != nil || string(data) != "MAINBIN" {
+		t.Fatalf("extractTar содержимое = %q, %v", data, err)
+	}
+}
+
 // fakeServer поднимает httptest-сервер, эмулирующий GitHub Releases: latest,
 // бинарник и SHA256SUMS.
 func fakeServer(t *testing.T, tag string, binData []byte, badSum bool) *httptest.Server {

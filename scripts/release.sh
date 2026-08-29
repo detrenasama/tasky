@@ -39,7 +39,9 @@ for t in $RELEASES; do
         bin="tasky"
     fi
     cp "dist/release/tasky-$os-$arch" "dist/release/stage/$bin"
-    tar czf "dist/release/tasky-$os-$arch.tar.gz" -C dist/release/stage .
+    files="$bin"
+    [ "$os" = "windows" ] && files="$files tasky-indicator.exe"
+    tar czf "dist/release/tasky-$os-$arch.tar.gz" -C dist/release/stage $files
     # Временные бинарники (исходники архивов) больше не нужны.
     rm -f "dist/release/tasky-$os-$arch" "dist/release/tasky-indicator-$os-$arch"
 done

@@ -12,6 +12,7 @@ import (
 
 	"github.com/charmbracelet/bubbletea"
 
+	"github.com/detrenasama/tasky/internal/browser"
 	"github.com/detrenasama/tasky/internal/client"
 	"github.com/detrenasama/tasky/internal/db"
 	"github.com/detrenasama/tasky/internal/server"
@@ -31,6 +32,8 @@ func main() {
 			os.Exit(runUpgrade(os.Args[2:]))
 		case "serve":
 			os.Exit(runServe(os.Args[2:]))
+		case "web":
+			os.Exit(runWeb(os.Args[2:]))
 		case "attach":
 			os.Exit(runAttach(os.Args[2:]))
 		case "status":
@@ -164,6 +167,12 @@ func runDefault(args []string) int {
 
 // runServe — сервер в foreground: слушает сокет до SIGINT/SIGTERM.
 func runServe(args []string) int {
+	return runServeInner(args, false)
+}
+
+// runServeInner поднимает сервер в foreground (аналогично runServe) и, если
+// openBrowser=true, открывает веб-интерфейс в браузере по умолчанию.
+func runServeInner(args []string, openBrowser bool) int {
 	dir, err := dataDirPrepare()
 	if err != nil {
 		log.Fatal(err)
@@ -185,6 +194,11 @@ func runServe(args []string) int {
 	hs := startHTTP(args, st)
 	fmt.Printf("Сервер Tasky слушает: %s\n", sp)
 	fmt.Printf("HTTP (интеграции): http://%s\n", httpAddr(args))
+	if openBrowser {
+		if err := browser.Open("http://" + httpAddr(args)); err != nil {
+			log.Printf("не удалось открыть браузер: %v", err)
+		}
+	}
 	fmt.Println("Нажмите Ctrl+C, чтобы остановить.")
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
@@ -194,6 +208,20 @@ func runServe(args []string) int {
 		hs.Close()
 	}
 	return 0
+}
+
+// runWeb запускает веб-интерфейс: если сервер уже работает — просто открывает
+// браузер, иначе поднимает сервер (foreground) и открывает браузер.
+func runWeb(args []string) int {
+	sp := socketPath(args)
+	if cl, err := client.Dial(sp); err == nil {
+		cl.Close()
+		if err := browser.Open("http://" + httpAddr(args)); err != nil {
+			log.Printf("не удалось открыть браузер: %v", err)
+		}
+		return 0
+	}
+	return runServeInner(args, true)
 }
 
 // runAttach — подключение к уже запущенному серверу (tasky serve).

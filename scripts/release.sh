@@ -26,12 +26,22 @@ else
     echo "Используется версия: $VERSION"
 fi
 
-rm -rf dist/release && mkdir -p dist/release dist/release/stage
+rm -rf dist/release && mkdir -p dist/release
 for t in $RELEASES; do
     os="${t%-*}"; arch="${t#*-}"
     just build-target "$os" "$arch" "$VERSION"
-    cp "dist/release/tasky-$os-$arch" dist/release/stage/tasky
-    tar czf "dist/release/tasky-$os-$arch.tar.gz" -C dist/release/stage tasky
+    rm -rf dist/release/stage && mkdir -p dist/release/stage
+    if [ "$os" = "windows" ]; then
+        bin="tasky.exe"
+        just build-indicator "$os" "$arch" "$VERSION"
+        cp "dist/release/tasky-indicator-$os-$arch" dist/release/stage/tasky-indicator.exe
+    else
+        bin="tasky"
+    fi
+    cp "dist/release/tasky-$os-$arch" "dist/release/stage/$bin"
+    tar czf "dist/release/tasky-$os-$arch.tar.gz" -C dist/release/stage .
+    # Временные бинарники (исходники архивов) больше не нужны.
+    rm -f "dist/release/tasky-$os-$arch" "dist/release/tasky-indicator-$os-$arch"
 done
 rm -rf dist/release/stage
 ( cd dist/release && sha256sum *.tar.gz > SHA256SUMS )

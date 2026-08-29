@@ -2,13 +2,12 @@ package ui
 
 import (
 	"fmt"
-	"os/exec"
-	"runtime"
 	"strings"
 	"time"
 
 	"github.com/mattn/go-runewidth"
 
+	"github.com/detrenasama/tasky/internal/browser"
 	"github.com/detrenasama/tasky/internal/ui/theme"
 )
 
@@ -84,16 +83,7 @@ func fmtDurationHM(d time.Duration) string {
 
 // openURL открывает ссылку в браузере по умолчанию.
 func openURL(url string) error {
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "darwin":
-		cmd = exec.Command("open", url)
-	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
-	default:
-		cmd = exec.Command("xdg-open", url)
-	}
-	return cmd.Start()
+	return browser.Open(url)
 }
 
 // wrapText переносит текст по словам на видимую ширину w, разрывая

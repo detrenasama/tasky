@@ -61,6 +61,66 @@ func sum(b []byte) string {
 	return hex.EncodeToString(h[:])
 }
 
+// makeTarMulti строит tar.gz из нескольких файлов (имя -> содержимое).
+func makeTarMulti(t *testing.T, files map[string][]byte) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gz)
+	for name, data := range files {
+		hdr := &tar.Header{Name: name, Mode: 0o755, Size: int64(len(data))}
+		if err := tw.WriteHeader(hdr); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tw.Write(data); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := gz.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
+}
+
+func TestExtractFile(t *testing.T) {
+	tarBytes := makeTarMulti(t, map[string][]byte{
+		"tasky":               []byte("MAINBIN"),
+		"tasky-indicator.exe": []byte("INDBIN"),
+		"readme.txt":          []byte("ignore"),
+	})
+	tmp := t.TempDir()
+	tarPath := filepath.Join(tmp, "a.tar.gz")
+	if err := os.WriteFile(tarPath, tarBytes, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Извлечение конкретного файла по имени.
+	got := filepath.Join(tmp, "out")
+	if err := extractFile(tarPath, "tasky-indicator.exe", got); err != nil {
+		t.Fatalf("extractFile: %v", err)
+	}
+	if data, err := os.ReadFile(got); err != nil || string(data) != "INDBIN" {
+		t.Fatalf("извлечённое содержимое = %q, %v", data, err)
+	}
+
+	// extractTar выбирает tasky (на Windows — tasky.exe).
+	mainOut := filepath.Join(tmp, "main")
+	if err := extractTar(tarPath, mainOut); err != nil {
+		t.Fatalf("extractTar: %v", err)
+	}
+	if data, err := os.ReadFile(mainOut); err != nil || string(data) != "MAINBIN" {
+		t.Fatalf("extractTar содержимое = %q, %v", data, err)
+	}
+
+	// Отсутствующий файл — ошибка.
+	if err := extractFile(tarPath, "nope", filepath.Join(tmp, "x")); err == nil {
+		t.Fatalf("ожидалась ошибка для отсутствующего файла")
+	}
+}
+
 // fakeServer поднимает httptest-сервер, эмулирующий GitHub Releases: latest,
 // бинарник и SHA256SUMS.
 func fakeServer(t *testing.T, tag string, binData []byte, badSum bool) *httptest.Server {

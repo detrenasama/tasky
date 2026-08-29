@@ -1,5 +1,5 @@
 VERSION  := `git describe --tags --always --dirty`
-RELEASES := "linux-amd64"
+RELEASES := "linux-amd64 windows-amd64"
 
 default: check
 
@@ -50,6 +50,17 @@ proto:
 build-target os arch ver:
     CGO_ENABLED=0 GOOS={{os}} GOARCH={{arch}} go build -ldflags "-s -w -X main.version={{ver}}" \
         -o dist/release/tasky-{{os}}-{{arch}} .
+
+# Сборка трей-индикатора (только Windows: чистый Go, CGO_ENABLED=0).
+# На Linux/macOS трей не собирается (там GNOME Shell-расширение в indicators/gnome/).
+build-indicator os arch ver:
+    CGO_ENABLED=0 GOOS={{os}} GOARCH={{arch}} go build -ldflags "-s -w -X main.version={{ver}}" \
+        -o dist/release/tasky-indicator-{{os}}-{{arch}} ./indicators/windows
+
+# Сборка Windows-дистрибутива (бинарь + индикатор) в текущей среде.
+build-windows:
+    CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "-s -w -X main.version={{VERSION}}" -o dist/tasky.exe .
+    CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "-s -w -X main.version={{VERSION}}" -o dist/tasky-indicator.exe ./indicators/windows
 
 # Релиз: сборка фронтенда + выбор версии + все таргеты + tar.gz + SHA256SUMS
 release: web-build

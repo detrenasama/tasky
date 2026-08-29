@@ -11,11 +11,14 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/detrenasama/tasky/indicators/gnome"
 )
 
 // Repo — GitHub-репозиторий релизов.
@@ -229,8 +232,85 @@ func upgradeTo(current, exePath string, rep Reporter) (newVersion string, replac
 		os.Remove(newBin)
 		return "", false, err
 	}
+
+	// Обновление индикатора (рядом с бинарником / в каталоге расширений).
+	// Не фатально для обновления самого tasky.
+	if err := updateIndicator(tarPath, exePath); err != nil {
+		report(rep, StepInstall, "Индикатор: "+err.Error(), -1)
+	}
+
 	report(rep, StepDone, "Готово.", -1)
 	return latest, true, nil
+}
+
+// updateIndicator обновляет системный индикатор после замены бинарника.
+// Windows: всегда извлекает tasky-indicator.exe из того же релиза рядом с
+// бинарником. Linux: если обнаружен GNOME и расширение уже установлено —
+// перезаписывает его файлы (и пытается включить) из встроенной копии.
+// Успешное обновление не шлёт отдельных уведомлений (чтобы не дублировать
+// шаг установки бинарника); ошибки возвращаются вызывающему.
+func updateIndicator(tarPath, exePath string) error {
+	dir := filepath.Dir(exePath)
+	switch runtime.GOOS {
+	case "windows":
+		indNew := filepath.Join(dir, ".tasky-indicator.new")
+		if err := extractFile(tarPath, "tasky-indicator.exe", indNew); err != nil {
+			return err
+		}
+		if err := os.Chmod(indNew, 0o755); err != nil {
+			os.Remove(indNew)
+			return err
+		}
+		dst := filepath.Join(dir, "tasky-indicator.exe")
+		if err := os.Rename(indNew, dst); err != nil {
+			os.Remove(indNew)
+			return err
+		}
+		return nil
+	case "linux":
+		if !gnomeInstalled() {
+			return nil
+		}
+		extDir := gnomeExtDir()
+		if st, err := os.Stat(extDir); err != nil || !st.IsDir() {
+			return nil // расширение не установлено — не трогаем
+		}
+		for _, f := range []string{"extension.js", "metadata.json"} {
+			data, err := gnome.Files.ReadFile(f)
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile(filepath.Join(extDir, f), data, 0o644); err != nil {
+				return err
+			}
+		}
+		// Включение может потребовать перезаход в сессию — это не ошибка.
+		_ = exec.Command("gnome-extensions", "enable", "tasky-indicator@detrenasama").Run()
+		return nil
+	}
+	return nil
+}
+
+// gnomeInstalled сообщает, что ОС — Linux с оболочкой GNOME.
+func gnomeInstalled() bool {
+	if _, err := exec.LookPath("gnome-shell"); err != nil {
+		return false
+	}
+	de := strings.ToLower(os.Getenv("XDG_CURRENT_DESKTOP"))
+	return strings.Contains(de, "gnome")
+}
+
+// gnomeExtDir возвращает каталог установки GNOME Shell-расширения.
+func gnomeExtDir() string {
+	dataHome := os.Getenv("XDG_DATA_HOME")
+	if dataHome == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			home = "."
+		}
+		dataHome = filepath.Join(home, ".local", "share")
+	}
+	return filepath.Join(dataHome, "gnome-shell", "extensions", "tasky-indicator@detrenasama")
 }
 
 // progressReader обёртывает io.Reader и сообщает о доле прочитанных данных.
@@ -310,8 +390,9 @@ func fileSHA256(path string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-// extractTar распаковывает tar.gz и записывает файл «tasky» в dst.
-func extractTar(tarPath, dst string) error {
+// extractFile извлекает из tar.gz единственный файл с именем name и пишет
+// его в dst. Если файла нет — ошибка.
+func extractFile(tarPath, name, dst string) error {
 	f, err := os.Open(tarPath)
 	if err != nil {
 		return err
@@ -331,7 +412,7 @@ func extractTar(tarPath, dst string) error {
 		if err != nil {
 			return err
 		}
-		if hdr.Typeflag != tar.TypeReg || hdr.Name != "tasky" {
+		if hdr.Typeflag != tar.TypeReg || hdr.Name != name {
 			continue
 		}
 		out, err := os.Create(dst)
@@ -344,5 +425,15 @@ func extractTar(tarPath, dst string) error {
 		}
 		return out.Close()
 	}
-	return fmt.Errorf("в архиве нет файла tasky")
+	return fmt.Errorf("в архиве нет файла %s", name)
+}
+
+// extractTar распаковывает tar.gz и записывает файл «tasky» (на Windows —
+// «tasky.exe») в dst.
+func extractTar(tarPath, dst string) error {
+	want := "tasky"
+	if runtime.GOOS == "windows" {
+		want = "tasky.exe"
+	}
+	return extractFile(tarPath, want, dst)
 }

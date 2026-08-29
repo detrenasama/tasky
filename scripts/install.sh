@@ -66,6 +66,50 @@ mkdir -p "$PREFIX/bin"
 tar xzf "$tmp/tasky.tar.gz" -C "$tmp"
 install -m755 "$tmp/tasky" "$PREFIX/bin/tasky"
 
-mkdir -p "$HOME/.local/share/tasky"
-echo "Установлено: $PREFIX/bin/tasky ($tag)"
-echo "Обновление: tasky upgrade"
+DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/tasky"
+mkdir -p "$DATA_DIR"
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+IND_SRC="$REPO_DIR/indicators/gnome"
+
+echo ""
+echo "Установка завершена."
+echo "  Бинарник:    $PREFIX/bin/tasky ($tag)"
+echo "  Данные:      $DATA_DIR"
+echo "  Обновление:  tasky upgrade"
+echo ""
+
+# Проверка окружения и предложение системного индикатора.
+desktop="${XDG_CURRENT_DESKTOP:-}"
+case "$desktop" in
+	*gnome*) : ;;
+	*) command -v gnome-shell >/dev/null 2>&1 && desktop="gnome" ;;
+esac
+
+if [ "${desktop#*gnome}" != "$desktop" ] || command -v gnome-shell >/dev/null 2>&1; then
+	if [ -d "$IND_SRC" ]; then
+		echo "Обнаружен GNOME Shell. Доступен системный индикатор (иконка в трее):"
+		echo "  показывает время за сегодня, запускает/останавливает сервер"
+		echo "  и открывает веб-интерфейс. Установить индикатор? [y/N]"
+		printf "> "
+		read -r ans || ans=""
+		case "$ans" in
+			y|Y|yes|YES|д|Д|да|Да)
+				EXT_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/gnome-shell/extensions/tasky-indicator@detrenasama"
+				mkdir -p "$EXT_DIR"
+				cp "$IND_SRC/extension.js" "$IND_SRC/metadata.json" "$EXT_DIR/"
+				echo "Индикатор установлен: $EXT_DIR"
+				if command -v gnome-extensions >/dev/null 2>&1; then
+					gnome-extensions enable tasky-indicator@detrenasama 2>/dev/null || \
+						echo "Включите вручную (или перезайдите в сессию): gnome-extensions enable tasky-indicator@detrenasama"
+				fi
+				;;
+			*)
+				echo "Пропущено. Позже: cd $IND_SRC && ./install.sh"
+				;;
+		esac
+	fi
+else
+	echo "Системный индикатор доступен только для GNOME Shell (установите позже из $IND_SRC)."
+	echo "На Windows индикатор (tasky-indicator.exe) уже входит в zip релиза рядом с tasky.exe."
+fi

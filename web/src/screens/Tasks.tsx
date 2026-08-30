@@ -40,6 +40,8 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
   const [subDetail, setSubDetail] = useState<Detail>(EMPTY)
   const [statuses, setStatuses] = useState<StatusDef[]>([])
   const [runningId, setRunningId] = useState<number | null>(null)
+  const [tagsMap, setTagsMap] = useState<Record<string, Tag[]>>({})
+  const [checkMap, setCheckMap] = useState<Record<string, [number, number]>>({})
 
   const [addKind, setAddKind] = useState<null | 'task' | 'sub'>(null)
   const [addTitle, setAddTitle] = useState('')
@@ -69,12 +71,17 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
         setSubs(ss)
       })
       .catch((e) => onError(String(e)))
+    api.tagsByProject(p.id).then(setTagsMap).catch(() => setTagsMap({}))
+    api.checklistCounts(p.id).then(setCheckMap).catch(() => setCheckMap({}))
   }
 
   // reload — перечитывает задачи/подзадачи проекта без сброса выбора.
   const reload = () => {
     if (!proj) return Promise.resolve()
-    return Promise.all([api.tasksByProject(proj.id), api.subtasksByProject(proj.id)])
+    const pid = proj.id
+    api.tagsByProject(pid).then(setTagsMap).catch(() => {})
+    api.checklistCounts(pid).then(setCheckMap).catch(() => {})
+    return Promise.all([api.tasksByProject(pid), api.subtasksByProject(pid)])
       .then(([ts, ss]) => {
         setTasks(ts)
         setSubs(ss)
@@ -208,6 +215,20 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
 
   const subsOf = (taskId: number) => subs.filter((s) => s.task_id === taskId)
 
+  // Хелперы для двухстрочных карточек
+  const doneSet = new Set(statuses.filter((s) => s.type === 'done').map((s) => s.name))
+  const isDone = (name: string) => doneSet.has(name)
+  const taskTime = (taskId: number) =>
+    subs
+      .filter((s) => s.task_id === taskId)
+      .reduce((a, s) => {
+        let t = s.total_seconds
+        if (s.active_since) t += Math.floor(Date.now() / 1000) - s.active_since
+        return a + t
+      }, 0)
+  const taskDoneCount = (taskId: number) =>
+    subs.filter((s) => s.task_id === taskId && doneSet.has(s.status)).length
+
   return (
     <div className="flex" style={{ alignItems: 'stretch', height: '100%' }}>
       {/* Колонка 1: проект + задачи */}
@@ -225,16 +246,45 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
         </div>
         {proj ? (
           <ul className="list">
-            {tasks.map((t) => (
-              <li
-                key={t.id}
-                className={`row ${selTaskId === t.id ? 'selected' : ''}`}
-                onClick={() => selectTask(t)}
-              >
-                <span className="title">{t.title}</span>
-                {t.sub_count > 0 && <span className="muted small">{t.sub_count}</span>}
-              </li>
-            ))}
+            {tasks.map((t) => {
+              const col = statusColor(t.status, statuses)
+              const done = isDone(t.status)
+              const secs = taskTime(t.id)
+              const hasTime = secs > 0
+              const hasCount = t.sub_count > 0
+              const k = taskDoneCount(t.id)
+              const tags = tagsMap[String(t.id)] || []
+              return (
+                <li
+                  key={t.id}
+                  className={`row task-row${selTaskId === t.id ? ' selected' : ''}${done ? ' task-row--done' : ''}`}
+                  style={{ borderLeftColor: col }}
+                  onClick={() => selectTask(t)}
+                >
+                  <div className="task-row__line1">
+                    <span className="title">{t.title}</span>
+                    {(hasTime || hasCount) && (
+                      <span className="task-row__meta muted small">
+                        {hasTime && fmtDuration(secs)}
+                        {hasTime && hasCount && <span className="task-row__bullet"> • </span>}
+                        {hasCount && `${k}/${t.sub_count}`}
+                      </span>
+                    )}
+                  </div>
+                  <div className="task-row__line2">
+                    <span className="task-row__status" style={{ color: col }}>{t.status}</span>
+                    {tags.length > 0 && (
+                      <span className="task-row__tags">
+                        {tags.slice(0, 3).map((tg) => (
+                          <span key={tg.id} className="tag task-row__tag" style={{ background: tg.color || 'var(--panel2)' }}>{tg.text}</span>
+                        ))}
+                        {tags.length > 3 && <span className="muted small">+{tags.length - 3}</span>}
+                      </span>
+                    )}
+                  </div>
+                </li>
+              )
+            })}
           </ul>
         ) : (
           <p className="muted">{projects.length === 0 ? 'Создайте проект' : 'Выберите проект'}</p>
@@ -251,18 +301,42 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
         {!selTaskId && <p className="muted">Выберите задачу.</p>}
         {selTaskId && (
           <ul className="list">
-            {subsOf(selTaskId).map((s) => (
-              <li
-                key={s.id}
-                className={`row ${selSubId === s.id ? 'selected' : ''}`}
-                onClick={() => selectSub(s)}
-              >
-                <span className="status-dot" style={{ background: statusColor(s.status, statuses) }} />
-                <span className="title">{s.title}</span>
-                <span className="muted small">{fmtDuration(s.total_seconds)}</span>
-                {runningId === s.id && <span className="running">●</span>}
-              </li>
-            ))}
+            {subsOf(selTaskId).map((s) => {
+              const col = statusColor(s.status, statuses)
+              const done = isDone(s.status)
+              let secs = s.total_seconds
+              if (s.active_since) secs += Math.floor(Date.now() / 1000) - s.active_since
+              const hasTime = secs > 0
+              const cc = checkMap[String(s.id)]
+              const hasCheck = !!cc && cc[1] > 0
+              const ck = cc ? `${cc[0]}/${cc[1]}` : ''
+              const showBullet = hasTime && hasCheck
+              return (
+                <li
+                  key={s.id}
+                  className={`row task-row${selSubId === s.id ? ' selected' : ''}${done ? ' task-row--done' : ''}`}
+                  style={{ borderLeftColor: col }}
+                  onClick={() => selectSub(s)}
+                >
+                  <div className="task-row__line1">
+                    <span className="title">{s.title}</span>
+                    <span className="task-row__meta muted small" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      {(hasTime || hasCheck) && (
+                        <>
+                          {hasTime && fmtDuration(secs)}
+                          {showBullet && <span className="task-row__bullet"> • </span>}
+                          {hasCheck && ck}
+                        </>
+                      )}
+                      {runningId === s.id && <span className="running">●</span>}
+                    </span>
+                  </div>
+                  <div className="task-row__line2">
+                    <span className="task-row__status" style={{ color: col }}>{s.status}</span>
+                  </div>
+                </li>
+              )
+            })}
           </ul>
         )}
         <div className="resizer" onMouseDown={subResize.onDown} />

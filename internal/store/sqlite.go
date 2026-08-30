@@ -63,6 +63,10 @@ func (s *SQLite) CreateSubtask(taskID int64, title string) (db.SubtaskWithTime, 
 func (s *SQLite) DeleteSubtask(id int64) error        { return db.DeleteSubtask(s.conn, id) }
 func (s *SQLite) MoveTask(id int64, dir int) error    { return db.MoveTask(s.conn, id, dir) }
 func (s *SQLite) MoveSubtask(id int64, dir int) error { return db.MoveSubtask(s.conn, id, dir) }
+func (s *SQLite) ReorderTask(id int64, to int) error  { return db.ReorderTask(s.conn, id, to) }
+func (s *SQLite) ReorderSubtask(id int64, newTaskID int64, to int) error {
+	return db.ReorderSubtask(s.conn, id, newTaskID, to)
+}
 func (s *SQLite) UpdateTaskTitle(id int64, title string) error {
 	return db.UpdateTaskTitle(s.conn, id, title)
 }

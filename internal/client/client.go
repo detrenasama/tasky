@@ -247,6 +247,14 @@ func (c *Client) MoveSubtask(id int64, dir int) error {
 	return rpc.StatusToDBError(err)
 }
 
+func (c *Client) ReorderTask(id int64, to int) error {
+	return fmt.Errorf("reorder via gRPC not implemented")
+}
+
+func (c *Client) ReorderSubtask(id int64, newTaskID int64, to int) error {
+	return fmt.Errorf("reorder via gRPC not implemented")
+}
+
 func (c *Client) UpdateTaskTitle(id int64, title string) error {
 	ctx, cancel := callCtx()
 	defer cancel()

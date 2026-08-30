@@ -136,6 +136,25 @@ func registerTasks(mux *http.ServeMux, st store.Store) {
 		}
 		writeJSON(w, okTrue())
 	})
+	mux.HandleFunc("POST /api/tasks/{id}/reorder", func(w http.ResponseWriter, r *http.Request) {
+		id, err := idParam(r, "id")
+		if err != nil {
+			writeErr(w, err)
+			return
+		}
+		var b struct {
+			To int `json:"to"`
+		}
+		if err := decodeJSON(r, &b); err != nil {
+			writeErr(w, errBadRequest)
+			return
+		}
+		if err := st.ReorderTask(id, b.To); err != nil {
+			writeErr(w, err)
+			return
+		}
+		writeJSON(w, okTrue())
+	})
 	mux.HandleFunc("GET /api/tasks/{id}/subtasks", func(w http.ResponseWriter, r *http.Request) {
 		id, err := idParam(r, "id")
 		if err != nil {
@@ -314,6 +333,26 @@ func registerTasks(mux *http.ServeMux, st store.Store) {
 			return
 		}
 		if err := st.MoveSubtask(id, b.Dir); err != nil {
+			writeErr(w, err)
+			return
+		}
+		writeJSON(w, okTrue())
+	})
+	mux.HandleFunc("POST /api/subtasks/{id}/reorder", func(w http.ResponseWriter, r *http.Request) {
+		id, err := idParam(r, "id")
+		if err != nil {
+			writeErr(w, err)
+			return
+		}
+		var b struct {
+			To       int   `json:"to"`
+			TaskID   int64 `json:"task_id"`
+		}
+		if err := decodeJSON(r, &b); err != nil {
+			writeErr(w, errBadRequest)
+			return
+		}
+		if err := st.ReorderSubtask(id, b.TaskID, b.To); err != nil {
 			writeErr(w, err)
 			return
 		}

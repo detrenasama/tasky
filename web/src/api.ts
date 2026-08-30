@@ -70,6 +70,8 @@ export const api = {
     req<{ ok: boolean }>('PUT', `/tasks/${id}/description`, { description }),
   moveTask: (id: number, dir: number) =>
     req<{ ok: boolean }>('POST', `/tasks/${id}/move`, { dir }),
+  reorderTask: (id: number, to: number) =>
+    req<{ ok: boolean }>('POST', `/tasks/${id}/reorder`, { to }),
   subtasksByTask: (tid: number) => req<Subtask[]>('GET', `/tasks/${tid}/subtasks`),
   createSubtask: (tid: number, title: string) =>
     req<Subtask>('POST', `/tasks/${tid}/subtasks`, { title }),
@@ -82,6 +84,8 @@ export const api = {
     req<{ ok: boolean }>('PUT', `/subtasks/${id}/description`, { description }),
   moveSubtask: (id: number, dir: number) =>
     req<{ ok: boolean }>('POST', `/subtasks/${id}/move`, { dir }),
+  reorderSubtask: (id: number, taskId: number, to: number) =>
+    req<{ ok: boolean }>('POST', `/subtasks/${id}/reorder`, { task_id: taskId, to }),
   taskLinks: (id: number) => req<Link[]>('GET', `/tasks/${id}/links`),
   createTaskLink: (id: number, name: string, url: string) =>
     req<Link>('POST', `/tasks/${id}/links`, { name, url }),

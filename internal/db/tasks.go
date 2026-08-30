@@ -67,6 +67,101 @@ func MoveSubtask(conn *sql.DB, id int64, dir int) error {
 	return moveOrderedRow(conn, "subtasks", "task_id", id, dir)
 }
 
+// ReorderTask перемещает задачу на позицию to (0-based) внутри проекта.
+func ReorderTask(conn *sql.DB, id int64, to int) error {
+	return reorderOrderedRow(conn, "tasks", "project_id", id, to)
+}
+
+// ReorderSubtask перемещает подзадачу. Если newTaskID == 0 или совпадает со
+// старым родителем — переупорядочивание внутри задачи, иначе — перенос в
+// другую задачу на позицию to.
+func ReorderSubtask(conn *sql.DB, id int64, newTaskID int64, to int) error {
+	var oldTaskID int64
+	if err := conn.QueryRow("SELECT task_id FROM subtasks WHERE id = ?", id).Scan(&oldTaskID); err != nil {
+		return err
+	}
+	if newTaskID == 0 {
+		newTaskID = oldTaskID
+	}
+	if newTaskID == oldTaskID {
+		return reorderOrderedRow(conn, "subtasks", "task_id", id, to)
+	}
+	return reorderSubtaskCross(conn, id, oldTaskID, newTaskID, to)
+}
+
+func reorderSubtaskCross(conn *sql.DB, id, oldTaskID, newTaskID int64, to int) error {
+	tx, err := conn.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Старый список без перемещаемой.
+	oldRows, err := tx.Query("SELECT id FROM subtasks WHERE task_id = ? ORDER BY sort_order, id", oldTaskID)
+	if err != nil {
+		return err
+	}
+	var oldIDs []int64
+	for oldRows.Next() {
+		var x int64
+		if err := oldRows.Scan(&x); err != nil {
+			oldRows.Close()
+			return err
+		}
+		if x != id {
+			oldIDs = append(oldIDs, x)
+		}
+	}
+	oldRows.Close()
+	if err := oldRows.Err(); err != nil {
+		return err
+	}
+	// Новый список без перемещаемой.
+	newRows, err := tx.Query("SELECT id FROM subtasks WHERE task_id = ? AND id != ? ORDER BY sort_order, id", newTaskID, id)
+	if err != nil {
+		return err
+	}
+	var newIDs []int64
+	for newRows.Next() {
+		var x int64
+		if err := newRows.Scan(&x); err != nil {
+			newRows.Close()
+			return err
+		}
+		newIDs = append(newIDs, x)
+	}
+	newRows.Close()
+	if err := newRows.Err(); err != nil {
+		return err
+	}
+	if to < 0 {
+		to = 0
+	}
+	if to > len(newIDs) {
+		to = len(newIDs)
+	}
+	// Обновляем родителя и временно sort_order.
+	if _, err := tx.Exec("UPDATE subtasks SET task_id = ? WHERE id = ?", newTaskID, id); err != nil {
+		return err
+	}
+	// Переписываем sort_order старого родителя 1..N.
+	for i, x := range oldIDs {
+		if _, err := tx.Exec("UPDATE subtasks SET sort_order = ? WHERE id = ?", i+1, x); err != nil {
+			return err
+		}
+	}
+	// Вставляем в новый список.
+	newIDs = append(newIDs, 0)
+	copy(newIDs[to+1:], newIDs[to:])
+	newIDs[to] = id
+	for i, x := range newIDs {
+		if _, err := tx.Exec("UPDATE subtasks SET sort_order = ? WHERE id = ?", i+1, x); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
 // moveOrderedRow двигает строку таблицы table (parentCol — колонка родителя)
 // в списке соседей. Если движение выходит за границы — ничего не делает.
 // Позиции соседей нормализуются к 1..N (устойчиво даже к legacy-нулям), затем
@@ -123,6 +218,68 @@ func moveOrderedRow(conn *sql.DB, table, parentCol string, id int64, dir int) er
 	}
 	if _, err := tx.Exec("UPDATE "+table+" SET sort_order = ? WHERE id = ?", idx+1, ids[j]); err != nil {
 		return err
+	}
+	return tx.Commit()
+}
+
+func reorderOrderedRow(conn *sql.DB, table, parentCol string, id int64, to int) error {
+	var parentID int64
+	if err := conn.QueryRow("SELECT "+parentCol+" FROM "+table+" WHERE id = ?", id).Scan(&parentID); err != nil {
+		return err
+	}
+	rows, err := conn.Query("SELECT id FROM "+table+" WHERE "+parentCol+" = ? ORDER BY sort_order, id", parentID)
+	if err != nil {
+		return err
+	}
+	var ids []int64
+	for rows.Next() {
+		var x int64
+		if err := rows.Scan(&x); err != nil {
+			rows.Close()
+			return err
+		}
+		ids = append(ids, x)
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	idx := -1
+	for i, x := range ids {
+		if x == id {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		return nil
+	}
+	if to < 0 {
+		to = 0
+	}
+	if to >= len(ids) {
+		to = len(ids) - 1
+	}
+	if idx == to {
+		return nil
+	}
+	// splice
+	val := ids[idx]
+	ids = append(ids[:idx], ids[idx+1:]...)
+	ids = append(ids, 0)
+	copy(ids[to+1:], ids[to:])
+	ids[to] = val
+	tx, err := conn.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for i, x := range ids {
+		if _, err := tx.Exec("UPDATE "+table+" SET sort_order = ? WHERE id = ?", i+1, x); err != nil {
+			return err
+		}
 	}
 	return tx.Commit()
 }

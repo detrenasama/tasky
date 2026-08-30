@@ -34,6 +34,8 @@ type Store interface {
 	DeleteSubtask(id int64) error
 	MoveTask(id int64, dir int) error
 	MoveSubtask(id int64, dir int) error
+	ReorderTask(id int64, to int) error
+	ReorderSubtask(id int64, newTaskID int64, to int) error
 	UpdateTaskTitle(id int64, title string) error
 	UpdateSubtaskTitle(id int64, title string) error
 	TaskDescription(id int64) (string, error)

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { api } from '../api'
 import type {
   Project,
@@ -213,8 +214,6 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
     }
   }
 
-  const subsOf = (taskId: number) => subs.filter((s) => s.task_id === taskId)
-
   // Хелперы для двухстрочных карточек
   const doneSet = new Set(statuses.filter((s) => s.type === 'done').map((s) => s.name))
   const isDone = (name: string) => doneSet.has(name)
@@ -228,6 +227,233 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
       }, 0)
   const taskDoneCount = (taskId: number) =>
     subs.filter((s) => s.task_id === taskId && doneSet.has(s.status)).length
+
+  // --- Drag-and-drop (long-press 400ms, mouse + touch) ---
+  const HOLD_MS = 400
+  const MOVE_TOL = 8
+  const taskListRef = useRef<HTMLUListElement>(null)
+  const subListRef = useRef<HTMLUListElement>(null)
+  const [dragTask, setDragTask] = useState<{ id: number; from: number; to: number } | null>(null)
+  const [dragSub, setDragSub] = useState<{ id: number; fromTaskId: number; from: number; to: number; toTaskId: number } | null>(null)
+  const [ghost, setGhost] = useState<{ kind: 'task' | 'sub'; x: number; y: number; w: number; h: number; id: number } | null>(null)
+  const dragRef = useRef<{ timer: number | null; startX: number; startY: number; w: number; h: number; kind: 'task' | 'sub'; id: number; from: number; fromTaskId: number | null; pointerId: number | null }>({ timer: null, startX: 0, startY: 0, w: 0, h: 0, kind: 'task', id: 0, from: 0, fromTaskId: null, pointerId: null })
+  const suppressClick = useRef(false)
+
+  const arrayMove = <T,>(arr: T[], from: number, to: number): T[] => {
+    const a = [...arr]
+    const [v] = a.splice(from, 1)
+    a.splice(to, 0, v)
+    return a
+  }
+  // Для плавающего ghost показываем placeholder вместо перетаскиваемого элемента
+  const displayTasks = (() => {
+    if (!dragTask) return tasks
+    const without = tasks.filter((t) => t.id !== dragTask.id)
+    const res: (Task | { __placeholder: true; key: string })[] = [...without] as any
+    res.splice(dragTask.to, 0, { __placeholder: true, key: 'ph-task' } as any)
+    return res as Task[]
+  })()
+  const displaySubsFor = (taskId: number) => {
+    const base = subs.filter((s) => s.task_id === taskId)
+    if (!dragSub) return base
+    // если перетаскивание в другую задачу — в текущем списке просто убираем элемент
+    if (dragSub.fromTaskId === taskId && dragSub.toTaskId !== taskId) {
+      return base.filter((s) => s.id !== dragSub.id)
+    }
+    if (dragSub.fromTaskId !== taskId || dragSub.toTaskId !== taskId) return base
+    const without = base.filter((s) => s.id !== dragSub.id)
+    const res: any[] = [...without]
+    res.splice(dragSub.to, 0, { __placeholder: true, key: 'ph-sub' } as any)
+    return res as Subtask[]
+  }
+
+  const clearDragTimer = () => {
+    if (dragRef.current.timer !== null) {
+      window.clearTimeout(dragRef.current.timer)
+      dragRef.current.timer = null
+    }
+  }
+
+  const onTaskPointerDown = (e: React.PointerEvent, t: Task, idx: number) => {
+    if (e.button !== 0) return
+    if ((e.target as HTMLElement).closest('.resizer')) return
+    const sx = e.clientX, sy = e.clientY, pid = e.pointerId
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    dragRef.current = { timer: null, startX: sx, startY: sy, w: r.width, h: r.height, kind: 'task', id: t.id, from: idx, fromTaskId: null, pointerId: pid }
+    const timer = window.setTimeout(() => {
+      dragRef.current.timer = null
+      setDragTask({ id: t.id, from: idx, to: idx })
+      setGhost({ kind: 'task', x: sx - r.width / 2, y: sy - r.height / 2, w: r.width, h: r.height, id: t.id })
+      suppressClick.current = true
+      try { (e.currentTarget as HTMLElement).setPointerCapture(pid) } catch {}
+    }, HOLD_MS)
+    dragRef.current.timer = timer as unknown as number
+  }
+
+  const onSubPointerDown = (e: React.PointerEvent, s: Subtask, idx: number) => {
+    if (e.button !== 0) return
+    if ((e.target as HTMLElement).closest('.resizer')) return
+    const sx = e.clientX, sy = e.clientY, pid = e.pointerId
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    dragRef.current = { timer: null, startX: sx, startY: sy, w: r.width, h: r.height, kind: 'sub', id: s.id, from: idx, fromTaskId: s.task_id, pointerId: pid }
+    const timer = window.setTimeout(() => {
+      dragRef.current.timer = null
+      setDragSub({ id: s.id, fromTaskId: s.task_id, from: idx, to: idx, toTaskId: s.task_id })
+      setGhost({ kind: 'sub', x: sx - r.width / 2, y: sy - r.height / 2, w: r.width, h: r.height, id: s.id })
+      suppressClick.current = true
+      try { (e.currentTarget as HTMLElement).setPointerCapture(pid) } catch {}
+    }, HOLD_MS)
+    dragRef.current.timer = timer as unknown as number
+  }
+
+  useEffect(() => {
+    const onMove = (ev: PointerEvent) => {
+      const dr = dragRef.current
+      // если ещё не активирован drag — проверяем толерантность
+      if (dr.timer !== null) {
+        if (Math.hypot(ev.clientX - dr.startX, ev.clientY - dr.startY) > MOVE_TOL) {
+          clearDragTimer()
+        }
+        return
+      }
+      // плавающий ghost за курсором
+      if (dragTask || dragSub) {
+        setGhost((prev) => (prev ? { ...prev, x: ev.clientX - prev.w / 2, y: ev.clientY - 14 } : prev))
+      }
+      if (dragTask) {
+        const ul = taskListRef.current
+        if (!ul) return
+        const items = Array.from(ul.querySelectorAll<HTMLElement>('[data-task-id]'))
+        // считаем, сколько элементов выше указателя (исключая перетаскиваемый)
+        let cnt = 0
+        for (const el of items) {
+          if (el.dataset.taskId === String(dragTask.id)) continue
+          const r = el.getBoundingClientRect()
+          const mid = r.top + r.height / 2
+          if (ev.clientY > mid) cnt++
+        }
+        // clamp
+        const max = tasks.length - 1
+        cnt = Math.max(0, Math.min(max, cnt))
+        // корректировка: если перетаскиваемый был выше, индексы сдвинуты
+        // наш cnt уже считает в списке без него — он и есть to
+        if (cnt !== dragTask.to) setDragTask({ ...dragTask, to: cnt })
+      } else if (dragSub) {
+        // проверяем, наведен ли указатель на задачу в левой колонке (для переноса в другую задачу)
+        const taskItems = taskListRef.current ? Array.from(taskListRef.current.querySelectorAll<HTMLElement>('[data-task-id]')) : []
+        let hoverTaskId: number | null = null
+        for (const el of taskItems) {
+          const r = el.getBoundingClientRect()
+          if (ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom) {
+            hoverTaskId = Number(el.dataset.taskId)
+            break
+          }
+        }
+        // также проверяем подзадачи текущего списка для внутри-задачной сортировки
+        const ul = subListRef.current
+        if (hoverTaskId !== null && hoverTaskId !== dragSub.fromTaskId) {
+          // перенос в другую задачу — в конец
+          const targetCount = subs.filter((s) => s.task_id === hoverTaskId).length
+          if (dragSub.toTaskId !== hoverTaskId || dragSub.to !== targetCount) {
+            setDragSub({ ...dragSub, toTaskId: hoverTaskId, to: targetCount })
+          }
+          return
+        }
+        if (!ul) return
+        const items = Array.from(ul.querySelectorAll<HTMLElement>('[data-sub-id]'))
+        let cnt = 0
+        for (const el of items) {
+          if (el.dataset.subId === String(dragSub.id)) continue
+          const r = el.getBoundingClientRect()
+          const mid = r.top + r.height / 2
+          if (ev.clientY > mid) cnt++
+        }
+        const max = subs.filter((s) => s.task_id === dragSub.fromTaskId).length - 1
+        if (dragSub.toTaskId !== dragSub.fromTaskId) {
+          // вернулись в исходную задачу
+          cnt = Math.max(0, Math.min(max, cnt))
+          setDragSub({ ...dragSub, toTaskId: dragSub.fromTaskId, to: cnt })
+          return
+        }
+        cnt = Math.max(0, Math.min(max, cnt))
+        if (cnt !== dragSub.to) setDragSub({ ...dragSub, to: cnt })
+      }
+    }
+    const onUp = async (ev: PointerEvent) => {
+      const dr = dragRef.current
+      if (dr.timer !== null) {
+        clearDragTimer()
+        dragRef.current.pointerId = null
+        return
+      }
+      if (dragTask) {
+        const { id, from, to } = dragTask
+        setDragTask(null)
+        setGhost(null)
+        dragRef.current.pointerId = null
+        // снимаем suppress через тик чтобы click не сработал
+        setTimeout(() => { suppressClick.current = false }, 50)
+        try { (ev.target as HTMLElement)?.releasePointerCapture?.(dr.pointerId ?? ev.pointerId) } catch {}
+        if (from === to) return
+        // оптимистично
+        setTasks((prev) => arrayMove(prev, from, to))
+        try {
+          await api.reorderTask(id, to)
+          reload()
+        } catch (e) { onError(String(e)); reload() }
+      } else if (dragSub) {
+        const { id, fromTaskId, toTaskId, from, to } = dragSub
+        setDragSub(null)
+        setGhost(null)
+        dragRef.current.pointerId = null
+        setTimeout(() => { suppressClick.current = false }, 50)
+        try { (ev.target as HTMLElement)?.releasePointerCapture?.(dr.pointerId ?? ev.pointerId) } catch {}
+        const isCross = fromTaskId !== toTaskId
+        if (!isCross && from === to) return
+        // оптимистично: для внутри-задачного — локально переставим, для межзадачного — сменим task_id
+        setSubs((prev) => {
+          const a = [...prev]
+          const idx = a.findIndex((s) => s.id === id)
+          if (idx < 0) return prev
+          const [orig] = a.splice(idx, 1)
+          const moved = { ...orig, task_id: toTaskId }
+          // найти позицию вставки в flat списке: считаем сколько подзадач целевого таска до to
+          const targetSibs = a.filter((s) => s.task_id === toTaskId)
+          let insertAt: number
+          if (targetSibs.length === 0) {
+            // вставить после последней подзадачи любого таска? — найдём первую позицию после всех или в конец
+            insertAt = a.length
+            // если переносим в пустую задачу — в конец flat массива
+          } else {
+            if (to >= targetSibs.length) {
+              const last = targetSibs[targetSibs.length - 1]
+              insertAt = a.findIndex((s) => s.id === last.id) + 1
+            } else {
+              const before = targetSibs[to]
+              insertAt = a.findIndex((s) => s.id === before.id)
+            }
+          }
+          a.splice(insertAt, 0, moved)
+          return a
+        })
+        if (isCross && toTaskId !== selTaskId) setSelTaskId(toTaskId)
+        try {
+          await api.reorderSubtask(id, toTaskId, to)
+          reload()
+        } catch (e) { onError(String(e)); reload() }
+      } else {
+        dragRef.current.pointerId = null
+      }
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp as any)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp as any)
+    }
+  }, [dragTask, dragSub, tasks, subs, selTaskId])
 
   return (
     <div className="flex" style={{ alignItems: 'stretch', height: '100%' }}>
@@ -245,8 +471,11 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
           {proj && <Button color="accent" icon="plus" label="Создать задачу" onClick={() => openAdd('task')} />}
         </div>
         {proj ? (
-          <ul className="list">
-            {tasks.map((t) => {
+          <ul className={`list${dragTask ? ' dragging' : ''}`} ref={taskListRef}>
+            {displayTasks.map((t: any, idx: number) => {
+              if (t.__placeholder) {
+                return <li key="ph-task" className="drag-placeholder" style={{ height: ghost?.h ? `${ghost.h}px` : '58px' }} />
+              }
               const col = statusColor(t.status, statuses)
               const done = isDone(t.status)
               const secs = taskTime(t.id)
@@ -254,12 +483,15 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
               const hasCount = t.sub_count > 0
               const k = taskDoneCount(t.id)
               const tags = tagsMap[String(t.id)] || []
+              const isDropTarget = dragSub?.toTaskId === t.id && dragSub?.id !== t.id
               return (
                 <li
                   key={t.id}
-                  className={`row task-row${selTaskId === t.id ? ' selected' : ''}${done ? ' task-row--done' : ''}`}
+                  data-task-id={t.id}
+                  className={`row task-row${selTaskId === t.id ? ' selected' : ''}${done ? ' task-row--done' : ''}${isDropTarget ? ' drop-target' : ''}`}
                   style={{ borderLeftColor: col }}
-                  onClick={() => selectTask(t)}
+                  onClick={() => { if (suppressClick.current) return; selectTask(t) }}
+                  onPointerDown={(e) => onTaskPointerDown(e, t, idx)}
                 >
                   <div className="task-row__line1">
                     <span className="title">{t.title}</span>
@@ -300,8 +532,11 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
         </div>
         {!selTaskId && <p className="muted">Выберите задачу.</p>}
         {selTaskId && (
-          <ul className="list">
-            {subsOf(selTaskId).map((s) => {
+          <ul className={`list${dragSub ? ' dragging' : ''}`} ref={subListRef}>
+            {displaySubsFor(selTaskId).map((s: any, sIdx: number) => {
+              if (s.__placeholder) {
+                return <li key="ph-sub" className="drag-placeholder" style={{ height: ghost?.h ? `${ghost.h}px` : '58px' }} />
+              }
               const col = statusColor(s.status, statuses)
               const done = isDone(s.status)
               let secs = s.total_seconds
@@ -314,9 +549,12 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
               return (
                 <li
                   key={s.id}
+                  data-sub-id={s.id}
+                  data-task-id={s.task_id}
                   className={`row task-row${selSubId === s.id ? ' selected' : ''}${done ? ' task-row--done' : ''}`}
                   style={{ borderLeftColor: col }}
-                  onClick={() => selectSub(s)}
+                  onClick={() => { if (suppressClick.current) return; selectSub(s) }}
+                  onPointerDown={(e) => onSubPointerDown(e, s, sIdx)}
                 >
                   <div className="task-row__line1">
                     <span className="title">{s.title}</span>
@@ -396,6 +634,73 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
 
 
       {confirmNode}
+      {ghost && (() => {
+        if (ghost.kind === 'task') {
+          const t = tasks.find((x) => x.id === ghost.id)
+          if (!t) return null
+          const col = statusColor(t.status, statuses)
+          const secs = taskTime(t.id)
+          const hasTime = secs > 0
+          const hasCount = t.sub_count > 0
+          const k = taskDoneCount(t.id)
+          const tags = tagsMap[String(t.id)] || []
+          return createPortal(
+            <div className="drag-ghost task-row" style={{ left: ghost.x, top: ghost.y, width: ghost.w, height: ghost.h, borderLeftColor: col }}>
+              <div className="task-row__line1">
+                <span className="title">{t.title}</span>
+                {(hasTime || hasCount) && (
+                  <span className="task-row__meta muted small">
+                    {hasTime && fmtDuration(secs)}
+                    {hasTime && hasCount && <span className="task-row__bullet"> • </span>}
+                    {hasCount && `${k}/${t.sub_count}`}
+                  </span>
+                )}
+              </div>
+              <div className="task-row__line2">
+                <span className="task-row__status" style={{ color: col }}>{t.status}</span>
+                {tags.length > 0 && (
+                  <span className="task-row__tags">
+                    {tags.slice(0, 2).map((tg) => (
+                      <span key={tg.id} className="tag task-row__tag" style={{ background: tg.color || 'var(--panel2)' }}>{tg.text}</span>
+                    ))}
+                  </span>
+                )}
+              </div>
+            </div>,
+            document.body,
+          )
+        } else {
+          const s = subs.find((x) => x.id === ghost.id)
+          if (!s) return null
+          const col = statusColor(s.status, statuses)
+          let secs = s.total_seconds
+          if (s.active_since) secs += Math.floor(Date.now() / 1000) - s.active_since
+          const hasTime = secs > 0
+          const cc = checkMap[String(s.id)]
+          const hasCheck = !!cc && cc[1] > 0
+          const ck = cc ? `${cc[0]}/${cc[1]}` : ''
+          return createPortal(
+            <div className="drag-ghost task-row" style={{ left: ghost.x, top: ghost.y, width: ghost.w, height: ghost.h, borderLeftColor: col }}>
+              <div className="task-row__line1">
+                <span className="title">{s.title}</span>
+                <span className="task-row__meta muted small" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  {(hasTime || hasCheck) && (
+                    <>
+                      {hasTime && fmtDuration(secs)}
+                      {hasTime && hasCheck && <span className="task-row__bullet"> • </span>}
+                      {hasCheck && ck}
+                    </>
+                  )}
+                </span>
+              </div>
+              <div className="task-row__line2">
+                <span className="task-row__status" style={{ color: col }}>{s.status}</span>
+              </div>
+            </div>,
+            document.body,
+          )
+        }
+      })()}
 
       {addKind && (
         <Modal

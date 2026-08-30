@@ -15,8 +15,8 @@ import type {
 } from '../types'
 import { fmtDuration, fmtDateTime } from '../fmt'
 import { Button, useConfirm, useColumnWidth, Modal } from '../ui'
-
-type Sel = { kind: 'task' | 'subtask'; id: number } | null
+import { StatusButton } from '../ui/statusButton'
+import '../ui/statusButton.css'
 
 type Detail = {
   description: string
@@ -47,6 +47,8 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
   const [addKind, setAddKind] = useState<null | 'task' | 'sub'>(null)
   const [addTitle, setAddTitle] = useState('')
   const [confirm, confirmNode] = useConfirm()
+  const [pendingStatus, setPendingStatus] = useState<{ kind: 'task' | 'subtask'; id: number; to: string; prompt: string } | null>(null)
+  const [pendingNote, setPendingNote] = useState('')
 
   const taskResize = useColumnWidth(320, 'tasky.col.tasks')
   const subResize = useColumnWidth(300, 'tasky.col.subs')
@@ -152,21 +154,24 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
     setAddKind(null)
   }
 
-  const active: Sel = selSubId != null
-    ? { kind: 'subtask', id: selSubId }
-    : selTaskId != null
-      ? { kind: 'task', id: selTaskId }
-      : null
-
-  const changeStatus = async (to: string, note = '') => {
-    if (!active) return
+  const execStatus = async (kind: 'task' | 'subtask', id: number, to: string, note: string) => {
     try {
-      await api.setStatus(active.kind, active.id, to, note)
+      await api.setStatus(kind, id, to, note)
       reload()
-      if (active.kind === 'subtask') loadSubDetail(active.id)
-      else loadTaskDetail(active.id)
+      if (kind === 'subtask') loadSubDetail(id)
+      else loadTaskDetail(id)
     } catch (e) {
       onError(String(e))
+    }
+  }
+
+  const requestStatus = (kind: 'task' | 'subtask', id: number, to: string) => {
+    const def = statuses.find((s) => s.name === to)
+    if (def?.note_prompt) {
+      setPendingNote('')
+      setPendingStatus({ kind, id, to, prompt: def.note_prompt })
+    } else {
+      execStatus(kind, id, to, '')
     }
   }
 
@@ -580,42 +585,22 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
         <div className="resizer" onMouseDown={subResize.onDown} />
       </div>
 
-      {/* Колонка 3: контент — задача сверху, разделитель, подзадача снизу */}
+      {/* Колонка 3: контент — отдельно задача или подзадача */}
       <div className="panel col" style={{ flex: 1, overflow: 'auto' }}>
         {!selTaskId && !selSubId && <p className="muted">Выберите задачу или подзадачу.</p>}
 
-        {selTaskId && (() => {
-          const t = tasks.find((x) => x.id === selTaskId)!
-          return (
-            <TaskDetail
-              task={t}
-              detail={taskDetail}
-              statuses={statuses}
-              onError={onError}
-              onStatus={changeStatus}
-              onDesc={(v) => api.updateTaskDescription(selTaskId!, v).catch((e) => onError(String(e)))}
-              onLinkAdd={async (n, u) => { await api.createTaskLink(selTaskId!, n, u); loadTaskDetail(selTaskId!) }}
-              onLinkDel={async (id) => { await api.deleteTaskLink(id); loadTaskDetail(selTaskId!) }}
-              onNewSub={async (title) => { await api.createSubtask(selTaskId!, title); reload() }}
-              onDel={() => delTask(t)}
-              onTagAdd={async (typeId, text, url) => { await api.createTag(selTaskId!, typeId, text, url); loadTaskDetail(selTaskId!) }}
-              onTagDel={async (id) => { await api.deleteTag(id); loadTaskDetail(selTaskId!) }}
-            />
-          )
-        })()}
-
-        {selTaskId && selSubId && <hr className="divider" />}
-
-        {selSubId && (() => {
-          const s = subs.find((x) => x.id === selSubId)!
-          return (
-            <SubDetail
-              sub={s}
-              detail={subDetail}
-              statuses={statuses}
-              running={runningId === selSubId}
-              onError={onError}
-              onStatus={changeStatus}
+        {selSubId
+          ? (() => {
+              const s = subs.find((x) => x.id === selSubId)!
+              return (
+                <SubDetail
+                  sub={s}
+                  detail={subDetail}
+                  statuses={statuses}
+                  running={runningId === selSubId}
+                  onError={onError}
+                  onStatus={(to, note) => execStatus('subtask', s.id, to, note || '')}
+                  onStatusPick={(to) => requestStatus('subtask', s.id, to)}
               onToggleTimer={toggleTimer}
               onDesc={(v) => api.updateSubtaskDescription(selSubId!, v).catch((e) => onError(String(e)))}
               onLinkAdd={async (n, u) => { await api.createSubtaskLink(selSubId!, n, u); loadSubDetail(selSubId!) }}
@@ -629,9 +614,47 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
               onDel={() => delSub(s)}
             />
           )
-        })()}
+        })()
+          : selTaskId
+            ? (() => {
+                const t = tasks.find((x) => x.id === selTaskId)!
+                return (
+                  <TaskDetail
+                    task={t}
+                    detail={taskDetail}
+                    statuses={statuses}
+                    onError={onError}
+                    onStatus={(to, note) => execStatus('task', t.id, to, note || '')}
+                    onStatusPick={(to) => requestStatus('task', t.id, to)}
+                    onDesc={(v) => api.updateTaskDescription(selTaskId!, v).catch((e) => onError(String(e)))}
+                    onLinkAdd={async (n, u) => { await api.createTaskLink(selTaskId!, n, u); loadTaskDetail(selTaskId!) }}
+                    onLinkDel={async (id) => { await api.deleteTaskLink(id); loadTaskDetail(selTaskId!) }}
+                    onNewSub={async (title) => { await api.createSubtask(selTaskId!, title); reload() }}
+                    onDel={() => delTask(t)}
+                    onTagAdd={async (typeId, text, url) => { await api.createTag(selTaskId!, typeId, text, url); loadTaskDetail(selTaskId!) }}
+                    onTagDel={async (id) => { await api.deleteTag(id); loadTaskDetail(selTaskId!) }}
+                  />
+                )
+              })()
+            : null}
       </div>
 
+      {pendingStatus && (
+        <Modal
+          title={`${pendingStatus.to} — ${pendingStatus.prompt}`}
+          onClose={() => setPendingStatus(null)}
+          footer={
+            <>
+              <Button variant="outline" onClick={() => setPendingStatus(null)}>Отмена</Button>
+              <Button color="accent" disabled={!pendingNote.trim()} onClick={async () => { const ps = pendingStatus!; setPendingStatus(null); await execStatus(ps.kind, ps.id, ps.to, pendingNote.trim()) }}>
+                Применить
+              </Button>
+            </>
+          }
+        >
+          <textarea autoFocus placeholder={pendingStatus.prompt} value={pendingNote} onChange={(e) => setPendingNote(e.target.value)} style={{ width: '100%', minHeight: 80 }} />
+        </Modal>
+      )}
 
       {confirmNode}
       {ghost && (() => {
@@ -740,6 +763,7 @@ function TaskDetail(props: {
   statuses: StatusDef[]
   onError: (m: string) => void
   onStatus: (to: string, note?: string) => void
+  onStatusPick: (to: string) => void
   onDesc: (v: string) => void
   onLinkAdd: (n: string, u: string) => void
   onLinkDel: (id: number) => void
@@ -750,27 +774,20 @@ function TaskDetail(props: {
 }) {
   const [desc, setDesc] = useState(props.detail.description)
   useEffect(() => setDesc(props.detail.description), [props.detail.description])
-  const [st, setSt] = useState('')
-  const [nt, setNt] = useState('')
   const [subTitle, setSubTitle] = useState('')
 
   return (
     <div className="col">
       <div className="flex between">
-        <h2 style={{ margin: 0 }}>{props.task.title}</h2>
+        <div className="flex" style={{ gap: 8, alignItems: 'center' }}>
+          <StatusButton value={props.task.status} statuses={props.statuses} onSelect={props.onStatusPick} />
+          <h2 style={{ margin: 0 }}>{props.task.title}</h2>
+        </div>
         <Button color="danger" variant="outline" icon="trash" label="Удалить задачу" onClick={props.onDel} />
       </div>
       <div>
         <div className="flex between"><strong>Описание</strong><Button color="accent" icon="save" onClick={() => props.onDesc(desc)}>Сохранить</Button></div>
         <textarea value={desc} onChange={(e) => setDesc(e.target.value)} />
-      </div>
-      <div className="flex" style={{ gap: 8 }}>
-        <select value={st} onChange={(e) => setSt(e.target.value)}>
-          <option value="">Сменить статус…</option>
-          {props.statuses.map((s) => (<option key={s.id} value={s.name}>{s.name}</option>))}
-        </select>
-        {st && <input placeholder="Заметка" value={nt} onChange={(e) => setNt(e.target.value)} />}
-        <Button color="accent" icon="check" disabled={!st} onClick={() => { props.onStatus(st, nt); setSt(''); setNt('') }}>Применить</Button>
       </div>
       <div>
         <div className="flex between"><strong>Подзадачи</strong></div>
@@ -792,6 +809,7 @@ function SubDetail(props: {
   running: boolean
   onError: (m: string) => void
   onStatus: (to: string, note?: string) => void
+  onStatusPick: (to: string) => void
   onToggleTimer: () => void
   onDesc: (v: string) => void
   onLinkAdd: (n: string, u: string) => void
@@ -806,8 +824,6 @@ function SubDetail(props: {
 }) {
   const [desc, setDesc] = useState(props.detail.description)
   useEffect(() => setDesc(props.detail.description), [props.detail.description])
-  const [st, setSt] = useState('')
-  const [nt, setNt] = useState('')
   const [jt, setJt] = useState('')
   const [ct, setCt] = useState('')
 
@@ -816,21 +832,16 @@ function SubDetail(props: {
   return (
     <div className="col">
       <div className="flex between">
-        <h2 style={{ margin: 0 }}>{props.sub.title}</h2>
+        <div className="flex" style={{ gap: 8, alignItems: 'center' }}>
+          <StatusButton value={props.sub.status} statuses={props.statuses} onSelect={props.onStatusPick} />
+          <h2 style={{ margin: 0 }}>{props.sub.title}</h2>
+        </div>
         <div className="flex" style={{ gap: 8 }}>
           {props.onDel && <Button color="danger" variant="outline" icon="trash" label="Удалить подзадачу" onClick={props.onDel} />}
           <Button color={props.running ? 'danger' : 'success'} icon={props.running ? 'pause' : 'play'} onClick={props.onToggleTimer}>
             {props.running ? 'Стоп' : 'Старт'}
           </Button>
         </div>
-      </div>
-      <div className="flex" style={{ gap: 8 }}>
-        <select value={st} onChange={(e) => setSt(e.target.value)}>
-          <option value="">Сменить статус…</option>
-          {props.statuses.map((s) => (<option key={s.id} value={s.name}>{s.name}</option>))}
-        </select>
-        {st && <input placeholder="Заметка" value={nt} onChange={(e) => setNt(e.target.value)} />}
-        <Button color="accent" icon="check" disabled={!st} onClick={() => { props.onStatus(st, nt); setSt(''); setNt('') }}>Применить</Button>
       </div>
       <div>
         <div className="flex between"><strong>Описание</strong><Button color="accent" icon="save" onClick={() => props.onDesc(desc)}>Сохранить</Button></div>

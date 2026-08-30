@@ -46,7 +46,7 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          Tasky <span className="muted">v{version}</span>
+          Tasky <span className="muted">{version}</span>
         </div>
         <nav className="nav">
           {tabs.map((t) => (

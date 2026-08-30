@@ -345,8 +345,8 @@ func registerTasks(mux *http.ServeMux, st store.Store) {
 			return
 		}
 		var b struct {
-			To       int   `json:"to"`
-			TaskID   int64 `json:"task_id"`
+			To     int   `json:"to"`
+			TaskID int64 `json:"task_id"`
 		}
 		if err := decodeJSON(r, &b); err != nil {
 			writeErr(w, errBadRequest)

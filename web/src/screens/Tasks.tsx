@@ -7,6 +7,7 @@ import type {
   Subtask,
   Link,
   Tag,
+  TagType,
   TimeEntry,
   JournalEntry,
   ChecklistItem,
@@ -17,6 +18,8 @@ import { fmtDuration, fmtDateTime } from '../fmt'
 import { Button, useConfirm, useColumnWidth, Modal } from '../ui'
 import { StatusButton } from '../ui/statusButton'
 import '../ui/statusButton.css'
+import { TagBar } from '../ui/tagBar'
+import '../ui/tagBar.css'
 
 type Detail = {
   description: string
@@ -49,12 +52,14 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
   const [confirm, confirmNode] = useConfirm()
   const [pendingStatus, setPendingStatus] = useState<{ kind: 'task' | 'subtask'; id: number; to: string; prompt: string } | null>(null)
   const [pendingNote, setPendingNote] = useState('')
+  const [tagTypes, setTagTypes] = useState<TagType[]>([])
 
   const taskResize = useColumnWidth(320, 'tasky.col.tasks')
   const subResize = useColumnWidth(300, 'tasky.col.subs')
 
   useEffect(() => {
     api.statuses().then(setStatuses).catch((e) => onError(String(e)))
+    api.tagTypes().then(setTagTypes).catch((e) => onError(String(e)))
     api.projects().then((ps) => {
       setProjects(ps)
       if (ps[0]) openProject(ps[0])
@@ -513,7 +518,7 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
                     {tags.length > 0 && (
                       <span className="task-row__tags">
                         {tags.slice(0, 3).map((tg) => (
-                          <span key={tg.id} className="tag task-row__tag" style={{ background: tg.color || 'var(--panel2)' }}>{tg.text}</span>
+                          <Button key={tg.id} variant="outline" tabIndex={-1} style={{ borderColor: tg.color || 'var(--border)', color: tg.color || 'var(--text)', fontSize: '11px', padding: '1px 6px', cursor: 'default', pointerEvents: 'none' }}>{tg.text}</Button>
                         ))}
                         {tags.length > 3 && <span className="muted small">+{tags.length - 3}</span>}
                       </span>
@@ -623,6 +628,7 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
                     task={t}
                     detail={taskDetail}
                     statuses={statuses}
+                    tagTypes={tagTypes}
                     onError={onError}
                     onStatus={(to, note) => execStatus('task', t.id, to, note || '')}
                     onStatusPick={(to) => requestStatus('task', t.id, to)}
@@ -631,8 +637,9 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
                     onLinkDel={async (id) => { await api.deleteTaskLink(id); loadTaskDetail(selTaskId!) }}
                     onNewSub={async (title) => { await api.createSubtask(selTaskId!, title); reload() }}
                     onDel={() => delTask(t)}
-                    onTagAdd={async (typeId, text, url) => { await api.createTag(selTaskId!, typeId, text, url); loadTaskDetail(selTaskId!) }}
-                    onTagDel={async (id) => { await api.deleteTag(id); loadTaskDetail(selTaskId!) }}
+                    onTagAdd={async (typeId, text, url) => { await api.createTag(selTaskId!, typeId, text, url); loadTaskDetail(selTaskId!); api.tagsByProject(t.project_id).then(setTagsMap).catch(()=>{}) }}
+                    onTagEdit={async (id, typeId, text, url) => { await api.updateTag(id, typeId, text, url); loadTaskDetail(selTaskId!); api.tagsByProject(t.project_id).then(setTagsMap).catch(()=>{}) }}
+                    onTagDel={async (id) => { await api.deleteTag(id); loadTaskDetail(selTaskId!); api.tagsByProject(t.project_id).then(setTagsMap).catch(()=>{}) }}
                   />
                 )
               })()
@@ -684,7 +691,7 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
                 {tags.length > 0 && (
                   <span className="task-row__tags">
                     {tags.slice(0, 2).map((tg) => (
-                      <span key={tg.id} className="tag task-row__tag" style={{ background: tg.color || 'var(--panel2)' }}>{tg.text}</span>
+                      <Button key={tg.id} variant="outline" tabIndex={-1} style={{ borderColor: tg.color || 'var(--border)', color: tg.color || 'var(--text)', fontSize: '11px', padding: '1px 6px', cursor: 'default', pointerEvents: 'none' }}>{tg.text}</Button>
                     ))}
                   </span>
                 )}
@@ -761,6 +768,7 @@ function TaskDetail(props: {
   task: Task
   detail: Detail
   statuses: StatusDef[]
+  tagTypes: TagType[]
   onError: (m: string) => void
   onStatus: (to: string, note?: string) => void
   onStatusPick: (to: string) => void
@@ -770,6 +778,7 @@ function TaskDetail(props: {
   onNewSub: (title: string) => void
   onDel: () => void
   onTagAdd: (typeId: number, text: string, url: string) => void
+  onTagEdit: (id: number, typeId: number, text: string, url: string) => void
   onTagDel: (id: number) => void
 }) {
   const [desc, setDesc] = useState(props.detail.description)
@@ -785,6 +794,7 @@ function TaskDetail(props: {
         </div>
         <Button color="danger" variant="outline" icon="trash" label="Удалить задачу" onClick={props.onDel} />
       </div>
+      <TagBar tags={props.detail.tags} tagTypes={props.tagTypes} onAdd={props.onTagAdd} onEdit={props.onTagEdit} onDelete={props.onTagDel} />
       <div>
         <div className="flex between"><strong>Описание</strong><Button color="accent" icon="save" onClick={() => props.onDesc(desc)}>Сохранить</Button></div>
         <textarea value={desc} onChange={(e) => setDesc(e.target.value)} />
@@ -797,7 +807,6 @@ function TaskDetail(props: {
         </div>
       </div>
       <LinksBlock links={props.detail.links} onAdd={props.onLinkAdd} onDel={props.onLinkDel} />
-      <TagsBlock tags={props.detail.tags} onAdd={props.onTagAdd} onDel={props.onTagDel} />
     </div>
   )
 }
@@ -925,25 +934,4 @@ function LinksBlock({ links, onAdd, onDel }: { links: Link[]; onAdd: (n: string,
   )
 }
 
-function TagsBlock({ tags, onAdd, onDel }: { tags: Tag[]; onAdd: (typeId: number, text: string, url: string) => void; onDel: (id: number) => void }) {
-  const [t, setT] = useState({ typeId: 0, text: '', url: '' })
-  return (
-    <div>
-      <div className="flex between"><strong>Теги</strong></div>
-      <div className="flex">
-        <input type="number" placeholder="type_id" value={t.typeId || ''} onChange={(e) => setT({ ...t, typeId: Number(e.target.value) })} />
-        <input placeholder="Текст" value={t.text} onChange={(e) => setT({ ...t, text: e.target.value })} />
-        <input placeholder="URL" value={t.url} onChange={(e) => setT({ ...t, url: e.target.value })} />
-        <Button color="accent" icon="plus" label="Добавить тег" disabled={!t.typeId || !t.text.trim()} onClick={() => { onAdd(t.typeId, t.text, t.url); setT({ typeId: 0, text: '', url: '' }) }} />
-      </div>
-      <div>
-        {tags.map((tg) => (
-          <span key={tg.id} className="tag" style={{ background: tg.color || 'var(--panel2)' }}>
-            {tg.type_name}: {tg.text}
-            <span style={{ cursor: 'pointer' }} onClick={() => onDel(tg.id)}> ✕</span>
-          </span>
-        ))}
-      </div>
-    </div>
-  )
-}
+

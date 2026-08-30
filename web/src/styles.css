@@ -12,6 +12,10 @@
   --yellow: #c79a16;
   --blue: #2f80c4;
   --grey: #9aa0ad;
+  --purple: #7c5cbf;
+  --success: var(--green);
+  --warning: var(--yellow);
+  --danger: var(--red);
 }
 
 * {
@@ -158,36 +162,7 @@ body {
   font-size: 12px;
 }
 
-.btn {
-  background: var(--panel2);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 6px 12px;
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.btn:hover {
-  background: var(--element);
-}
-
-.btn.primary {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
-}
-
-.btn.danger {
-  border-color: var(--red);
-  color: var(--red);
-}
-
-.btn.small {
-  padding: 3px 8px;
-  font-size: 12px;
-}
-
+/* Кнопки — см. src/ui/button.css */
 .toolbar {
   display: flex;
   gap: 8px;
@@ -308,4 +283,32 @@ textarea {
 
 .between {
   justify-content: space-between;
+}
+
+/* Полоса изменения ширины колонки (перетаскивание за правый край). */
+.resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 5px;
+  cursor: col-resize;
+  background: transparent;
+}
+
+.resizer:hover {
+  background: var(--border);
+}
+
+/* Разделитель между блоками задачи и подзадачи в контенте. */
+.divider {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 12px 0;
+}
+
+.col-head {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 600;
 }

@@ -76,7 +76,7 @@ export default function App() {
         <Modal
           title="Ошибка"
           onClose={() => setToast(null)}
-          footer={<Button className="primary" onClick={() => setToast(null)}>OK</Button>}
+          footer={<Button color="accent" onClick={() => setToast(null)}>OK</Button>}
         >
           <p className="muted">{toast}</p>
         </Modal>

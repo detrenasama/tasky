@@ -11,34 +11,42 @@ import type {
   ChecklistItem,
   StatusDef,
   StatusHistoryEntry,
-  StatusOwner,
 } from '../types'
 import { fmtDuration, fmtDateTime } from '../fmt'
-import { Button, useConfirm, MenuState, ContextMenu } from '../ui'
+import { Button, useConfirm, useColumnWidth, Modal } from '../ui'
 
 type Sel = { kind: 'task' | 'subtask'; id: number } | null
+
+type Detail = {
+  description: string
+  links: Link[]
+  tags: Tag[]
+  time: TimeEntry[]
+  journal: JournalEntry[]
+  checklist: ChecklistItem[]
+  history: StatusHistoryEntry[]
+}
+
+const EMPTY: Detail = { description: '', links: [], tags: [], time: [], journal: [], checklist: [], history: [] }
 
 export default function Tasks({ onError }: { onError: (m: string) => void }) {
   const [projects, setProjects] = useState<Project[]>([])
   const [proj, setProj] = useState<Project | null>(null)
   const [tasks, setTasks] = useState<Task[]>([])
   const [subs, setSubs] = useState<Subtask[]>([])
-  const [expanded, setExpanded] = useState<Set<number>>(new Set())
-  const [sel, setSel] = useState<Sel>(null)
+  const [selTaskId, setSelTaskId] = useState<number | null>(null)
+  const [selSubId, setSelSubId] = useState<number | null>(null)
+  const [taskDetail, setTaskDetail] = useState<Detail>(EMPTY)
+  const [subDetail, setSubDetail] = useState<Detail>(EMPTY)
   const [statuses, setStatuses] = useState<StatusDef[]>([])
   const [runningId, setRunningId] = useState<number | null>(null)
-  const [menu, setMenu] = useState<MenuState | null>(null)
-  const confirm = useConfirm()[0]
 
-  const [detail, setDetail] = useState<{
-    description: string
-    links: Link[]
-    tags: Tag[]
-    time: TimeEntry[]
-    journal: JournalEntry[]
-    checklist: ChecklistItem[]
-    history: StatusHistoryEntry[]
-  }>({ description: '', links: [], tags: [], time: [], journal: [], checklist: [], history: [] })
+  const [addKind, setAddKind] = useState<null | 'task' | 'sub'>(null)
+  const [addTitle, setAddTitle] = useState('')
+  const [confirm, confirmNode] = useConfirm()
+
+  const taskResize = useColumnWidth(320, 'tasky.col.tasks')
+  const subResize = useColumnWidth(300, 'tasky.col.subs')
 
   useEffect(() => {
     api.statuses().then(setStatuses).catch((e) => onError(String(e)))
@@ -51,7 +59,10 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
 
   const openProject = (p: Project) => {
     setProj(p)
-    setSel(null)
+    setSelTaskId(null)
+    setSelSubId(null)
+    setTaskDetail(EMPTY)
+    setSubDetail(EMPTY)
     Promise.all([api.tasksByProject(p.id), api.subtasksByProject(p.id)])
       .then(([ts, ss]) => {
         setTasks(ts)
@@ -60,63 +71,107 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
       .catch((e) => onError(String(e)))
   }
 
-  const loadSubs = (taskId: number) => api.subtasksByTask(taskId)
-  const toggle = (taskId: number) => {
-    setExpanded((prev) => {
-      const n = new Set(prev)
-      if (n.has(taskId)) n.delete(taskId)
-      else {
-        n.add(taskId)
-        loadSubs(taskId).then((ss) => setSubs((cur) => mergeSubs(cur, ss))).catch((e) => onError(String(e)))
-      }
-      return n
-    })
-  }
-
-  const selectTask = (t: Task) => {
-    setSel({ kind: 'task', id: t.id })
-    api.taskDescription(t.id).then((d) => setDetail((x) => ({ ...x, description: d.description }))).catch((e) => onError(String(e)))
-    api.taskLinks(t.id).then((l) => setDetail((x) => ({ ...x, links: l }))).catch((e) => onError(String(e)))
-    api.taskTags(t.id).then((tg) => setDetail((x) => ({ ...x, tags: tg }))).catch((e) => onError(String(e)))
-    setDetail((x) => ({ ...x, time: [], journal: [], checklist: [], history: [] }))
-  }
-
-  const selectSub = (s: Subtask) => {
-    setSel({ kind: 'subtask', id: s.id })
-    Promise.all([
-      api.subtaskDescription(s.id),
-      api.subtaskLinks(s.id),
-      api.timeBySubtask(s.id),
-      api.journal(s.id),
-      api.checklist(s.id),
-      api.statusHistory('subtask', s.id),
-    ])
-      .then(([d, l, t, j, c, h]) =>
-        setDetail({ description: d.description, links: l, tags: [], time: t, journal: j, checklist: c, history: h }),
-      )
+  // reload — перечитывает задачи/подзадачи проекта без сброса выбора.
+  const reload = () => {
+    if (!proj) return Promise.resolve()
+    return Promise.all([api.tasksByProject(proj.id), api.subtasksByProject(proj.id)])
+      .then(([ts, ss]) => {
+        setTasks(ts)
+        setSubs(ss)
+      })
       .catch((e) => onError(String(e)))
   }
 
-  const owner: StatusOwner = sel?.kind === 'task' ? 'task' : 'subtask'
+  const loadTaskDetail = (id: number) => {
+    Promise.all([api.taskDescription(id), api.taskLinks(id), api.taskTags(id)])
+      .then(([d, l, tg]) => setTaskDetail({ description: d.description, links: l, tags: tg, time: [], journal: [], checklist: [], history: [] }))
+      .catch((e) => onError(String(e)))
+  }
+  const loadSubDetail = (id: number) => {
+    Promise.all([
+      api.subtaskDescription(id),
+      api.subtaskLinks(id),
+      api.timeBySubtask(id),
+      api.journal(id),
+      api.checklist(id),
+      api.statusHistory('subtask', id),
+    ])
+      .then(([d, l, t, j, c, h]) => setSubDetail({ description: d.description, links: l, tags: [], time: t, journal: j, checklist: c, history: h }))
+      .catch((e) => onError(String(e)))
+  }
+
+  const selectTask = (t: Task) => {
+    setSelTaskId(t.id)
+    setSelSubId(null)
+    setSubDetail(EMPTY)
+    loadTaskDetail(t.id)
+  }
+
+  const selectSub = (s: Subtask) => {
+    setSelSubId(s.id)
+    if (selTaskId == null) setSelTaskId(s.task_id)
+    loadSubDetail(s.id)
+  }
+
+  // Создание задачи/подзадачи через модалку. Новый элемент сразу выбирается.
+  const openAdd = (kind: 'task' | 'sub') => {
+    setAddTitle('')
+    setAddKind(kind)
+  }
+  const submitAdd = async () => {
+    const title = addTitle.trim()
+    if (!title || !addKind) return
+    try {
+      if (addKind === 'task') {
+        if (!proj) return
+        const t = await api.createTask(proj.id, title)
+        await reload()
+        setSelTaskId(t.id)
+        setSelSubId(null)
+        setSubDetail(EMPTY)
+        loadTaskDetail(t.id)
+      } else {
+        if (!selTaskId) return
+        const s = await api.createSubtask(selTaskId, title)
+        await reload()
+        setSelSubId(s.id)
+        if (selTaskId == null) setSelTaskId(s.task_id)
+        loadSubDetail(s.id)
+      }
+    } catch (e) {
+      onError(String(e))
+    }
+    setAddKind(null)
+  }
+
+  const active: Sel = selSubId != null
+    ? { kind: 'subtask', id: selSubId }
+    : selTaskId != null
+      ? { kind: 'task', id: selTaskId }
+      : null
 
   const changeStatus = async (to: string, note = '') => {
-    if (!sel) return
+    if (!active) return
     try {
-      await api.setStatus(owner, sel.id, to, note)
-      if (proj) openProject(proj)
-      if (sel.kind === 'subtask') selectSub({ ...({ id: sel.id } as Subtask) })
+      await api.setStatus(active.kind, active.id, to, note)
+      reload()
+      if (active.kind === 'subtask') loadSubDetail(active.id)
+      else loadTaskDetail(active.id)
     } catch (e) {
       onError(String(e))
     }
   }
 
-  const toggleTimer = async (s: Subtask) => {
+  const toggleTimer = async () => {
+    if (selSubId == null) return
+    const s = subs.find((x) => x.id === selSubId)
+    if (!s) return
     try {
       if (runningId === s.id) await api.stopSubtask(s.id)
       else await api.startSubtask(s.id)
       const r = await api.running()
       setRunningId(r?.id ?? null)
-      if (proj) openProject(proj)
+      reload()
     } catch (e) {
       onError(String(e))
     }
@@ -126,7 +181,13 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
     if (!(await confirm(`Удалить задачу «${t.title}»?`))) return
     try {
       await api.deleteTask(t.id)
-      if (proj) openProject(proj)
+      if (selTaskId === t.id) {
+        setSelTaskId(null)
+        setSelSubId(null)
+        setTaskDetail(EMPTY)
+        setSubDetail(EMPTY)
+      }
+      reload()
     } catch (e) {
       onError(String(e))
     }
@@ -135,7 +196,11 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
     if (!(await confirm(`Удалить подзадачу «${s.title}»?`))) return
     try {
       await api.deleteSubtask(s.id)
-      if (proj) openProject(proj)
+      if (selSubId === s.id) {
+        setSelSubId(null)
+        setSubDetail(EMPTY)
+      }
+      reload()
     } catch (e) {
       onError(String(e))
     }
@@ -145,7 +210,8 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
 
   return (
     <div className="flex" style={{ alignItems: 'stretch', height: '100%' }}>
-      <div className="panel col" style={{ width: 360, overflow: 'auto' }}>
+      {/* Колонка 1: проект + задачи */}
+      <div className="panel col" style={{ width: taskResize.width, position: 'relative', overflow: 'auto' }}>
         <select value={proj?.id ?? ''} onChange={(e) => {
           const p = projects.find((x) => x.id === Number(e.target.value))
           if (p) openProject(p)
@@ -154,57 +220,130 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
             <option key={p.id} value={p.id}>{p.name}</option>
           ))}
         </select>
-        <ul className="list">
-          {tasks.map((t) => (
-            <li key={t.id} className="col" style={{ gap: 0 }}>
-              <div
-                className={`row ${sel?.kind === 'task' && sel.id === t.id ? 'selected' : ''}`}
+        <div className="toolbar">
+          {proj && <Button color="accent" icon="plus" label="Создать задачу" onClick={() => openAdd('task')} />}
+        </div>
+        {proj ? (
+          <ul className="list">
+            {tasks.map((t) => (
+              <li
+                key={t.id}
+                className={`row ${selTaskId === t.id ? 'selected' : ''}`}
                 onClick={() => selectTask(t)}
-                onContextMenu={(e) => {
-                  e.preventDefault()
-                  setMenu({ x: e.clientX, y: e.clientY, items: [{ label: 'Удалить', danger: true, onClick: () => delTask(t) }] })
-                }}
               >
-                <span className="title" style={{ cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); toggle(t.id) }}>
-                  {expanded.has(t.id) ? '▾' : '▸'}
-                </span>
                 <span className="title">{t.title}</span>
                 {t.sub_count > 0 && <span className="muted small">{t.sub_count}</span>}
-                <Button className="danger small" onClick={(e) => { e.stopPropagation(); delTask(t) }}>✕</Button>
-              </div>
-              {expanded.has(t.id) && (
-                <ul className="list" style={{ marginLeft: 16 }}>
-                  {subsOf(t.id).map((s) => (
-                    <li
-                      key={s.id}
-                      className={`row ${sel?.kind === 'subtask' && sel.id === s.id ? 'selected' : ''}`}
-                      onClick={() => selectSub(s)}
-                      onContextMenu={(e) => {
-                        e.preventDefault()
-                        setMenu({ x: e.clientX, y: e.clientY, items: [{ label: 'Удалить', danger: true, onClick: () => delSub(s) }] })
-                      }}
-                    >
-                      <span className="status-dot" style={{ background: statusColor(s.status, statuses) }} />
-                      <span className="title">{s.title}</span>
-                      <span className="muted small">{fmtDuration(s.total_seconds)}</span>
-                      {runningId === s.id && <span className="running">●</span>}
-                      <Button className="danger small" onClick={(e) => { e.stopPropagation(); delSub(s) }}>✕</Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </li>
-          ))}
-        </ul>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="muted">{projects.length === 0 ? 'Создайте проект' : 'Выберите проект'}</p>
+        )}
+        <div className="resizer" onMouseDown={taskResize.onDown} />
       </div>
 
+      {/* Колонка 2: подзадачи выбранной задачи */}
+      <div className="panel col" style={{ width: subResize.width, position: 'relative', overflow: 'auto' }}>
+        <div className="flex between" style={{ marginBottom: 8 }}>
+          <strong className="col-head" style={{ margin: 0 }}>Подзадачи</strong>
+          {selTaskId && <Button color="accent" icon="plus" label="Создать подзадачу" onClick={() => openAdd('sub')} />}
+        </div>
+        {!selTaskId && <p className="muted">Выберите задачу.</p>}
+        {selTaskId && (
+          <ul className="list">
+            {subsOf(selTaskId).map((s) => (
+              <li
+                key={s.id}
+                className={`row ${selSubId === s.id ? 'selected' : ''}`}
+                onClick={() => selectSub(s)}
+              >
+                <span className="status-dot" style={{ background: statusColor(s.status, statuses) }} />
+                <span className="title">{s.title}</span>
+                <span className="muted small">{fmtDuration(s.total_seconds)}</span>
+                {runningId === s.id && <span className="running">●</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="resizer" onMouseDown={subResize.onDown} />
+      </div>
+
+      {/* Колонка 3: контент — задача сверху, разделитель, подзадача снизу */}
       <div className="panel col" style={{ flex: 1, overflow: 'auto' }}>
-        {!sel && <p className="muted">Выберите задачу или подзадачу.</p>}
-        {sel?.kind === 'task' && <TaskDetail task={tasks.find((t) => t.id === sel.id)!} detail={detail} statuses={statuses} onError={onError} onStatus={changeStatus} onDesc={(v) => api.updateTaskDescription(sel.id, v).catch((e) => onError(String(e)))} onLinkAdd={async (n, u) => { await api.createTaskLink(sel.id, n, u); selectTask(tasks.find((t) => t.id === sel.id)!) }} onLinkDel={async (id) => { await api.deleteTaskLink(id); selectTask(tasks.find((t) => t.id === sel.id)!) }} onNewSub={async (title) => { await api.createSubtask(sel.id, title); if (proj) openProject(proj) }} onDel={() => delTask(tasks.find((t) => t.id === sel.id)!)}   onTagAdd={async (typeId, text, url) => { await api.createTag(sel.id, typeId, text, url); selectTask(tasks.find((t) => t.id === sel.id)!) }} onTagDel={async (id) => { await api.deleteTag(id); selectTask(tasks.find((t) => t.id === sel.id)!) }} />}
-        {sel?.kind === 'subtask' && <SubDetail sub={subs.find((s) => s.id === sel.id)!} detail={detail} statuses={statuses} running={runningId === sel.id} onError={onError} onStatus={changeStatus} onToggleTimer={() => toggleTimer(subs.find((s) => s.id === sel.id)!)} onDesc={(v) => api.updateSubtaskDescription(sel.id, v).catch((e) => onError(String(e)))} onLinkAdd={async (n, u) => { await api.createSubtaskLink(sel.id, n, u); selectSub({ ...({ id: sel.id } as Subtask) }) }} onLinkDel={async (id) => { await api.deleteSubtaskLink(id); selectSub({ ...({ id: sel.id } as Subtask) }) }} onTimeEdit={async (id, s, e) => { await api.updateTimeEntry(id, s, e); selectSub({ ...({ id: sel.id } as Subtask) }) }} onTimeDel={async (id) => { await api.deleteTimeEntry(id); selectSub({ ...({ id: sel.id } as Subtask) }) }} onJournalAdd={async (text) => { await api.createJournal(sel.id, text); selectSub({ ...({ id: sel.id } as Subtask) }) }} onCheckToggle={async (id, st) => { await api.setChecklistStatus(id, st); selectSub({ ...({ id: sel.id } as Subtask) }) }} onCheckAdd={async (text) => { await api.createChecklistItem(sel.id, text); selectSub({ ...({ id: sel.id } as Subtask) }) }} onCheckDel={async (id) => { await api.deleteChecklistItem(id); selectSub({ ...({ id: sel.id } as Subtask) }) }} />}
+        {!selTaskId && !selSubId && <p className="muted">Выберите задачу или подзадачу.</p>}
+
+        {selTaskId && (() => {
+          const t = tasks.find((x) => x.id === selTaskId)!
+          return (
+            <TaskDetail
+              task={t}
+              detail={taskDetail}
+              statuses={statuses}
+              onError={onError}
+              onStatus={changeStatus}
+              onDesc={(v) => api.updateTaskDescription(selTaskId!, v).catch((e) => onError(String(e)))}
+              onLinkAdd={async (n, u) => { await api.createTaskLink(selTaskId!, n, u); loadTaskDetail(selTaskId!) }}
+              onLinkDel={async (id) => { await api.deleteTaskLink(id); loadTaskDetail(selTaskId!) }}
+              onNewSub={async (title) => { await api.createSubtask(selTaskId!, title); reload() }}
+              onDel={() => delTask(t)}
+              onTagAdd={async (typeId, text, url) => { await api.createTag(selTaskId!, typeId, text, url); loadTaskDetail(selTaskId!) }}
+              onTagDel={async (id) => { await api.deleteTag(id); loadTaskDetail(selTaskId!) }}
+            />
+          )
+        })()}
+
+        {selTaskId && selSubId && <hr className="divider" />}
+
+        {selSubId && (() => {
+          const s = subs.find((x) => x.id === selSubId)!
+          return (
+            <SubDetail
+              sub={s}
+              detail={subDetail}
+              statuses={statuses}
+              running={runningId === selSubId}
+              onError={onError}
+              onStatus={changeStatus}
+              onToggleTimer={toggleTimer}
+              onDesc={(v) => api.updateSubtaskDescription(selSubId!, v).catch((e) => onError(String(e)))}
+              onLinkAdd={async (n, u) => { await api.createSubtaskLink(selSubId!, n, u); loadSubDetail(selSubId!) }}
+              onLinkDel={async (id) => { await api.deleteSubtaskLink(id); loadSubDetail(selSubId!) }}
+              onTimeEdit={async (id, s2, e2) => { await api.updateTimeEntry(id, s2, e2); loadSubDetail(selSubId!) }}
+              onTimeDel={async (id) => { await api.deleteTimeEntry(id); loadSubDetail(selSubId!) }}
+              onJournalAdd={async (text) => { await api.createJournal(selSubId!, text); loadSubDetail(selSubId!) }}
+              onCheckToggle={async (id, st) => { await api.setChecklistStatus(id, st); loadSubDetail(selSubId!) }}
+              onCheckAdd={async (text) => { await api.createChecklistItem(selSubId!, text); loadSubDetail(selSubId!) }}
+              onCheckDel={async (id) => { await api.deleteChecklistItem(id); loadSubDetail(selSubId!) }}
+              onDel={() => delSub(s)}
+            />
+          )
+        })()}
       </div>
 
-      <ContextMenu state={menu} onClose={() => setMenu(null)} />
+
+      {confirmNode}
+
+      {addKind && (
+        <Modal
+          title={addKind === 'task' ? 'Новая задача' : 'Новая подзадача'}
+          onClose={() => setAddKind(null)}
+          footer={
+            <>
+              <Button variant="outline" onClick={() => setAddKind(null)}>Отмена</Button>
+              <Button color="accent" icon="plus" disabled={!addTitle.trim()} onClick={submitAdd}>Создать</Button>
+            </>
+          }
+        >
+          <input
+            autoFocus
+            placeholder="Название"
+            value={addTitle}
+            style={{ width: '100%', minWidth: 360 }}
+            onChange={(e) => setAddTitle(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') submitAdd() }}
+          />
+        </Modal>
+      )}
     </div>
   )
 }
@@ -214,17 +353,11 @@ function statusColor(name: string, statuses: StatusDef[]): string {
   return s?.color || 'var(--grey)'
 }
 
-function mergeSubs(cur: Subtask[], add: Subtask[]): Subtask[] {
-  const byId = new Map(cur.map((s) => [s.id, s]))
-  add.forEach((s) => byId.set(s.id, s))
-  return Array.from(byId.values())
-}
-
 // --- Детальные панели ---
 
 function TaskDetail(props: {
   task: Task
-  detail: any
+  detail: Detail
   statuses: StatusDef[]
   onError: (m: string) => void
   onStatus: (to: string, note?: string) => void
@@ -246,10 +379,10 @@ function TaskDetail(props: {
     <div className="col">
       <div className="flex between">
         <h2 style={{ margin: 0 }}>{props.task.title}</h2>
-        <Button className="danger" onClick={props.onDel}>Удалить</Button>
+        <Button color="danger" variant="outline" icon="trash" label="Удалить задачу" onClick={props.onDel} />
       </div>
       <div>
-        <div className="flex between"><strong>Описание</strong><Button onClick={() => props.onDesc(desc)}>Сохранить</Button></div>
+        <div className="flex between"><strong>Описание</strong><Button color="accent" icon="save" onClick={() => props.onDesc(desc)}>Сохранить</Button></div>
         <textarea value={desc} onChange={(e) => setDesc(e.target.value)} />
       </div>
       <div className="flex" style={{ gap: 8 }}>
@@ -258,13 +391,13 @@ function TaskDetail(props: {
           {props.statuses.map((s) => (<option key={s.id} value={s.name}>{s.name}</option>))}
         </select>
         {st && <input placeholder="Заметка" value={nt} onChange={(e) => setNt(e.target.value)} />}
-        <Button className="primary" disabled={!st} onClick={() => { props.onStatus(st, nt); setSt(''); setNt('') }}>Применить</Button>
+        <Button color="accent" icon="check" disabled={!st} onClick={() => { props.onStatus(st, nt); setSt(''); setNt('') }}>Применить</Button>
       </div>
       <div>
         <div className="flex between"><strong>Подзадачи</strong></div>
         <div className="flex">
           <input placeholder="Название подзадачи" value={subTitle} onChange={(e) => setSubTitle(e.target.value)} />
-          <Button className="primary" disabled={!subTitle.trim()} onClick={() => { props.onNewSub(subTitle.trim()); setSubTitle('') }}>＋</Button>
+          <Button color="accent" icon="plus" label="Добавить подзадачу" disabled={!subTitle.trim()} onClick={() => { props.onNewSub(subTitle.trim()); setSubTitle('') }} />
         </div>
       </div>
       <LinksBlock links={props.detail.links} onAdd={props.onLinkAdd} onDel={props.onLinkDel} />
@@ -275,7 +408,7 @@ function TaskDetail(props: {
 
 function SubDetail(props: {
   sub: Subtask
-  detail: any
+  detail: Detail
   statuses: StatusDef[]
   running: boolean
   onError: (m: string) => void
@@ -290,6 +423,7 @@ function SubDetail(props: {
   onCheckToggle: (id: number, status: string) => void
   onCheckAdd: (text: string) => void
   onCheckDel: (id: number) => void
+  onDel?: () => void
 }) {
   const [desc, setDesc] = useState(props.detail.description)
   useEffect(() => setDesc(props.detail.description), [props.detail.description])
@@ -304,9 +438,12 @@ function SubDetail(props: {
     <div className="col">
       <div className="flex between">
         <h2 style={{ margin: 0 }}>{props.sub.title}</h2>
-        <Button className={props.running ? 'danger' : 'primary'} onClick={props.onToggleTimer}>
-          {props.running ? 'Стоп' : 'Старт'}
-        </Button>
+        <div className="flex" style={{ gap: 8 }}>
+          {props.onDel && <Button color="danger" variant="outline" icon="trash" label="Удалить подзадачу" onClick={props.onDel} />}
+          <Button color={props.running ? 'danger' : 'success'} icon={props.running ? 'pause' : 'play'} onClick={props.onToggleTimer}>
+            {props.running ? 'Стоп' : 'Старт'}
+          </Button>
+        </div>
       </div>
       <div className="flex" style={{ gap: 8 }}>
         <select value={st} onChange={(e) => setSt(e.target.value)}>
@@ -314,10 +451,10 @@ function SubDetail(props: {
           {props.statuses.map((s) => (<option key={s.id} value={s.name}>{s.name}</option>))}
         </select>
         {st && <input placeholder="Заметка" value={nt} onChange={(e) => setNt(e.target.value)} />}
-        <Button className="primary" disabled={!st} onClick={() => { props.onStatus(st, nt); setSt(''); setNt('') }}>Применить</Button>
+        <Button color="accent" icon="check" disabled={!st} onClick={() => { props.onStatus(st, nt); setSt(''); setNt('') }}>Применить</Button>
       </div>
       <div>
-        <div className="flex between"><strong>Описание</strong><Button onClick={() => props.onDesc(desc)}>Сохранить</Button></div>
+        <div className="flex between"><strong>Описание</strong><Button color="accent" icon="save" onClick={() => props.onDesc(desc)}>Сохранить</Button></div>
         <textarea value={desc} onChange={(e) => setDesc(e.target.value)} />
       </div>
 
@@ -327,13 +464,13 @@ function SubDetail(props: {
           {props.detail.time.map((t: TimeEntry) => (
             <li key={t.id} className="row">
               <span className="title">{fmtDateTime(t.started_at)} — {t.ended_at ? fmtDateTime(t.ended_at) : '…'}</span>
-              <Button onClick={() => {
+              <Button icon="edit" label="Редактировать" onClick={() => {
                 const s = prompt('Начало (ISO)', t.started_at)
                 if (!s) return
                 const e = prompt('Конец (ISO, пусто = открыто)', t.ended_at ?? '')
                 props.onTimeEdit(t.id, s, e || null)
-              }}>✎</Button>
-              <Button className="danger" onClick={() => props.onTimeDel(t.id)}>✕</Button>
+              }} />
+              <Button color="danger" variant="outline" icon="trash" label="Удалить" onClick={() => props.onTimeDel(t.id)} />
             </li>
           ))}
         </ul>
@@ -343,7 +480,7 @@ function SubDetail(props: {
         <strong>Журнал</strong>
         <div className="flex">
           <input placeholder="Новая запись" value={jt} onChange={(e) => setJt(e.target.value)} />
-          <Button className="primary" disabled={!jt.trim()} onClick={() => { props.onJournalAdd(jt.trim()); setJt('') }}>＋</Button>
+          <Button color="accent" icon="plus" label="Добавить запись" disabled={!jt.trim()} onClick={() => { props.onJournalAdd(jt.trim()); setJt('') }} />
         </div>
         <ul className="list">
           {props.detail.journal.map((j: JournalEntry) => (
@@ -356,7 +493,7 @@ function SubDetail(props: {
         <strong>Чек-лист</strong>
         <div className="flex">
           <input placeholder="Пункт" value={ct} onChange={(e) => setCt(e.target.value)} />
-          <Button className="primary" disabled={!ct.trim()} onClick={() => { props.onCheckAdd(ct.trim()); setCt('') }}>＋</Button>
+          <Button color="accent" icon="plus" label="Добавить пункт" disabled={!ct.trim()} onClick={() => { props.onCheckAdd(ct.trim()); setCt('') }} />
         </div>
         <ul className="list">
           {props.detail.checklist.map((c: ChecklistItem) => (
@@ -365,7 +502,7 @@ function SubDetail(props: {
                 {checkStates.map((s) => (<option key={s} value={s}>{s}</option>))}
               </select>
               <span className="title">{c.text}</span>
-              <Button className="danger" onClick={() => props.onCheckDel(c.id)}>✕</Button>
+              <Button color="danger" variant="outline" icon="trash" label="Удалить" onClick={() => props.onCheckDel(c.id)} />
             </li>
           ))}
         </ul>
@@ -384,13 +521,13 @@ function LinksBlock({ links, onAdd, onDel }: { links: Link[]; onAdd: (n: string,
       <div className="flex">
         <input placeholder="Название" value={ln.name} onChange={(e) => setLn({ ...ln, name: e.target.value })} />
         <input placeholder="URL" value={ln.url} onChange={(e) => setLn({ ...ln, url: e.target.value })} />
-        <Button className="primary" disabled={!ln.url.trim()} onClick={() => { onAdd(ln.name, ln.url); setLn({ name: '', url: '' }) }}>＋</Button>
+        <Button color="accent" icon="plus" label="Добавить ссылку" disabled={!ln.url.trim()} onClick={() => { onAdd(ln.name, ln.url); setLn({ name: '', url: '' }) }} />
       </div>
       <ul className="list">
         {links.map((l) => (
           <li key={l.id} className="row">
             <a href={l.url} target="_blank" rel="noreferrer">{l.name || l.url}</a>
-            <Button className="danger" onClick={() => onDel(l.id)}>✕</Button>
+            <Button color="danger" variant="outline" icon="trash" label="Удалить ссылку" onClick={() => onDel(l.id)} />
           </li>
         ))}
       </ul>
@@ -407,7 +544,7 @@ function TagsBlock({ tags, onAdd, onDel }: { tags: Tag[]; onAdd: (typeId: number
         <input type="number" placeholder="type_id" value={t.typeId || ''} onChange={(e) => setT({ ...t, typeId: Number(e.target.value) })} />
         <input placeholder="Текст" value={t.text} onChange={(e) => setT({ ...t, text: e.target.value })} />
         <input placeholder="URL" value={t.url} onChange={(e) => setT({ ...t, url: e.target.value })} />
-        <Button className="primary" disabled={!t.typeId || !t.text.trim()} onClick={() => { onAdd(t.typeId, t.text, t.url); setT({ typeId: 0, text: '', url: '' }) }}>＋</Button>
+        <Button color="accent" icon="plus" label="Добавить тег" disabled={!t.typeId || !t.text.trim()} onClick={() => { onAdd(t.typeId, t.text, t.url); setT({ typeId: 0, text: '', url: '' }) }} />
       </div>
       <div>
         {tags.map((tg) => (

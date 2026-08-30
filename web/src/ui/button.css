@@ -1,0 +1,210 @@
+/* === Button — базовая система === */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  border: none;
+  transition: filter 0.15s, box-shadow 0.15s, background 0.15s, border-color 0.15s, color 0.15s;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 1px 1px rgba(0, 0, 0, 0.06);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.btn:active {
+  filter: brightness(0.94);
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+}
+
+/* --- Цвета filled --- */
+.btn--filled.btn--base {
+  background: #ffffff;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn--filled.btn--accent {
+  background: var(--accent);
+  color: #fff;
+}
+.btn--filled.btn--success {
+  background: var(--success);
+  color: #fff;
+}
+.btn--filled.btn--warning {
+  background: var(--warning);
+  color: #fff;
+}
+.btn--filled.btn--danger {
+  background: var(--danger);
+  color: #fff;
+}
+.btn--filled.btn--purple {
+  background: var(--purple);
+  color: #fff;
+}
+.btn--filled.btn--grey {
+  background: var(--grey);
+  color: #fff;
+}
+
+/* hover для filled */
+.btn--filled:hover {
+  filter: brightness(0.96);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+}
+.btn--filled.btn--base:hover {
+  background: var(--panel2);
+  filter: none;
+}
+
+/* --- Outline --- */
+.btn--outline {
+  background: #ffffff;
+  box-shadow: none;
+  border: 1.5px solid var(--border);
+}
+.btn--outline.btn--base {
+  border-color: var(--border);
+  color: var(--text);
+}
+.btn--outline.btn--accent {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.btn--outline.btn--success {
+  border-color: var(--success);
+  color: var(--success);
+}
+.btn--outline.btn--warning {
+  border-color: var(--warning);
+  color: var(--warning);
+}
+.btn--outline.btn--danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.btn--outline.btn--purple {
+  border-color: var(--purple);
+  color: var(--purple);
+}
+.btn--outline.btn--grey {
+  border-color: var(--grey);
+  color: var(--grey);
+}
+.btn--outline:hover {
+  background: color-mix(in srgb, var(--accent) 6%, #fff);
+}
+.btn--outline.btn--success:hover {
+  background: color-mix(in srgb, var(--success) 8%, #fff);
+}
+.btn--outline.btn--warning:hover {
+  background: color-mix(in srgb, var(--warning) 8%, #fff);
+}
+.btn--outline.btn--danger:hover {
+  background: color-mix(in srgb, var(--danger) 8%, #fff);
+}
+.btn--outline.btn--purple:hover {
+  background: color-mix(in srgb, var(--purple) 8%, #fff);
+}
+.btn--outline.btn--grey:hover {
+  background: color-mix(in srgb, var(--grey) 8%, #fff);
+}
+.btn--outline.btn--base:hover {
+  background: var(--panel2);
+}
+
+/* --- Icon-only --- */
+.btn--icon {
+  padding: 6px;
+  aspect-ratio: 1;
+  min-width: 28px;
+  min-height: 28px;
+}
+
+/* --- Icon positions --- */
+.btn__icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+.btn__label {
+  display: inline;
+}
+
+/* --- Icon-expand --- */
+.btn--expand {
+  overflow: hidden;
+}
+.btn--expand .btn__label {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: max-width 0.25s ease, opacity 0.2s ease, margin 0.25s ease;
+  margin-left: 0;
+}
+.btn--expand:hover .btn__label,
+.btn--expand:focus-within .btn__label,
+.btn--expand:focus .btn__label {
+  max-width: 140px;
+  opacity: 1;
+  margin-left: 2px;
+}
+
+/* --- Legacy aliases (для совместимости со старым className) --- */
+.btn.primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.btn.danger {
+  border-color: var(--red);
+  color: var(--red);
+  background: #fff;
+  box-shadow: none;
+  border-width: 1.5px;
+}
+.btn.small {
+  padding: 3px 8px;
+  font-size: 12px;
+}
+
+/* --- Tooltip popover (белый, обрамлённый) --- */
+.tooltip-popover {
+  position: fixed;
+  z-index: 400;
+  background: #ffffff;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  pointer-events: none;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+.tooltip-popover::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  transform: translateX(-50%) rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: #ffffff;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}

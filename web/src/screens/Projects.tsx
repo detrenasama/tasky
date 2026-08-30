@@ -103,9 +103,7 @@ export default function Projects({ onError }: { onError: (m: string) => void }) 
     <div className="flex" style={{ alignItems: 'stretch', height: '100%' }}>
       <div className="panel col" style={{ width: 280, overflow: 'auto' }}>
         <div className="toolbar">
-          <Button className="primary" onClick={() => setCreating(true)}>
-            + Проект
-          </Button>
+          <Button color="accent" icon="plus" label="Создать проект" onClick={() => setCreating(true)} />
         </div>
         <ul className="list">
           {projects.map((p) => (
@@ -113,19 +111,8 @@ export default function Projects({ onError }: { onError: (m: string) => void }) 
               key={p.id}
               className={`row ${sel?.id === p.id ? 'selected' : ''}`}
               onClick={() => select(p)}
-              onContextMenu={(e) => {
-                e.preventDefault()
-                setMenu({
-                  x: e.clientX,
-                  y: e.clientY,
-                  items: [
-                    { label: 'Удалить', danger: true, onClick: () => del(p) },
-                  ],
-                })
-              }}
             >
               <span className="title">{p.name}</span>
-              <Button className="danger small" onClick={(e) => { e.stopPropagation(); del(p) }}>✕</Button>
             </li>
           ))}
         </ul>
@@ -137,21 +124,19 @@ export default function Projects({ onError }: { onError: (m: string) => void }) 
           <>
             <div className="flex between">
               <h2 style={{ margin: 0 }}>{sel.name}</h2>
-              <Button className="danger" onClick={() => del(sel)}>
-                Удалить проект
-              </Button>
+              <Button color="danger" variant="outline" icon="trash" label="Удалить проект" onClick={() => del(sel)} />
             </div>
             <div>
               <div className="flex between">
                 <strong>Описание</strong>
-                <Button onClick={saveDesc}>Сохранить</Button>
+                <Button color="accent" icon="save" onClick={saveDesc}>Сохранить</Button>
               </div>
               <textarea value={desc} onChange={(e) => setDesc(e.target.value)} />
             </div>
             <div>
               <div className="flex between">
                 <strong>Ссылки</strong>
-                <Button onClick={openNewLink}>+ Ссылка</Button>
+                <Button color="accent" icon="plus" label="Добавить ссылку" onClick={openNewLink} />
               </div>
               <ul className="list">
                 {links.map((l) => (
@@ -193,8 +178,8 @@ export default function Projects({ onError }: { onError: (m: string) => void }) 
           onClose={() => setCreating(false)}
           footer={
             <>
-              <Button onClick={() => setCreating(false)}>Отмена</Button>
-              <Button className="primary" onClick={create}>
+              <Button variant="outline" onClick={() => setCreating(false)}>Отмена</Button>
+              <Button color="accent" icon="plus" onClick={create}>
                 Создать
               </Button>
             </>
@@ -215,8 +200,8 @@ export default function Projects({ onError }: { onError: (m: string) => void }) 
           onClose={() => setEditingLink(null)}
           footer={
             <>
-              <Button onClick={() => setEditingLink(null)}>Отмена</Button>
-              <Button className="primary" onClick={editingLink.id ? saveLink : createLink}>
+              <Button variant="outline" onClick={() => setEditingLink(null)}>Отмена</Button>
+              <Button color="accent" icon="save" onClick={editingLink.id ? saveLink : createLink}>
                 Сохранить
               </Button>
             </>

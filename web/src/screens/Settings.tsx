@@ -78,7 +78,7 @@ export default function Settings({ onError }: { onError: (m: string) => void }) 
         <strong>Скрытие завершённых (дней)</strong>
         <div className="flex">
           <input value={hideDays} onChange={(e) => setHideDays(e.target.value)} style={{ width: 80 }} />
-          <Button className="primary" onClick={saveHide}>Сохранить</Button>
+          <Button color="accent" icon="save" onClick={saveHide}>Сохранить</Button>
           <span className="muted small">0 — выкл</span>
         </div>
       </div>
@@ -86,15 +86,15 @@ export default function Settings({ onError }: { onError: (m: string) => void }) 
       <div className="panel col" style={{ marginBottom: 12 }}>
         <div className="flex between">
           <strong>Статусы</strong>
-          <Button className="primary" onClick={() => setEditingStatus({ id: 0, name: '', type: 'new', color: '#89b4fa', note_prompt: '', is_quick: false, sort_order: 0 })}>＋</Button>
+          <Button color="accent" icon="plus" label="Добавить статус" onClick={() => setEditingStatus({ id: 0, name: '', type: 'new', color: '#89b4fa', note_prompt: '', is_quick: false, sort_order: 0 })} />
         </div>
         <ul className="list">
           {statuses.map((s) => (
             <li key={s.id} className="row">
               <span className="status-dot" style={{ background: s.color }} />
               <span className="title">{s.name} <span className="muted small">({s.type}{s.is_quick ? ', быстрый' : ''})</span></span>
-              <Button onClick={() => setEditingStatus({ ...s })}>✎</Button>
-              <Button className="danger" onClick={() => delStatus(s)}>✕</Button>
+              <Button icon="edit" label="Редактировать" onClick={() => setEditingStatus({ ...s })} />
+              <Button color="danger" variant="outline" icon="trash" label="Удалить" onClick={() => delStatus(s)} />
             </li>
           ))}
         </ul>
@@ -103,15 +103,15 @@ export default function Settings({ onError }: { onError: (m: string) => void }) 
       <div className="panel col">
         <div className="flex between">
           <strong>Типы тегов</strong>
-          <Button className="primary" onClick={() => setEditingTag({ id: 0, name: '', kind: 'text', color: '#a6e3a1', sort_order: 0 })}>＋</Button>
+          <Button color="accent" icon="plus" label="Добавить тип" onClick={() => setEditingTag({ id: 0, name: '', kind: 'text', color: '#a6e3a1', sort_order: 0 })} />
         </div>
         <ul className="list">
           {tagTypes.map((t) => (
             <li key={t.id} className="row">
               <span className="status-dot" style={{ background: t.color }} />
               <span className="title">{t.name} <span className="muted small">({t.kind})</span></span>
-              <Button onClick={() => setEditingTag({ ...t })}>✎</Button>
-              <Button className="danger" onClick={() => delTag(t)}>✕</Button>
+              <Button icon="edit" label="Редактировать" onClick={() => setEditingTag({ ...t })} />
+              <Button color="danger" variant="outline" icon="trash" label="Удалить" onClick={() => delTag(t)} />
             </li>
           ))}
         </ul>
@@ -119,7 +119,7 @@ export default function Settings({ onError }: { onError: (m: string) => void }) 
 
       {editingStatus && (
         <Modal title={editingStatus.id ? 'Статус' : 'Новый статус'} onClose={() => setEditingStatus(null)}
-          footer={<><Button onClick={() => setEditingStatus(null)}>Отмена</Button><Button className="primary" onClick={saveStatus}>Сохранить</Button></>}>
+          footer={<><Button variant="outline" onClick={() => setEditingStatus(null)}>Отмена</Button><Button color="accent" icon="save" onClick={saveStatus}>Сохранить</Button></>}>
           <div className="col">
             <input placeholder="Название" value={editingStatus.name} onChange={(e) => setEditingStatus({ ...editingStatus, name: e.target.value })} />
             <select value={editingStatus.type} onChange={(e) => setEditingStatus({ ...editingStatus, type: e.target.value })}>
@@ -136,7 +136,7 @@ export default function Settings({ onError }: { onError: (m: string) => void }) 
 
       {editingTag && (
         <Modal title={editingTag.id ? 'Тип тега' : 'Новый тип тега'} onClose={() => setEditingTag(null)}
-          footer={<><Button onClick={() => setEditingTag(null)}>Отмена</Button><Button className="primary" onClick={saveTag}>Сохранить</Button></>}>
+          footer={<><Button variant="outline" onClick={() => setEditingTag(null)}>Отмена</Button><Button color="accent" icon="save" onClick={saveTag}>Сохранить</Button></>}>
           <div className="col">
             <input placeholder="Название" value={editingTag.name} onChange={(e) => setEditingTag({ ...editingTag, name: e.target.value })} />
             <select value={editingTag.kind} onChange={(e) => setEditingTag({ ...editingTag, kind: e.target.value })}>
@@ -147,6 +147,7 @@ export default function Settings({ onError }: { onError: (m: string) => void }) 
           </div>
         </Modal>
       )}
+
     </div>
   )
 }

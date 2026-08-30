@@ -101,7 +101,7 @@ export default function Reports({ onError }: { onError: (m: string) => void }) {
     <div className="panel col" style={{ flex: 1, overflow: 'auto' }}>
       <div className="toolbar">
         {(['today', 'yesterday', 'week', 'month', 'custom'] as Period[]).map((p) => (
-          <Button key={p} className={period === p ? 'primary' : ''} onClick={() => setPeriod(p)}>
+          <Button key={p} color={period === p ? 'accent' : 'base'} onClick={() => setPeriod(p)}>
             {p === 'today' ? 'Сегодня' : p === 'yesterday' ? 'Вчера' : p === 'week' ? 'Неделя' : p === 'month' ? 'Месяц' : 'Свой'}
           </Button>
         ))}
@@ -116,8 +116,8 @@ export default function Reports({ onError }: { onError: (m: string) => void }) {
           <option value={0}>Все проекты</option>
           {projects.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
         </select>
-        <Button onClick={run}>Обновить</Button>
-        <Button className="primary" onClick={save}>Сохранить</Button>
+        <Button icon="refresh" onClick={run}>Обновить</Button>
+        <Button color="accent" icon="save" onClick={save}>Сохранить</Button>
       </div>
 
       {entries.length === 0 && <p className="muted">Времени за период ещё не учтено.</p>}

@@ -1,0 +1,24 @@
+.ctx-menu {
+  position: fixed;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px;
+  z-index: 200;
+  min-width: 160px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+
+.ctx-item {
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.ctx-item:hover {
+  background: var(--element);
+}
+
+.ctx-item.danger {
+  color: var(--red);
+}

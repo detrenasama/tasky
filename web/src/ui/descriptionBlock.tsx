@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
+import './descriptionBlock.css'
 import { Button } from './button'
 import { Modal } from '../ui'
+import { useDirtyConfirm } from '../hooks/useDirtyConfirm'
 
 export function DescriptionBlock({
   value,
@@ -11,7 +13,6 @@ export function DescriptionBlock({
 }) {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState(value)
-  const [confirmDiscard, setConfirmDiscard] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const dirty = draft !== value
@@ -20,19 +21,11 @@ export function DescriptionBlock({
     if (!open) setDraft(value)
   }, [value, open])
 
-  const tryClose = () => {
-    if (!dirty) {
-      setOpen(false)
-    } else {
-      setConfirmDiscard(true)
-    }
-  }
-
-  const doDiscard = () => {
-    setConfirmDiscard(false)
-    setOpen(false)
-    setDraft(value)
-  }
+  const { confirmDiscard, tryClose, doDiscard, cancelDiscard } = useDirtyConfirm({
+    dirty,
+    onClose: () => setOpen(false),
+    onDiscard: () => setDraft(value),
+  })
 
   const handleSave = async () => {
     if (!dirty) return
@@ -91,10 +84,10 @@ export function DescriptionBlock({
       {confirmDiscard && (
         <Modal
           title="Несохранённые изменения"
-          onClose={() => setConfirmDiscard(false)}
+          onClose={cancelDiscard}
           footer={
             <>
-              <Button variant="outline" onClick={() => setConfirmDiscard(false)}>
+              <Button variant="outline" onClick={cancelDiscard}>
                 Нет
               </Button>
               <Button color="danger" onClick={doDiscard}>

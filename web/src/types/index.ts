@@ -1,0 +1,10 @@
+// Barrel — re-exports split types, keeps `import from '../types'` working
+export type { Project } from './project'
+export type { Task, Subtask } from './task'
+export type { TimeEntry, Link } from './shared'
+export type { JournalEntry } from './journal'
+export type { ChecklistItem } from './checklist'
+export type { StatusDef, StatusHistoryEntry, StatusOwner, StatusPoll } from './status'
+export type { TagType, Tag } from './tag'
+export type { ReportEntry, ReportJournalEntry } from './report'
+export type { Settings } from './settings'

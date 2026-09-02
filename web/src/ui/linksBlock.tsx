@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import './linksBlock.css'
 import type { Link } from '../types'
 import { Button } from './button'
 import { Modal } from '../ui'
+import { useDirtyConfirm } from '../hooks/useDirtyConfirm'
 
 export function LinksBlock({
   links,
@@ -18,7 +20,6 @@ export function LinksBlock({
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState({ name: '', url: '' })
   const [confirmId, setConfirmId] = useState<number | null>(null)
-  const [confirmDiscard, setConfirmDiscard] = useState(false)
 
   const openCreate = () => {
     setForm({ name: '', url: '' })
@@ -38,18 +39,10 @@ export function LinksBlock({
   const initial = editing ? { name: editing.name, url: editing.url } : { name: '', url: '' }
   const dirty = form.name !== initial.name || form.url !== initial.url
 
-  const tryCloseForm = () => {
-    if (!dirty) {
-      closeForm()
-    } else {
-      setConfirmDiscard(true)
-    }
-  }
-
-  const doDiscard = () => {
-    setConfirmDiscard(false)
-    closeForm()
-  }
+  const { confirmDiscard, tryClose: tryCloseForm, doDiscard, cancelDiscard } = useDirtyConfirm({
+    dirty,
+    onClose: closeForm,
+  })
 
   const handleSave = () => {
     const name = form.name.trim()
@@ -137,10 +130,10 @@ export function LinksBlock({
       {confirmDiscard && (
         <Modal
           title="Несохранённые изменения"
-          onClose={() => setConfirmDiscard(false)}
+          onClose={cancelDiscard}
           footer={
             <>
-              <Button variant="outline" onClick={() => setConfirmDiscard(false)}>
+              <Button variant="outline" onClick={cancelDiscard}>
                 Нет
               </Button>
               <Button color="danger" onClick={doDiscard}>

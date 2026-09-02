@@ -1,0 +1,19 @@
+:root {
+  --bg: #f4f6fa;
+  --panel: #ffffff;
+  --panel2: #eef1f6;
+  --element: #e7ebf2;
+  --border: #d6dbe5;
+  --text: #232733;
+  --muted: #6b7280;
+  --accent: #3b6fd4;
+  --green: #2e9e5b;
+  --red: #d8556a;
+  --yellow: #c79a16;
+  --blue: #2f80c4;
+  --grey: #9aa0ad;
+  --purple: #7c5cbf;
+  --success: var(--green);
+  --warning: var(--yellow);
+  --danger: var(--red);
+}

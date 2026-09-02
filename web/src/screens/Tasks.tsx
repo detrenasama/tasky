@@ -21,6 +21,8 @@ import '../ui/tagBar.css'
 import { TaskDetail } from './tasks/TaskDetail'
 import { SubDetail } from './tasks/SubDetail'
 import { statusColor, arrayMove } from './tasks/helpers'
+import './tasks/taskRow.css'
+import './tasks/drag.css'
 
 type Detail = {
   description: string
@@ -504,7 +506,7 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
                       <span className="task-row__meta muted small">
                         {hasTime && fmtDuration(secs)}
                         {hasTime && hasCount && <span className="task-row__bullet"> • </span>}
-                        {hasCount && `${k}/${t.sub_count}`}
+                        {hasCount && `[${k}/${t.sub_count}]`}
                       </span>
                     )}
                   </div>
@@ -674,7 +676,7 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
                   <span className="task-row__meta muted small">
                     {hasTime && fmtDuration(secs)}
                     {hasTime && hasCount && <span className="task-row__bullet"> • </span>}
-                    {hasCount && `${k}/${t.sub_count}`}
+                    {hasCount && `[${k}/${t.sub_count}]`}
                   </span>
                 )}
               </div>

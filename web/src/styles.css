@@ -307,6 +307,12 @@ textarea {
   padding: 16px;
 }
 
+.modal--wide {
+  min-width: 960px;
+  width: 960px;
+  max-width: 90vw;
+}
+
 .modal-title {
   font-weight: 600;
   margin-bottom: 12px;
@@ -408,4 +414,12 @@ textarea {
   margin: 0 0 8px;
   font-size: 15px;
   font-weight: 600;
+}
+
+.desc-display {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.45;
+  min-height: 24px;
+  padding: 6px 0;
 }

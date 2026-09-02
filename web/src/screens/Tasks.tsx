@@ -14,12 +14,13 @@ import type {
   StatusDef,
   StatusHistoryEntry,
 } from '../types'
-import { fmtDuration, fmtDateTime } from '../fmt'
+import { fmtDuration } from '../fmt'
 import { Button, useConfirm, useColumnWidth, Modal } from '../ui'
-import { StatusButton } from '../ui/statusButton'
 import '../ui/statusButton.css'
-import { TagBar } from '../ui/tagBar'
 import '../ui/tagBar.css'
+import { TaskDetail } from './tasks/TaskDetail'
+import { SubDetail } from './tasks/SubDetail'
+import { statusColor, arrayMove } from './tasks/helpers'
 
 type Detail = {
   description: string
@@ -249,12 +250,6 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
   const dragRef = useRef<{ timer: number | null; startX: number; startY: number; w: number; h: number; kind: 'task' | 'sub'; id: number; from: number; fromTaskId: number | null; pointerId: number | null }>({ timer: null, startX: 0, startY: 0, w: 0, h: 0, kind: 'task', id: 0, from: 0, fromTaskId: null, pointerId: null })
   const suppressClick = useRef(false)
 
-  const arrayMove = <T,>(arr: T[], from: number, to: number): T[] => {
-    const a = [...arr]
-    const [v] = a.splice(from, 1)
-    a.splice(to, 0, v)
-    return a
-  }
   // Для плавающего ghost показываем placeholder вместо перетаскиваемого элемента
   const displayTasks = (() => {
     if (!dragTask) return tasks
@@ -603,23 +598,21 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
                   detail={subDetail}
                   statuses={statuses}
                   running={runningId === selSubId}
-                  onError={onError}
-                  onStatus={(to, note) => execStatus('subtask', s.id, to, note || '')}
                   onStatusPick={(to) => requestStatus('subtask', s.id, to)}
-              onToggleTimer={toggleTimer}
-              onDesc={(v) => api.updateSubtaskDescription(selSubId!, v).catch((e) => onError(String(e)))}
-              onLinkAdd={async (n, u) => { await api.createSubtaskLink(selSubId!, n, u); loadSubDetail(selSubId!) }}
-              onLinkDel={async (id) => { await api.deleteSubtaskLink(id); loadSubDetail(selSubId!) }}
-              onTimeEdit={async (id, s2, e2) => { await api.updateTimeEntry(id, s2, e2); loadSubDetail(selSubId!) }}
-              onTimeDel={async (id) => { await api.deleteTimeEntry(id); loadSubDetail(selSubId!) }}
-              onJournalAdd={async (text) => { await api.createJournal(selSubId!, text); loadSubDetail(selSubId!) }}
-              onCheckToggle={async (id, st) => { await api.setChecklistStatus(id, st); loadSubDetail(selSubId!) }}
-              onCheckAdd={async (text) => { await api.createChecklistItem(selSubId!, text); loadSubDetail(selSubId!) }}
-              onCheckDel={async (id) => { await api.deleteChecklistItem(id); loadSubDetail(selSubId!) }}
-              onDel={() => delSub(s)}
-            />
-          )
-        })()
+                  onToggleTimer={toggleTimer}
+                  onDesc={async (v) => { await api.updateSubtaskDescription(selSubId!, v); loadSubDetail(selSubId!) }}
+                  onLinkAdd={async (n, u) => { await api.createSubtaskLink(selSubId!, n, u); loadSubDetail(selSubId!) }}
+                  onLinkDel={async (id) => { await api.deleteSubtaskLink(id); loadSubDetail(selSubId!) }}
+                  onTimeEdit={async (id, s2, e2) => { await api.updateTimeEntry(id, s2, e2); loadSubDetail(selSubId!) }}
+                  onTimeDel={async (id) => { await api.deleteTimeEntry(id); loadSubDetail(selSubId!) }}
+                  onJournalAdd={async (text) => { await api.createJournal(selSubId!, text); loadSubDetail(selSubId!) }}
+                  onCheckToggle={async (id, st) => { await api.setChecklistStatus(id, st); loadSubDetail(selSubId!) }}
+                  onCheckAdd={async (text) => { await api.createChecklistItem(selSubId!, text); loadSubDetail(selSubId!) }}
+                  onCheckDel={async (id) => { await api.deleteChecklistItem(id); loadSubDetail(selSubId!) }}
+                  onDel={() => delSub(s)}
+                />
+              )
+            })()
           : selTaskId
             ? (() => {
                 const t = tasks.find((x) => x.id === selTaskId)!
@@ -629,10 +622,8 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
                     detail={taskDetail}
                     statuses={statuses}
                     tagTypes={tagTypes}
-                    onError={onError}
-                    onStatus={(to, note) => execStatus('task', t.id, to, note || '')}
                     onStatusPick={(to) => requestStatus('task', t.id, to)}
-                    onDesc={(v) => api.updateTaskDescription(selTaskId!, v).catch((e) => onError(String(e)))}
+                    onDesc={async (v) => { await api.updateTaskDescription(selTaskId!, v); loadTaskDetail(selTaskId!) }}
                     onLinkAdd={async (n, u) => { await api.createTaskLink(selTaskId!, n, u); loadTaskDetail(selTaskId!) }}
                     onLinkDel={async (id) => { await api.deleteTaskLink(id); loadTaskDetail(selTaskId!) }}
                     onNewSub={async (title) => { await api.createSubtask(selTaskId!, title); reload() }}
@@ -757,181 +748,6 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
   )
 }
 
-function statusColor(name: string, statuses: StatusDef[]): string {
-  const s = statuses.find((x) => x.name === name)
-  return s?.color || 'var(--grey)'
-}
 
-// --- Детальные панели ---
-
-function TaskDetail(props: {
-  task: Task
-  detail: Detail
-  statuses: StatusDef[]
-  tagTypes: TagType[]
-  onError: (m: string) => void
-  onStatus: (to: string, note?: string) => void
-  onStatusPick: (to: string) => void
-  onDesc: (v: string) => void
-  onLinkAdd: (n: string, u: string) => void
-  onLinkDel: (id: number) => void
-  onNewSub: (title: string) => void
-  onDel: () => void
-  onTagAdd: (typeId: number, text: string, url: string) => void
-  onTagEdit: (id: number, typeId: number, text: string, url: string) => void
-  onTagDel: (id: number) => void
-}) {
-  const [desc, setDesc] = useState(props.detail.description)
-  useEffect(() => setDesc(props.detail.description), [props.detail.description])
-  const [subTitle, setSubTitle] = useState('')
-
-  return (
-    <div className="col">
-      <div className="flex between">
-        <div className="flex" style={{ gap: 8, alignItems: 'center' }}>
-          <StatusButton value={props.task.status} statuses={props.statuses} onSelect={props.onStatusPick} />
-          <h2 style={{ margin: 0 }}>{props.task.title}</h2>
-        </div>
-        <Button color="danger" variant="outline" icon="trash" label="Удалить задачу" onClick={props.onDel} />
-      </div>
-      <TagBar tags={props.detail.tags} tagTypes={props.tagTypes} onAdd={props.onTagAdd} onEdit={props.onTagEdit} onDelete={props.onTagDel} />
-      <div>
-        <div className="flex between"><strong>Описание</strong><Button color="accent" icon="save" onClick={() => props.onDesc(desc)}>Сохранить</Button></div>
-        <textarea value={desc} onChange={(e) => setDesc(e.target.value)} />
-      </div>
-      <div>
-        <div className="flex between"><strong>Подзадачи</strong></div>
-        <div className="flex">
-          <input placeholder="Название подзадачи" value={subTitle} onChange={(e) => setSubTitle(e.target.value)} />
-          <Button color="accent" icon="plus" label="Добавить подзадачу" disabled={!subTitle.trim()} onClick={() => { props.onNewSub(subTitle.trim()); setSubTitle('') }} />
-        </div>
-      </div>
-      <LinksBlock links={props.detail.links} onAdd={props.onLinkAdd} onDel={props.onLinkDel} />
-    </div>
-  )
-}
-
-function SubDetail(props: {
-  sub: Subtask
-  detail: Detail
-  statuses: StatusDef[]
-  running: boolean
-  onError: (m: string) => void
-  onStatus: (to: string, note?: string) => void
-  onStatusPick: (to: string) => void
-  onToggleTimer: () => void
-  onDesc: (v: string) => void
-  onLinkAdd: (n: string, u: string) => void
-  onLinkDel: (id: number) => void
-  onTimeEdit: (id: number, started: string, ended: string | null) => void
-  onTimeDel: (id: number) => void
-  onJournalAdd: (text: string) => void
-  onCheckToggle: (id: number, status: string) => void
-  onCheckAdd: (text: string) => void
-  onCheckDel: (id: number) => void
-  onDel?: () => void
-}) {
-  const [desc, setDesc] = useState(props.detail.description)
-  useEffect(() => setDesc(props.detail.description), [props.detail.description])
-  const [jt, setJt] = useState('')
-  const [ct, setCt] = useState('')
-
-  const checkStates = ['new', 'in_progress', 'done', 'cancelled']
-
-  return (
-    <div className="col">
-      <div className="flex between">
-        <div className="flex" style={{ gap: 8, alignItems: 'center' }}>
-          <StatusButton value={props.sub.status} statuses={props.statuses} onSelect={props.onStatusPick} />
-          <h2 style={{ margin: 0 }}>{props.sub.title}</h2>
-        </div>
-        <div className="flex" style={{ gap: 8 }}>
-          {props.onDel && <Button color="danger" variant="outline" icon="trash" label="Удалить подзадачу" onClick={props.onDel} />}
-          <Button color={props.running ? 'danger' : 'success'} icon={props.running ? 'pause' : 'play'} onClick={props.onToggleTimer}>
-            {props.running ? 'Стоп' : 'Старт'}
-          </Button>
-        </div>
-      </div>
-      <div>
-        <div className="flex between"><strong>Описание</strong><Button color="accent" icon="save" onClick={() => props.onDesc(desc)}>Сохранить</Button></div>
-        <textarea value={desc} onChange={(e) => setDesc(e.target.value)} />
-      </div>
-
-      <div>
-        <strong>Записи времени</strong>
-        <ul className="list">
-          {props.detail.time.map((t: TimeEntry) => (
-            <li key={t.id} className="row">
-              <span className="title">{fmtDateTime(t.started_at)} — {t.ended_at ? fmtDateTime(t.ended_at) : '…'}</span>
-              <Button icon="edit" label="Редактировать" onClick={() => {
-                const s = prompt('Начало (ISO)', t.started_at)
-                if (!s) return
-                const e = prompt('Конец (ISO, пусто = открыто)', t.ended_at ?? '')
-                props.onTimeEdit(t.id, s, e || null)
-              }} />
-              <Button color="danger" variant="outline" icon="trash" label="Удалить" onClick={() => props.onTimeDel(t.id)} />
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <div>
-        <strong>Журнал</strong>
-        <div className="flex">
-          <input placeholder="Новая запись" value={jt} onChange={(e) => setJt(e.target.value)} />
-          <Button color="accent" icon="plus" label="Добавить запись" disabled={!jt.trim()} onClick={() => { props.onJournalAdd(jt.trim()); setJt('') }} />
-        </div>
-        <ul className="list">
-          {props.detail.journal.map((j: JournalEntry) => (
-            <li key={j.id} className="row"><span className="title">{j.text}</span><span className="muted small">{fmtDateTime(j.created_at)}</span></li>
-          ))}
-        </ul>
-      </div>
-
-      <div>
-        <strong>Чек-лист</strong>
-        <div className="flex">
-          <input placeholder="Пункт" value={ct} onChange={(e) => setCt(e.target.value)} />
-          <Button color="accent" icon="plus" label="Добавить пункт" disabled={!ct.trim()} onClick={() => { props.onCheckAdd(ct.trim()); setCt('') }} />
-        </div>
-        <ul className="list">
-          {props.detail.checklist.map((c: ChecklistItem) => (
-            <li key={c.id} className="row">
-              <select value={c.status} onChange={(e) => props.onCheckToggle(c.id, e.target.value)}>
-                {checkStates.map((s) => (<option key={s} value={s}>{s}</option>))}
-              </select>
-              <span className="title">{c.text}</span>
-              <Button color="danger" variant="outline" icon="trash" label="Удалить" onClick={() => props.onCheckDel(c.id)} />
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <LinksBlock links={props.detail.links} onAdd={props.onLinkAdd} onDel={props.onLinkDel} />
-    </div>
-  )
-}
-
-function LinksBlock({ links, onAdd, onDel }: { links: Link[]; onAdd: (n: string, u: string) => void; onDel: (id: number) => void }) {
-  const [ln, setLn] = useState({ name: '', url: '' })
-  return (
-    <div>
-      <div className="flex between"><strong>Ссылки</strong></div>
-      <div className="flex">
-        <input placeholder="Название" value={ln.name} onChange={(e) => setLn({ ...ln, name: e.target.value })} />
-        <input placeholder="URL" value={ln.url} onChange={(e) => setLn({ ...ln, url: e.target.value })} />
-        <Button color="accent" icon="plus" label="Добавить ссылку" disabled={!ln.url.trim()} onClick={() => { onAdd(ln.name, ln.url); setLn({ name: '', url: '' }) }} />
-      </div>
-      <ul className="list">
-        {links.map((l) => (
-          <li key={l.id} className="row">
-            <a href={l.url} target="_blank" rel="noreferrer">{l.name || l.url}</a>
-            <Button color="danger" variant="outline" icon="trash" label="Удалить ссылку" onClick={() => onDel(l.id)} />
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
-}
 
 

@@ -602,6 +602,7 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
                   onToggleTimer={toggleTimer}
                   onDesc={async (v) => { await api.updateSubtaskDescription(selSubId!, v); loadSubDetail(selSubId!) }}
                   onLinkAdd={async (n, u) => { await api.createSubtaskLink(selSubId!, n, u); loadSubDetail(selSubId!) }}
+                  onLinkEdit={async (id, n, u) => { await api.updateSubtaskLink(id, n, u); loadSubDetail(selSubId!) }}
                   onLinkDel={async (id) => { await api.deleteSubtaskLink(id); loadSubDetail(selSubId!) }}
                   onTimeEdit={async (id, s2, e2) => { await api.updateTimeEntry(id, s2, e2); loadSubDetail(selSubId!) }}
                   onTimeDel={async (id) => { await api.deleteTimeEntry(id); loadSubDetail(selSubId!) }}
@@ -625,8 +626,8 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
                     onStatusPick={(to) => requestStatus('task', t.id, to)}
                     onDesc={async (v) => { await api.updateTaskDescription(selTaskId!, v); loadTaskDetail(selTaskId!) }}
                     onLinkAdd={async (n, u) => { await api.createTaskLink(selTaskId!, n, u); loadTaskDetail(selTaskId!) }}
+                    onLinkEdit={async (id, n, u) => { await api.updateTaskLink(id, n, u); loadTaskDetail(selTaskId!) }}
                     onLinkDel={async (id) => { await api.deleteTaskLink(id); loadTaskDetail(selTaskId!) }}
-                    onNewSub={async (title) => { await api.createSubtask(selTaskId!, title); reload() }}
                     onDel={() => delTask(t)}
                     onTagAdd={async (typeId, text, url) => { await api.createTag(selTaskId!, typeId, text, url); loadTaskDetail(selTaskId!); api.tagsByProject(t.project_id).then(setTagsMap).catch(()=>{}) }}
                     onTagEdit={async (id, typeId, text, url) => { await api.updateTag(id, typeId, text, url); loadTaskDetail(selTaskId!); api.tagsByProject(t.project_id).then(setTagsMap).catch(()=>{}) }}

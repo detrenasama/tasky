@@ -23,6 +23,7 @@ export function SubDetail(props: {
   onToggleTimer: () => void
   onDesc: (v: string) => void
   onLinkAdd: (n: string, u: string) => void
+  onLinkEdit: (id: number, n: string, u: string) => void
   onLinkDel: (id: number) => void
   onTimeEdit: (id: number, started: string, ended: string | null) => void
   onTimeDel: (id: number) => void
@@ -103,7 +104,7 @@ export function SubDetail(props: {
         </ul>
       </div>
 
-      <LinksBlock links={props.detail.links} onAdd={props.onLinkAdd} onDel={props.onLinkDel} />
+      <LinksBlock links={props.detail.links} onAdd={props.onLinkAdd} onEdit={props.onLinkEdit} onDel={props.onLinkDel} />
     </div>
   )
 }

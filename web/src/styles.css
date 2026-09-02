@@ -423,3 +423,35 @@ textarea {
   min-height: 24px;
   padding: 6px 0;
 }
+
+.links-table {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.links-row {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr auto;
+  gap: 12px;
+  align-items: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.link-name,
+.link-url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.link-url {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.link-url:hover {
+  text-decoration: underline;
+}

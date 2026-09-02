@@ -19,6 +19,14 @@ export function taskTime(taskId: number, subs: Subtask[]): number {
     }, 0)
 }
 
+export function taskDoneCount(taskId: number, subs: Subtask[], doneSet: Set<string>): number {
+  return subs.filter((s) => s.task_id === taskId && doneSet.has(s.status)).length
+}
+
+export function isDone(status: string, doneSet: Set<string>): boolean {
+  return doneSet.has(status)
+}
+
 export function arrayMove<T>(arr: T[], from: number, to: number): T[] {
   const a = [...arr]
   const [v] = a.splice(from, 1)

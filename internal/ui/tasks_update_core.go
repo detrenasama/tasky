@@ -11,7 +11,7 @@ func (m *model) updateTasksBase(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	switch msg.String() {
 	case "tab":
-		// переключение фокуса между панелями упразднено
+		s.toggleTask()
 		return m, nil
 	case "enter":
 		s.startEditDescription()
@@ -20,15 +20,14 @@ func (m *model) updateTasksBase(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		s.expandTask()
 		return m, nil
 	case "left":
-		kind, id := s.selectedKindID()
+		kind, _ := s.selectedKindID()
 		if kind == kindSubtask {
 			s.selectByKindID(kindTask, s.selectedTaskID())
-		} else if id != 0 {
-			s.expanded[id] = false
-			s.buildItems()
+			s.loadInfo()
+			s.loadDesc()
+		} else {
+			s.collapseTask()
 		}
-		s.loadInfo()
-		s.loadDesc()
 		return m, nil
 	case "pgup", "pgdown":
 		s.descV, _ = s.descV.Update(msg)

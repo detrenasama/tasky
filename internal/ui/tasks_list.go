@@ -337,14 +337,48 @@ func (s *tasksScreen) selectedTaskID() int64 {
 	return 0
 }
 
-// expandTask раскрывает выбранную задачу (→). Сворачивание — только по ←,
-// поэтому здесь всегда ставим true, а не переключаем.
+// expandTask раскрывает выбранную задачу (→).
 func (s *tasksScreen) expandTask() {
 	item, ok := s.list.SelectedItem().(taskItem)
 	if !ok {
 		return
 	}
+	if s.searchQuery != "" {
+		return
+	}
+	if s.expanded[item.t.ID] {
+		return
+	}
 	s.expanded[item.t.ID] = true
+	s.buildItems()
+}
+
+// collapseTask сворачивает выбранную задачу (←).
+func (s *tasksScreen) collapseTask() {
+	item, ok := s.list.SelectedItem().(taskItem)
+	if !ok {
+		return
+	}
+	if s.searchQuery != "" {
+		return
+	}
+	if !s.expanded[item.t.ID] {
+		return
+	}
+	s.expanded[item.t.ID] = false
+	s.buildItems()
+}
+
+// toggleTask переключает свёрнуто/развёрнуто выбранной задачи (tab).
+func (s *tasksScreen) toggleTask() {
+	item, ok := s.list.SelectedItem().(taskItem)
+	if !ok {
+		return
+	}
+	if s.searchQuery != "" {
+		return
+	}
+	s.expanded[item.t.ID] = !s.expanded[item.t.ID]
 	s.buildItems()
 }
 

@@ -3,7 +3,7 @@ import type { Task, TagType, Link, Tag, StatusDef } from '../../types'
 import { Button } from '../../ui'
 import { StatusButton } from '../../ui/statusButton'
 import { TagBar } from '../../ui/tagBar'
-import { DescriptionBlock } from './DescriptionBlock'
+import { DescriptionBlock } from '../../ui/descriptionBlock'
 import { LinksBlock } from './LinksBlock'
 
 type Detail = {

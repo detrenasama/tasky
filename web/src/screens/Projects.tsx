@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { Project, Link } from '../types'
 import { Button, Modal, useConfirm, MenuState, ContextMenu } from '../ui'
+import { DescriptionBlock } from '../ui/descriptionBlock'
 
 export default function Projects({ onError }: { onError: (m: string) => void }) {
   const [projects, setProjects] = useState<Project[]>([])
@@ -53,10 +54,11 @@ export default function Projects({ onError }: { onError: (m: string) => void }) 
     }
   }
 
-  const saveDesc = async () => {
+  const saveDesc = async (v: string) => {
     if (!sel) return
     try {
-      await api.updateProjectDescription(sel.id, desc)
+      await api.updateProjectDescription(sel.id, v)
+      setDesc(v)
     } catch (e) {
       onError(String(e))
     }
@@ -126,13 +128,7 @@ export default function Projects({ onError }: { onError: (m: string) => void }) 
               <h2 style={{ margin: 0 }}>{sel.name}</h2>
               <Button color="danger" variant="outline" icon="trash" label="Удалить проект" onClick={() => del(sel)} />
             </div>
-            <div>
-              <div className="flex between">
-                <strong>Описание</strong>
-                <Button color="accent" icon="save" onClick={saveDesc}>Сохранить</Button>
-              </div>
-              <textarea value={desc} onChange={(e) => setDesc(e.target.value)} />
-            </div>
+            <DescriptionBlock value={desc} onSave={saveDesc} />
             <div>
               <div className="flex between">
                 <strong>Ссылки</strong>

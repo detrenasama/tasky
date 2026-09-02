@@ -3,7 +3,7 @@ import type { Subtask, Link, TimeEntry, JournalEntry, ChecklistItem, StatusDef }
 import { fmtDateTime } from '../../fmt'
 import { Button } from '../../ui'
 import { StatusButton } from '../../ui/statusButton'
-import { DescriptionBlock } from './DescriptionBlock'
+import { DescriptionBlock } from '../../ui/descriptionBlock'
 import { LinksBlock } from './LinksBlock'
 
 type Detail = {

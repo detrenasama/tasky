@@ -1,19 +1,17 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { Project, Link } from '../types'
-import { Button, Modal, useConfirm, MenuState, ContextMenu } from '../ui'
+import { Button, Modal, useConfirm } from '../ui'
 import { DescriptionBlock } from '../ui/descriptionBlock'
+import { LinksBlock } from '../ui/linksBlock'
 
 export default function Projects({ onError }: { onError: (m: string) => void }) {
   const [projects, setProjects] = useState<Project[]>([])
   const [sel, setSel] = useState<Project | null>(null)
   const [desc, setDesc] = useState('')
   const [links, setLinks] = useState<Link[]>([])
-  const [menu, setMenu] = useState<MenuState | null>(null)
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
-  const [editingLink, setEditingLink] = useState<Link | null>(null)
-  const [linkForm, setLinkForm] = useState({ name: '', url: '' })
   const confirm = useConfirm()[0]
 
   const load = () => {
@@ -64,42 +62,7 @@ export default function Projects({ onError }: { onError: (m: string) => void }) 
     }
   }
 
-  const saveLink = async () => {
-    if (!editingLink) return
-    try {
-      await api.updateProjectLink(editingLink.id, linkForm.name, linkForm.url)
-      setEditingLink(null)
-      if (sel) select(sel)
-    } catch (e) {
-      onError(String(e))
-    }
-  }
 
-  const delLink = async (l: Link) => {
-    if (!(await confirm('Удалить ссылку?'))) return
-    try {
-      await api.deleteProjectLink(l.id)
-      if (sel) select(sel)
-    } catch (e) {
-      onError(String(e))
-    }
-  }
-
-  const openNewLink = () => {
-    setLinkForm({ name: '', url: '' })
-    setEditingLink({ id: 0, owner_id: sel!.id, name: '', url: '', created_at: '' })
-  }
-
-  const createLink = async () => {
-    if (!sel) return
-    try {
-      await api.createProjectLink(sel.id, linkForm.name, linkForm.url)
-      setEditingLink(null)
-      select(sel)
-    } catch (e) {
-      onError(String(e))
-    }
-  }
 
   return (
     <div className="flex" style={{ alignItems: 'stretch', height: '100%' }}>
@@ -129,41 +92,12 @@ export default function Projects({ onError }: { onError: (m: string) => void }) 
               <Button color="danger" variant="outline" icon="trash" label="Удалить проект" onClick={() => del(sel)} />
             </div>
             <DescriptionBlock value={desc} onSave={saveDesc} />
-            <div>
-              <div className="flex between">
-                <strong>Ссылки</strong>
-                <Button color="accent" icon="plus" label="Добавить ссылку" onClick={openNewLink} />
-              </div>
-              <ul className="list">
-                {links.map((l) => (
-                  <li
-                    key={l.id}
-                    className="row"
-                    onContextMenu={(e) => {
-                      e.preventDefault()
-                      setMenu({
-                        x: e.clientX,
-                        y: e.clientY,
-                        items: [
-                          {
-                            label: 'Изменить',
-                            onClick: () => {
-                              setLinkForm({ name: l.name, url: l.url })
-                              setEditingLink(l)
-                            },
-                          },
-                          { label: 'Удалить', danger: true, onClick: () => delLink(l) },
-                        ],
-                      })
-                    }}
-                  >
-                    <a href={l.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
-                      {l.name || l.url}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <LinksBlock
+              links={links}
+              onAdd={async (n, u) => { if (!sel) return; await api.createProjectLink(sel.id, n, u); select(sel) }}
+              onEdit={async (id, n, u) => { await api.updateProjectLink(id, n, u); if (sel) select(sel) }}
+              onDel={async (id) => { await api.deleteProjectLink(id); if (sel) select(sel) }}
+            />
           </>
         )}
       </div>
@@ -190,36 +124,7 @@ export default function Projects({ onError }: { onError: (m: string) => void }) 
         </Modal>
       )}
 
-      {editingLink && (
-        <Modal
-          title={editingLink.id ? 'Изменить ссылку' : 'Новая ссылка'}
-          onClose={() => setEditingLink(null)}
-          footer={
-            <>
-              <Button variant="outline" onClick={() => setEditingLink(null)}>Отмена</Button>
-              <Button color="accent" icon="save" onClick={editingLink.id ? saveLink : createLink}>
-                Сохранить
-              </Button>
-            </>
-          }
-        >
-          <div className="col">
-            <input
-              autoFocus
-              placeholder="Название (необязательно)"
-              value={linkForm.name}
-              onChange={(e) => setLinkForm({ ...linkForm, name: e.target.value })}
-            />
-            <input
-              placeholder="URL"
-              value={linkForm.url}
-              onChange={(e) => setLinkForm({ ...linkForm, url: e.target.value })}
-            />
-          </div>
-        </Modal>
-      )}
 
-      <ContextMenu state={menu} onClose={() => setMenu(null)} />
     </div>
   )
 }

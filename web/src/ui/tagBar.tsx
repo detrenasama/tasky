@@ -9,12 +9,14 @@ export function TagBar({
   onAdd,
   onEdit,
   onDelete,
+  readOnly,
 }: {
   tags: Tag[]
   tagTypes: TagType[]
-  onAdd: (typeId: number, text: string, url: string) => Promise<void> | void
-  onEdit: (id: number, typeId: number, text: string, url: string) => Promise<void> | void
-  onDelete: (id: number) => Promise<void> | void
+  onAdd?: (typeId: number, text: string, url: string) => Promise<void> | void
+  onEdit?: (id: number, typeId: number, text: string, url: string) => Promise<void> | void
+  onDelete?: (id: number) => Promise<void> | void
+  readOnly?: boolean
 }) {
   const [menu, setMenu] = useState<MenuState | null>(null)
   const [editing, setEditing] = useState<Tag | null>(null)
@@ -34,12 +36,12 @@ export function TagBar({
     setEditing(null)
   }
   const submitAdd = async () => {
-    if (!form.typeId || !form.text.trim()) return
+    if (!form.typeId || !form.text.trim() || !onAdd) return
     await onAdd(form.typeId, form.text.trim(), form.url.trim())
     closeForm()
   }
   const submitEdit = async () => {
-    if (!editing || !form.typeId || !form.text.trim()) return
+    if (!editing || !form.typeId || !form.text.trim() || !onEdit) return
     await onEdit(editing.id, form.typeId, form.text.trim(), form.url.trim())
     closeForm()
   }
@@ -55,11 +57,12 @@ export function TagBar({
           <Button
             key={tg.id}
             variant="outline"
-            style={{ borderColor: tg.color || 'var(--border)', color: tg.color || 'var(--text)' }}
+            style={{ borderColor: tg.color || 'var(--border)', color: tg.color || 'var(--text)', textDecoration: tg.url ? 'underline' : undefined }}
             onClick={() => {
               if (tg.url) window.open(tg.url, '_blank', 'noopener')
             }}
             onContextMenu={(e) => {
+              if (readOnly) return
               e.preventDefault()
               setMenu({
                 x: e.clientX,
@@ -67,7 +70,7 @@ export function TagBar({
                 items: [
                   { label: 'Редактировать', onClick: () => openEdit(tg) },
                   { label: 'Открыть ссылку', onClick: () => { if (tg.url) window.open(tg.url, '_blank', 'noopener') } },
-                  { label: 'Удалить', danger: true, onClick: () => onDelete(tg.id) },
+                  { label: 'Удалить', danger: true, onClick: () => onDelete?.(tg.id) },
                 ],
               })
             }}
@@ -75,12 +78,12 @@ export function TagBar({
             {tg.text}
           </Button>
         ))}
-        <Button icon="plus" label="Добавить тег" onClick={openAdd} />
+        {!readOnly && <Button icon="plus" label="Добавить тег" onClick={openAdd} />}
       </div>
 
       <ContextMenu state={menu} onClose={() => setMenu(null)} />
 
-      {isFormOpen && (
+      {!readOnly && isFormOpen && (
         <Modal
           title={formTitle}
           onClose={closeForm}

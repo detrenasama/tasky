@@ -8,13 +8,13 @@ import (
 // ReportEntry — суммарное время подзадачи за период (только завершённые
 // записи учёта времени).
 type ReportEntry struct {
-	ProjectID    int64
-	ProjectName  string
-	TaskID       int64
-	TaskTitle    string
-	SubtaskID    int64
-	SubtaskTitle string
-	Seconds      int64
+	ProjectID    int64  `json:"project_id"`
+	ProjectName  string `json:"project_name"`
+	TaskID       int64  `json:"task_id"`
+	TaskTitle    string `json:"task_title"`
+	SubtaskID    int64  `json:"subtask_id"`
+	SubtaskTitle string `json:"subtask_title"`
+	Seconds      int64  `json:"seconds"`
 }
 
 // SubtaskReport — подзадача в отчёте.
@@ -26,9 +26,9 @@ type SubtaskReport struct {
 
 // ReportJournalEntry — запись журнала подзадачи за период отчёта.
 type ReportJournalEntry struct {
-	SubtaskID int64
-	CreatedAt time.Time
-	Text      string
+	SubtaskID int64     `json:"subtask_id"`
+	CreatedAt time.Time `json:"created_at"`
+	Text      string    `json:"text"`
 }
 
 // TaskReport — задача в отчёте с подзадачами, суммарным временем и тегами.

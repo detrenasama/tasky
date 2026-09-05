@@ -60,7 +60,7 @@ export function TimeEntriesBlock({
           Записей нет
         </span>
       ) : (
-        <ul className="list" style={{ marginTop: 8 }}>
+        <ul className="list list--dense" style={{ marginTop: 8 }}>
           {sorted.map((t) => (
             <li key={t.id} className="row">
               <span className="title">
@@ -124,21 +124,22 @@ function TimeEditModal({
   return (
     <>
       <Modal title={`Редактирование записей времени задачи "${subtaskTitle}"`} onClose={onClose} wide showClose>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 12, marginBottom: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8, marginBottom: 8 }}>
           <strong>Начало</strong>
           <strong>Конец</strong>
           <span />
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className="list list--dense" style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           {entries.map((t) => (
             <div
               key={t.id}
-              style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 12, alignItems: 'center' }}
+              className="row"
+              style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8, alignItems: 'center' }}
             >
               {/* Начало */}
               {editing?.id === t.id && editing.field === 'started_at' ? (
-                <span className="flex" style={{ gap: 6 }}>
+                <span className="flex" style={{ gap: 4 }}>
                   <input
                     type="datetime-local"
                     autoFocus
@@ -148,7 +149,7 @@ function TimeEditModal({
                       if (e.key === 'Enter') handleSave()
                       if (e.key === 'Escape') cancelEditing()
                     }}
-                    style={{ flex: 1 }}
+                    style={{ flex: 1, padding: '4px 6px', fontSize: 13 }}
                   />
                   <Button color="accent" icon="save" label="Сохранить" disabled={!editing.draft.trim()} onClick={handleSave} />
                   <Button variant="outline" onClick={cancelEditing}>
@@ -163,10 +164,11 @@ function TimeEditModal({
                     textAlign: 'left',
                     background: 'none',
                     border: '1px dashed var(--border)',
-                    borderRadius: 6,
-                    padding: '6px 8px',
+                    borderRadius: 4,
+                    padding: '4px 6px',
                     cursor: 'pointer',
                     font: 'inherit',
+                    fontSize: 13,
                   }}
                 >
                   {fmtDateTime(t.started_at)}
@@ -175,7 +177,7 @@ function TimeEditModal({
 
               {/* Конец */}
               {editing?.id === t.id && editing.field === 'ended_at' ? (
-                <span className="flex" style={{ gap: 6 }}>
+                <span className="flex" style={{ gap: 4 }}>
                   <input
                     type="datetime-local"
                     autoFocus
@@ -185,7 +187,7 @@ function TimeEditModal({
                       if (e.key === 'Enter') handleSave()
                       if (e.key === 'Escape') cancelEditing()
                     }}
-                    style={{ flex: 1 }}
+                    style={{ flex: 1, padding: '4px 6px', fontSize: 13 }}
                   />
                   <Button color="accent" icon="save" label="Сохранить" onClick={handleSave} />
                   <Button variant="outline" onClick={cancelEditing}>
@@ -200,10 +202,11 @@ function TimeEditModal({
                     textAlign: 'left',
                     background: 'none',
                     border: '1px dashed var(--border)',
-                    borderRadius: 6,
-                    padding: '6px 8px',
+                    borderRadius: 4,
+                    padding: '4px 6px',
                     cursor: 'pointer',
                     font: 'inherit',
+                    fontSize: 13,
                   }}
                 >
                   {t.ended_at ? fmtDateTime(t.ended_at) : '…'}

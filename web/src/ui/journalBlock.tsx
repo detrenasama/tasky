@@ -43,11 +43,17 @@ export function JournalBlock({
           Записей нет
         </span>
       ) : (
-        <ul className="list" style={{ marginTop: 8 }}>
+        <ul className="list list--dense" style={{ marginTop: 8 }}>
           {entries.map((j) => (
-            <li key={j.id} className="row">
-              <span className="title">{j.text}</span>
-              <span className="muted small">{fmtDateTime(j.created_at)}</span>
+            <li
+              key={j.id}
+              className="row"
+              style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 2, padding: '4px 8px', cursor: 'default' }}
+            >
+              <span className="muted small" style={{ fontSize: 11, lineHeight: 1.2 }}>
+                {fmtDateTime(j.created_at)}
+              </span>
+              <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.35, fontSize: 13 }}>{j.text}</span>
             </li>
           ))}
         </ul>

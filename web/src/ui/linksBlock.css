@@ -1,17 +1,31 @@
 .links-table {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 3px;
   width: 100%;
 }
 
 .row.links-row {
   display: grid;
   grid-template-columns: 1fr 1.5fr auto;
-  gap: 12px;
+  gap: 8px;
   align-items: center;
   width: 100%;
-  padding: 8px 0;
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+.links-row .btn {
+  padding: 3px 6px;
+  font-size: 12px;
+  min-width: 22px;
+  min-height: 22px;
+}
+
+.links-row .btn--icon {
+  padding: 3px;
+  min-width: 22px;
+  min-height: 22px;
 }
 
 .link-name,
@@ -25,6 +39,13 @@
 .link-url {
   color: var(--accent);
   text-decoration: none;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.link-name {
+  font-size: 13px;
+  line-height: 1.35;
 }
 
 .link-url:hover {

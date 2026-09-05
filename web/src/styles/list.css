@@ -31,3 +31,30 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.list--dense {
+  gap: 3px;
+}
+
+.list--dense .row {
+  padding: 4px 8px;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.list--dense .row .title {
+  line-height: 1.35;
+}
+
+.list--dense .btn {
+  padding: 3px 6px;
+  font-size: 12px;
+  min-width: 22px;
+  min-height: 22px;
+}
+
+.list--dense .btn--icon {
+  padding: 3px;
+  min-width: 22px;
+  min-height: 22px;
+}

@@ -48,9 +48,9 @@ export function ChecklistStatusButton({
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
-          width: 30,
-          height: 30,
-          borderRadius: 6,
+          width: 24,
+          height: 24,
+          borderRadius: 4,
           border: `1.5px solid ${cur.color}`,
           background: '#fff',
           color: cur.color,
@@ -58,7 +58,7 @@ export function ChecklistStatusButton({
           flexShrink: 0,
         }}
       >
-        <Icon name={cur.icon} size={16} />
+        <Icon name={cur.icon} size={14} />
       </button>
 
       {open && (
@@ -73,7 +73,7 @@ export function ChecklistStatusButton({
               }}
             >
               <span style={{ color: cfg.color, display: 'inline-flex' }}>
-                <Icon name={cfg.icon} size={16} />
+                <Icon name={cfg.icon} size={14} />
               </span>
               <span>{cfg.label}</span>
             </div>

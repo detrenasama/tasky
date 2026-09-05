@@ -74,7 +74,7 @@ export function ChecklistBlock({
           Пунктов нет
         </span>
       ) : (
-        <ul className="list" style={{ marginTop: 8 }}>
+        <ul className="list list--dense" style={{ marginTop: 8 }}>
           {items.map((c) => (
             <li key={c.id} className="row">
               <ChecklistStatusButton value={c.status} onSelect={(s) => onToggle(c.id, s)} />

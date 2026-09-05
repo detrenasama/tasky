@@ -17,6 +17,7 @@ export function Modal(props: {
   children: React.ReactNode
   footer?: React.ReactNode
   wide?: boolean
+  showClose?: boolean
 }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -28,7 +29,12 @@ export function Modal(props: {
   return (
     <div className="modal-overlay" onMouseDown={props.onClose}>
       <div className={`modal${props.wide ? ' modal--wide' : ''}`} onMouseDown={(e) => e.stopPropagation()}>
-        <div className="modal-title">{props.title}</div>
+        <div className="modal-title">
+          <span className="modal-title__text">{props.title}</span>
+          {props.showClose && (
+            <Button variant="outline" icon="close" label="Закрыть" onClick={props.onClose} />
+          )}
+        </div>
         <div className="modal-body">{props.children}</div>
         {props.footer && <div className="modal-footer">{props.footer}</div>}
       </div>

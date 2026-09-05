@@ -177,6 +177,7 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
       const r = await api.running()
       setRunningId(r?.id ?? null)
       reload()
+      loadSubDetail(selSubId)
     } catch (e) {
       onError(String(e))
     }
@@ -285,6 +286,7 @@ export default function Tasks({ onError }: { onError: (m: string) => void }) {
                   onCheckToggle={async (id, st) => { await api.setChecklistStatus(id, st); loadSubDetail(selSubId!) }}
                   onCheckAdd={async (text) => { await api.createChecklistItem(selSubId!, text); loadSubDetail(selSubId!) }}
                   onCheckDel={async (id) => { await api.deleteChecklistItem(id); loadSubDetail(selSubId!) }}
+                  onCheckEdit={async (id, text) => { await api.updateChecklistText(id, text); loadSubDetail(selSubId!) }}
                   onDel={() => delSub(s)}
                 />
               )

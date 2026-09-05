@@ -30,6 +30,9 @@ import {
   History,
   MessageSquare,
   ListChecks,
+  Square,
+  SquareCheck,
+  SquareX,
 } from 'lucide-react'
 import type { LucideProps } from 'lucide-react'
 
@@ -68,6 +71,9 @@ const map = {
   history: History,
   journal: MessageSquare,
   checklist: ListChecks,
+  square: Square,
+  checkSquare: SquareCheck,
+  xSquare: SquareX,
 } as const
 
 export type IconName = keyof typeof map

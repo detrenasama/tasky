@@ -1,0 +1,16 @@
+.subdetail-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.subdetail-col {
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .subdetail-split {
+    grid-template-columns: 1fr;
+  }
+}

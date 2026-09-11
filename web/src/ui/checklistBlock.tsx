@@ -6,6 +6,25 @@ import { useDirtyConfirm } from '../hooks/useDirtyConfirm'
 import { ChecklistStatusButton } from './checklistStatusButton'
 import '../ui/statusButton.css'
 
+function sameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+}
+
+function isVisibleChecklist(c: ChecklistItem, now: Date): boolean {
+  if (c.status !== 'done' && c.status !== 'cancelled') return true
+  const d = new Date(c.status_changed_at)
+  if (isNaN(d.getTime())) return true
+  if (sameDay(d, now)) return true
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  if (sameDay(d, yesterday)) return true
+  // будущее — видимое
+  const endToday = new Date(now)
+  endToday.setHours(23, 59, 59, 999)
+  if (d.getTime() > endToday.getTime()) return true
+  return false
+}
+
 export function ChecklistBlock({
   items,
   onToggle,
@@ -69,24 +88,38 @@ export function ChecklistBlock({
         />
       </div>
 
-      {items.length === 0 ? (
-        <span className="muted small" style={{ display: 'inline-block', marginTop: 8 }}>
-          Пунктов нет
-        </span>
-      ) : (
-        <ul className="list list--dense" style={{ marginTop: 8 }}>
-          {items.map((c) => (
-            <li key={c.id} className="row">
-              <ChecklistStatusButton value={c.status} onSelect={(s) => onToggle(c.id, s)} />
-              <span className="title">{c.text}</span>
-              <span className="flex" style={{ gap: 4, flexShrink: 0 }}>
-                <Button variant="outline" icon="edit" label="Редактировать" onClick={() => openEdit(c)} />
-                <Button color="danger" variant="outline" icon="trash" label="Удалить" onClick={() => onDel(c.id)} />
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+      {(() => {
+        if (items.length === 0) {
+          return (
+            <span className="muted small" style={{ display: 'inline-block', marginTop: 8 }}>
+              Пунктов нет
+            </span>
+          )
+        }
+        const now = new Date()
+        const visible = items.filter((c) => isVisibleChecklist(c, now))
+        if (visible.length === 0) {
+          return (
+            <span className="muted small" style={{ display: 'inline-block', marginTop: 8 }}>
+              нет активных
+            </span>
+          )
+        }
+        return (
+          <ul className="list list--dense" style={{ marginTop: 8 }}>
+            {visible.map((c) => (
+              <li key={c.id} className="row">
+                <ChecklistStatusButton value={c.status} onSelect={(s) => onToggle(c.id, s)} />
+                <span className="title">{c.text}</span>
+                <span className="flex" style={{ gap: 4, flexShrink: 0 }}>
+                  <Button variant="outline" icon="edit" label="Редактировать" onClick={() => openEdit(c)} />
+                  <Button color="danger" variant="outline" icon="trash" label="Удалить" onClick={() => onDel(c.id)} />
+                </span>
+              </li>
+            ))}
+          </ul>
+        )
+      })()}
 
       {editing && (
         <Modal

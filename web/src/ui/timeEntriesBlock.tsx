@@ -47,6 +47,8 @@ export function TimeEntriesBlock({
 }) {
   const [open, setOpen] = useState(false)
   const sorted = useMemo(() => sortedEntries(entries), [entries])
+  const preview = sorted.slice(0, 8)
+  const hidden = sorted.length - preview.length
 
   return (
     <div>
@@ -60,15 +62,22 @@ export function TimeEntriesBlock({
           Записей нет
         </span>
       ) : (
-        <ul className="list list--dense" style={{ marginTop: 8 }}>
-          {sorted.map((t) => (
-            <li key={t.id} className="row">
-              <span className="title">
-                {fmtDateTime(t.started_at)} — {t.ended_at ? fmtDateTime(t.ended_at) : '…'}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <>
+          {hidden > 0 && (
+            <span className="muted small" style={{ display: 'inline-block', marginTop: 8 }}>
+              ... еще {hidden} записей
+            </span>
+          )}
+          <ul className="list list--dense" style={{ marginTop: 8 }}>
+            {preview.map((t) => (
+              <li key={t.id} className="row">
+                <span className="title">
+                  {fmtDateTime(t.started_at)} — {t.ended_at ? fmtDateTime(t.ended_at) : '…'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
 
       {open && (

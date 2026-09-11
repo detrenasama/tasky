@@ -37,17 +37,30 @@ func (s *tasksScreen) infoTop(topH int) string {
 		}
 		body = append(body, theme.Faint("Время всего: ")+fmtDur(total))
 		body = append(body, "")
-		for _, e := range s.entries {
-			body = append(body, entryLine(e, s.now))
-		}
 		if len(s.entries) == 0 {
 			body = append(body, theme.Faint("Записей нет."))
+		} else {
+			if len(s.entries) > 8 {
+				body = append(body, theme.Faint(fmt.Sprintf("... еще %d записей", len(s.entries)-8)))
+			}
+			ents := s.entries
+			if len(ents) > 8 {
+				ents = ents[len(ents)-8:]
+			}
+			for _, e := range ents {
+				body = append(body, entryLine(e, s.now))
+			}
 		}
 		if len(s.checklistItems) > 0 {
 			body = append(body, "", theme.Faint("Чеклист:"))
-			for _, ci := range s.checklistItems {
-				line := "  " + checkMark(ci.Status) + " " + ci.Text
-				body = append(body, lipgloss.NewStyle().Foreground(lipgloss.Color(checkColor(ci.Status))).Render(line))
+			visible := visibleChecklist(s.checklistItems, s.now)
+			if len(visible) == 0 {
+				body = append(body, theme.Faint("нет активных"))
+			} else {
+				for _, ci := range visible {
+					line := "  " + checkMark(ci.Status) + " " + ci.Text
+					body = append(body, lipgloss.NewStyle().Foreground(lipgloss.Color(checkColor(ci.Status))).Render(line))
+				}
 			}
 		}
 		body = append(body, s.historyLines()...)
@@ -100,17 +113,21 @@ func (s *tasksScreen) infoTop(topH int) string {
 	return inner
 }
 
-// historyLines — последние 6 переходов статусов выбранного элемента: штамп
-// дня отдельной строкой, сам переход и заметка wrapText.
+// historyLines — последние 8 переходов статусов выбранного элемента с индикатором
+// скрытых записей вверху (как у записей времени): штамп отдельной строкой, сам
+// переход и заметка wrapText.
 func (s *tasksScreen) historyLines() []string {
 	var body []string
 	if len(s.history) == 0 {
 		return body
 	}
 	body = append(body, "", theme.Faint("История статусов:"))
+	if len(s.history) > 8 {
+		body = append(body, theme.Faint(fmt.Sprintf("... еще %d записей", len(s.history)-8)))
+	}
 	start := 0
-	if len(s.history) > 6 {
-		start = len(s.history) - 6
+	if len(s.history) > 8 {
+		start = len(s.history) - 8
 	}
 	w := max(rightW-4, 1)
 	for _, h := range s.history[start:] {
@@ -122,6 +139,27 @@ func (s *tasksScreen) historyLines() []string {
 	}
 	return body
 }
+// visibleChecklist фильтрует чек-лист для правой панели: new/in_progress всегда,
+// done/cancelled — только если статус изменён сегодня или вчера (локальное время).
+func visibleChecklist(items []db.ChecklistItem, now time.Time) []db.ChecklistItem {
+	var out []db.ChecklistItem
+	for _, ci := range items {
+		if ci.Status != "done" && ci.Status != "cancelled" {
+			out = append(out, ci)
+			continue
+		}
+		if sameDay(ci.StatusChangedAt, now) || sameDay(ci.StatusChangedAt, now.AddDate(0, 0, -1)) {
+			out = append(out, ci)
+			continue
+		}
+		// будущее время (часы ушли вперёд) — считаем видимым
+		if ci.StatusChangedAt.After(time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, now.Location())) {
+			out = append(out, ci)
+		}
+	}
+	return out
+}
+
 func entryLine(e db.TimeEntry, now time.Time) string {
 	start := e.StartedAt.Format("15:04")
 	if e.EndedAt == nil {

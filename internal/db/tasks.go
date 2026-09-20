@@ -289,6 +289,32 @@ func UpdateTaskTitle(conn *sql.DB, id int64, title string) error {
 	return err
 }
 
+// SetTaskDates устанавливает сроки задачи (due/schedule). nil — очистить.
+func SetTaskDates(conn *sql.DB, id int64, due, sched *time.Time) error {
+	var dueV, schedV any
+	if due != nil {
+		dueV = due.Unix()
+	}
+	if sched != nil {
+		schedV = sched.Unix()
+	}
+	_, err := conn.Exec("UPDATE tasks SET due_date = ?, schedule_date = ? WHERE id = ?", dueV, schedV, id)
+	return err
+}
+
+// SetSubtaskDates устанавливает сроки подзадачи.
+func SetSubtaskDates(conn *sql.DB, id int64, due, sched *time.Time) error {
+	var dueV, schedV any
+	if due != nil {
+		dueV = due.Unix()
+	}
+	if sched != nil {
+		schedV = sched.Unix()
+	}
+	_, err := conn.Exec("UPDATE subtasks SET due_date = ?, schedule_date = ? WHERE id = ?", dueV, schedV, id)
+	return err
+}
+
 // TaskDescription возвращает описание задачи.
 func TaskDescription(conn *sql.DB, id int64) (string, error) {
 	var desc string
@@ -399,6 +425,7 @@ func UpdateJournalEntry(conn *sql.DB, id int64, text string) error {
 func TasksByProject(conn *sql.DB, projectID int64) ([]Task, error) {
 	rows, err := conn.Query(`
 SELECT t.id, t.project_id, t.title, t.description, t.status, t.created_at, t.completed_at,
+       t.due_date, t.schedule_date,
        (SELECT COUNT(*) FROM subtasks s WHERE s.task_id = t.id)
 FROM tasks t
 WHERE t.project_id = ?
@@ -412,15 +439,23 @@ ORDER BY t.sort_order, t.id`, projectID)
 	for rows.Next() {
 		var t Task
 		var created int64
-		var completed sql.NullInt64
+		var completed, due, sched sql.NullInt64
 		if err := rows.Scan(&t.ID, &t.ProjectID, &t.Title, &t.Description, &t.Status,
-			&created, &completed, &t.SubCount); err != nil {
+			&created, &completed, &due, &sched, &t.SubCount); err != nil {
 			return nil, err
 		}
 		t.CreatedAt = time.Unix(created, 0)
 		if completed.Valid {
 			c := time.Unix(completed.Int64, 0)
 			t.CompletedAt = &c
+		}
+		if due.Valid {
+			c := time.Unix(due.Int64, 0)
+			t.DueDate = &c
+		}
+		if sched.Valid {
+			c := time.Unix(sched.Int64, 0)
+			t.ScheduleDate = &c
 		}
 		out = append(out, t)
 	}
@@ -430,6 +465,7 @@ ORDER BY t.sort_order, t.id`, projectID)
 func SubtasksByProject(conn *sql.DB, projectID int64) ([]SubtaskWithTime, error) {
 	rows, err := conn.Query(`
 SELECT s.id, s.task_id, s.title, s.description, s.status, s.sort_order, s.created_at, s.completed_at,
+       s.due_date, s.schedule_date,
        COALESCE((SELECT SUM(te.ended_at - te.started_at) FROM time_entries te
                  WHERE te.subtask_id = s.id AND te.ended_at IS NOT NULL), 0),
        (SELECT te.started_at FROM time_entries te
@@ -447,9 +483,9 @@ ORDER BY s.task_id, s.sort_order, s.id`, projectID)
 	for rows.Next() {
 		var s SubtaskWithTime
 		var created, total int64
-		var completed, active sql.NullInt64
+		var completed, due, sched, active sql.NullInt64
 		if err := rows.Scan(&s.ID, &s.TaskID, &s.Title, &s.Description, &s.Status,
-			&s.SortOrder, &created, &completed, &total, &active); err != nil {
+			&s.SortOrder, &created, &completed, &due, &sched, &total, &active); err != nil {
 			return nil, err
 		}
 		s.CreatedAt = time.Unix(created, 0)
@@ -457,6 +493,14 @@ ORDER BY s.task_id, s.sort_order, s.id`, projectID)
 		if completed.Valid {
 			c := time.Unix(completed.Int64, 0)
 			s.CompletedAt = &c
+		}
+		if due.Valid {
+			c := time.Unix(due.Int64, 0)
+			s.DueDate = &c
+		}
+		if sched.Valid {
+			c := time.Unix(sched.Int64, 0)
+			s.ScheduleDate = &c
 		}
 		if active.Valid {
 			s.ActiveSince = &active.Int64
@@ -496,6 +540,7 @@ GROUP BY s.id`, projectID)
 func SubtasksWithTime(conn *sql.DB, taskID int64) ([]SubtaskWithTime, error) {
 	rows, err := conn.Query(`
 SELECT s.id, s.task_id, s.title, s.description, s.status, s.sort_order, s.created_at, s.completed_at,
+       s.due_date, s.schedule_date,
        COALESCE((SELECT SUM(te.ended_at - te.started_at) FROM time_entries te
                  WHERE te.subtask_id = s.id AND te.ended_at IS NOT NULL), 0),
        (SELECT te.started_at FROM time_entries te
@@ -512,9 +557,9 @@ ORDER BY s.sort_order, s.id`, taskID)
 	for rows.Next() {
 		var s SubtaskWithTime
 		var created, total int64
-		var completed, active sql.NullInt64
+		var completed, due, sched, active sql.NullInt64
 		if err := rows.Scan(&s.ID, &s.TaskID, &s.Title, &s.Description, &s.Status,
-			&s.SortOrder, &created, &completed, &total, &active); err != nil {
+			&s.SortOrder, &created, &completed, &due, &sched, &total, &active); err != nil {
 			return nil, err
 		}
 		s.CreatedAt = time.Unix(created, 0)
@@ -522,6 +567,14 @@ ORDER BY s.sort_order, s.id`, taskID)
 		if completed.Valid {
 			c := time.Unix(completed.Int64, 0)
 			s.CompletedAt = &c
+		}
+		if due.Valid {
+			c := time.Unix(due.Int64, 0)
+			s.DueDate = &c
+		}
+		if sched.Valid {
+			c := time.Unix(sched.Int64, 0)
+			s.ScheduleDate = &c
 		}
 		if active.Valid {
 			s.ActiveSince = &active.Int64

@@ -10,14 +10,16 @@ type Project struct {
 }
 
 type Task struct {
-	ID          int64      `json:"id"`
-	ProjectID   int64      `json:"project_id"`
-	Title       string     `json:"title"`
-	Description string     `json:"description"`
-	Status      string     `json:"status"`
-	CreatedAt   time.Time  `json:"created_at"`
-	CompletedAt *time.Time `json:"completed_at"`
-	SubCount    int        `json:"sub_count"`
+	ID           int64      `json:"id"`
+	ProjectID    int64      `json:"project_id"`
+	Title        string     `json:"title"`
+	Description  string     `json:"description"`
+	Status       string     `json:"status"`
+	CreatedAt    time.Time  `json:"created_at"`
+	CompletedAt  *time.Time `json:"completed_at"`
+	DueDate      *time.Time `json:"due_date"`
+	ScheduleDate *time.Time `json:"schedule_date"`
+	SubCount     int        `json:"sub_count"`
 }
 
 type SubtaskWithTime struct {
@@ -29,6 +31,8 @@ type SubtaskWithTime struct {
 	SortOrder    int64      `json:"sort_order"`
 	CreatedAt    time.Time  `json:"created_at"`
 	CompletedAt  *time.Time `json:"completed_at"`
+	DueDate      *time.Time `json:"due_date"`
+	ScheduleDate *time.Time `json:"schedule_date"`
 	TotalSeconds int64      `json:"total_seconds"`
 	ActiveSince  *int64     `json:"active_since"`
 }

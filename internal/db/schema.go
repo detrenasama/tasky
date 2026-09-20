@@ -14,27 +14,31 @@ CREATE TABLE IF NOT EXISTS projects (
 );
 
 CREATE TABLE IF NOT EXISTS tasks (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    project_id   INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    title        TEXT    NOT NULL,
-    description  TEXT    NOT NULL DEFAULT '',
-    status       TEXT    NOT NULL DEFAULT '',
-    sort_order   INTEGER NOT NULL DEFAULT 0,
-    created_at   INTEGER NOT NULL,
-    completed_at INTEGER
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id    INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    title         TEXT    NOT NULL,
+    description   TEXT    NOT NULL DEFAULT '',
+    status        TEXT    NOT NULL DEFAULT '',
+    sort_order    INTEGER NOT NULL DEFAULT 0,
+    created_at    INTEGER NOT NULL,
+    completed_at  INTEGER,
+    due_date      INTEGER,
+    schedule_date INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_id);
 
 CREATE TABLE IF NOT EXISTS subtasks (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    task_id      INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-    title        TEXT    NOT NULL,
-    description  TEXT    NOT NULL DEFAULT '',
-    status       TEXT    NOT NULL DEFAULT '',
-    sort_order   INTEGER NOT NULL DEFAULT 0,
-    created_at   INTEGER NOT NULL,
-    completed_at INTEGER
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id       INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    title         TEXT    NOT NULL,
+    description   TEXT    NOT NULL DEFAULT '',
+    status        TEXT    NOT NULL DEFAULT '',
+    sort_order    INTEGER NOT NULL DEFAULT 0,
+    created_at    INTEGER NOT NULL,
+    completed_at  INTEGER,
+    due_date      INTEGER,
+    schedule_date INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS idx_subtasks_task ON subtasks(task_id);
@@ -160,6 +164,24 @@ CREATE TABLE IF NOT EXISTS task_tags (
 );
 
 CREATE INDEX IF NOT EXISTS idx_task_tags_task ON task_tags(task_id);
+
+-- Лента новостей: read-only события (просрочено, дедлайны, план, обновления, плагины).
+CREATE TABLE IF NOT EXISTS feed_items (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind           TEXT    NOT NULL,
+    title          TEXT    NOT NULL,
+    body           TEXT    NOT NULL DEFAULT '',
+    ref_task_id    INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+    ref_subtask_id INTEGER REFERENCES subtasks(id) ON DELETE CASCADE,
+    dedup_key      TEXT    NOT NULL UNIQUE,
+    created_at     INTEGER NOT NULL,
+    is_read        INTEGER NOT NULL DEFAULT 0,
+    is_archived    INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_feed_created ON feed_items(created_at);
+CREATE INDEX IF NOT EXISTS idx_feed_arch ON feed_items(is_archived);
+CREATE INDEX IF NOT EXISTS idx_feed_read ON feed_items(is_read);
 `
 
 func CreateSchema(conn *sql.DB) error {
@@ -181,6 +203,18 @@ func migrate(conn *sql.DB) error {
 		return err
 	}
 	if err := migrateStatuses(conn); err != nil {
+		return err
+	}
+	if err := ensureColumn(conn, "tasks", "due_date", "INTEGER"); err != nil {
+		return err
+	}
+	if err := ensureColumn(conn, "tasks", "schedule_date", "INTEGER"); err != nil {
+		return err
+	}
+	if err := ensureColumn(conn, "subtasks", "due_date", "INTEGER"); err != nil {
+		return err
+	}
+	if err := ensureColumn(conn, "subtasks", "schedule_date", "INTEGER"); err != nil {
 		return err
 	}
 	return migrateTasksSortOrder(conn)
@@ -227,26 +261,30 @@ func migrateStatuses(conn *sql.DB) error {
 		{
 			table: "tasks",
 			ddl: `CREATE TABLE tasks (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    project_id   INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    title        TEXT    NOT NULL,
-    description  TEXT    NOT NULL DEFAULT '',
-    status       TEXT    NOT NULL DEFAULT '',
-    created_at   INTEGER NOT NULL,
-    completed_at INTEGER
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id    INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    title         TEXT    NOT NULL,
+    description   TEXT    NOT NULL DEFAULT '',
+    status        TEXT    NOT NULL DEFAULT '',
+    created_at    INTEGER NOT NULL,
+    completed_at  INTEGER,
+    due_date      INTEGER,
+    schedule_date INTEGER
 )`,
 		},
 		{
 			table: "subtasks",
 			ddl: `CREATE TABLE subtasks (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    task_id      INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-    title        TEXT    NOT NULL,
-    description  TEXT    NOT NULL DEFAULT '',
-    status       TEXT    NOT NULL DEFAULT '',
-    sort_order   INTEGER NOT NULL DEFAULT 0,
-    created_at   INTEGER NOT NULL,
-    completed_at INTEGER
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id       INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    title         TEXT    NOT NULL,
+    description   TEXT    NOT NULL DEFAULT '',
+    status        TEXT    NOT NULL DEFAULT '',
+    sort_order    INTEGER NOT NULL DEFAULT 0,
+    created_at    INTEGER NOT NULL,
+    completed_at  INTEGER,
+    due_date      INTEGER,
+    schedule_date INTEGER
 )`,
 		},
 	} {

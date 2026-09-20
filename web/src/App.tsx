@@ -7,11 +7,12 @@ import Projects from './screens/Projects'
 import Tasks from './screens/Tasks'
 import Reports from './screens/Reports'
 import Settings from './screens/Settings'
+import Feed from './screens/Feed'
 
-type Screen = 'tasks' | 'projects' | 'reports' | 'settings'
+type Screen = 'feed' | 'tasks' | 'projects' | 'reports' | 'settings'
 
 export default function App() {
-  const [screen, setScreen] = useState<Screen>('tasks')
+  const [screen, setScreen] = useState<Screen>('feed')
   const [poll, setPoll] = useState<StatusPoll | null>(null)
   const [version, setVersion] = useState('')
   const [toast, setToast] = useToast()
@@ -36,6 +37,7 @@ export default function App() {
   }, [])
 
   const tabs: { id: Screen; label: string }[] = [
+    { id: 'feed', label: 'Лента' },
     { id: 'tasks', label: 'Задачи' },
     { id: 'projects', label: 'Проекты' },
     { id: 'reports', label: 'Отчёты' },
@@ -66,6 +68,7 @@ export default function App() {
       </header>
       <div className="main" style={{ display: 'block' }}>
         <ErrorBoundary>
+          {screen === 'feed' && <Feed onError={setToast} />}
           {screen === 'projects' && <Projects onError={setToast} />}
           {screen === 'tasks' && <Tasks onError={setToast} />}
           {screen === 'reports' && <Reports onError={setToast} />}

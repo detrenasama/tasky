@@ -8,6 +8,7 @@ import * as tags from './tags'
 import * as reports from './reports'
 import * as settings from './settings'
 import * as version from './version'
+import * as feed from './feed'
 
 export const api = {
   ...projects,
@@ -20,6 +21,7 @@ export const api = {
   ...reports,
   ...settings,
   ...version,
+  ...feed,
 }
 
 export * from './projects'

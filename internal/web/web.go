@@ -21,6 +21,8 @@ import (
 func Register(mux *http.ServeMux, st store.Store) {
 	registerProjects(mux, st)
 	registerTasks(mux, st)
+	registerTaskDates(mux, st)
+	registerFeed(mux, st)
 	registerTime(mux, st)
 	registerStatus(mux, st)
 	registerTags(mux, st)

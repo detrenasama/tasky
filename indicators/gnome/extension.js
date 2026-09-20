@@ -1,8 +1,9 @@
 // Индикатор Tasky для GNOME Shell: время за сегодня и запущенная подзадача.
 // Данные — через HTTP GET /status сервера `tasky serve` (по умолчанию
-// http://127.0.0.1:9110, оверрайд — TASKY_HTTP_ADDR). Если сервер не запущен,
-// индикатор скрыт. Клик открывает меню с деталями. Опрос — раз в секунду.
-// Совместимо с GNOME Shell 45+ (ESM).
+// http://127.0.0.1:9110, оверрайд — TASKY_HTTP_ADDR). Индикатор всегда видим;
+// если сервер не запущен — показывает «—» и предлагает запустить. Клик
+// открывает меню с деталями. Опрос — раз в секунду. Совместимо с GNOME
+// Shell 45+ (ESM).
 
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
@@ -58,14 +59,58 @@ function truncate(text, max) {
 }
 
 // httpAddr — адрес HTTP-сервера Tasky: TASKY_HTTP_ADDR или дефолт.
+// Читается при каждом опросе/запуске, чтобы подхватить изменение env без
+// перезахода (если переменная задана в ~/.config/environment.d/ или через
+// `systemctl --user import-environment`). `export` в терминале до
+// gnome-shell не дойдёт — это ограничение окружения процесса gnome-shell.
 function httpAddr() {
     return GLib.getenv('TASKY_HTTP_ADDR') || DEFAULT_HTTP_ADDR;
+}
+
+// socketPath — путь сокета сервера: TASKY_SOCKET или TASKY_HOME/tasky.sock.
+// null — дефолт (<XDG_DATA_HOME>/tasky/tasky.sock), передавать --socket не нужно.
+function socketPath() {
+    const s = GLib.getenv('TASKY_SOCKET');
+    if (s)
+        return s;
+    const home = GLib.getenv('TASKY_HOME');
+    if (home)
+        return GLib.build_filenamev([home, 'tasky.sock']);
+    return null;
+}
+
+// taskyBin — путь к бинарю tasky. Поддерживает все штатные места установки:
+// `just install` (~/.local/bin), `PREFIX=/usr/local just install`,
+// `go install` (~/go/bin), GOPATH/bin, /usr/bin.
+// Сначала пробует PATH, затем явные фолбэки — GNOME Shell стартует с
+// урезанным PATH и `~/.local/bin` там часто отсутствует.
+function taskyBin() {
+    const found = GLib.find_program_in_path('tasky');
+    if (found)
+        return found;
+    const candidates = [];
+    const home = GLib.get_home_dir();
+    candidates.push(GLib.build_filenamev([home, '.local', 'bin', 'tasky']));
+    candidates.push('/usr/local/bin/tasky');
+    candidates.push(GLib.build_filenamev([home, 'go', 'bin', 'tasky']));
+    const gopath = GLib.getenv('GOPATH');
+    if (gopath)
+        candidates.push(GLib.build_filenamev([gopath, 'bin', 'tasky']));
+    candidates.push('/usr/bin/tasky');
+    for (const p of candidates) {
+        if (GLib.file_test(p, GLib.FileTest.EXISTS))
+            return p;
+    }
+    return null;
 }
 
 class TaskyIndicator {
     constructor() {
         this._polling = false;
         this._server = null; // запущенный Gio.Subprocess сервера (null, если не запущен)
+        this._serverReachable = false; // последний успешный GET /status
+        this._lastRunning = null;
+        this._lastToday = '—';
 
         this._button = new PanelMenuButton(0.0, 'Tasky', false);
         this._label = new St.Label({
@@ -147,7 +192,11 @@ class TaskyIndicator {
         this._httpGET('/status', (data) => {
             this._polling = false;
             if (!data) {
-                this._update(null);
+                try {
+                    this._update(null);
+                } catch (e) {
+                    console.log(`tasky-indicator: ${e}`);
+                }
                 return;
             }
             try {
@@ -161,6 +210,7 @@ class TaskyIndicator {
 
     _update(data) {
         // Индикатор всегда видим, чтобы из меню можно было запустить сервер.
+        this._serverReachable = !!data;
         let today = '—';
         let running = null;
         if (data && typeof data.today_seconds === 'number') {
@@ -168,6 +218,8 @@ class TaskyIndicator {
             if (data.subtask && typeof data.subtask.title === 'string')
                 running = data.subtask.title;
         }
+        this._lastRunning = running;
+        this._lastToday = today;
 
         const parts = [];
         if (running)
@@ -195,7 +247,12 @@ class TaskyIndicator {
 
     _rebuildMenu(running, today) {
         const menu = this._button.menu;
-        const serverRunning = this._server !== null;
+        const reachable = this._serverReachable;
+        const owned = this._server !== null;
+        // Запустить — только когда сервер недоступен (ни внешний, ни свой) и мы
+        // сами не в процессе запуска. Остановить — только свой процесс.
+        const canStart = !reachable && !owned;
+        const canStop = reachable && owned;
 
         const items = [];
         if (running) {
@@ -224,9 +281,9 @@ class TaskyIndicator {
 
         // Управление сервером.
         items.push(this._controlItem(
-            'Запустить сервер', () => this._startServer(), !serverRunning));
+            'Запустить сервер', () => this._startServer(), canStart));
         items.push(this._controlItem(
-            'Остановить сервер', () => this._stopServer(), serverRunning));
+            'Остановить сервер', () => this._stopServer(), canStop));
         items.push(this._controlItem(
             'Открыть в браузере', () => this._openBrowser(), true));
 
@@ -239,15 +296,53 @@ class TaskyIndicator {
     _startServer() {
         if (this._server !== null)
             return;
-        this._server = new Gio.Subprocess({
-            argv: ['tasky', 'serve'],
-            flags: Gio.SubprocessFlags.NONE,
-        });
-        // Обновим состояние пунктов меню.
-        this._rebuildMenu(null, '—');
+        if (this._serverReachable)
+            return; // уже есть внешний сервер — не дублируем
+        const bin = taskyBin();
+        if (!bin) {
+            console.log('tasky-indicator: tasky не найден (checked PATH, ~/.local/bin/tasky, /usr/local/bin/tasky, ~/go/bin/tasky)');
+            return;
+        }
+        const argv = [bin, 'serve'];
+        const addr = httpAddr();
+        const rawAddr = GLib.getenv('TASKY_HTTP_ADDR');
+        if (rawAddr || addr !== DEFAULT_HTTP_ADDR)
+            argv.push('--http-addr', addr);
+        const sp = socketPath();
+        if (sp)
+            argv.push('--socket', sp);
+        try {
+            this._server = Gio.Subprocess.new(
+                argv,
+                Gio.SubprocessFlags.STDOUT_SILENCE | Gio.SubprocessFlags.STDERR_SILENCE);
+        } catch (e) {
+            console.log(`tasky-indicator: не удалось запустить ${argv.join(' ')}: ${e}`);
+            this._server = null;
+            return;
+        }
+        // Следим за выходом своего процесса — если упал сразу (порт занят и т.п.),
+        // сбросим _server и обновим меню на следующем _poll.
+        try {
+            this._server.wait_async(null, (proc, res) => {
+                try {
+                    proc.wait_finish(res);
+                } catch (_e) {
+                    // процесс уже завершён
+                }
+                if (this._server === proc) {
+                    this._server = null;
+                    // меню обновится на следующем _poll; форсируем
+                    this._poll();
+                }
+            });
+        } catch (_e) {
+            // wait_async недоступен — деградация: состояние сбросится по HTTP-failure
+        }
+        // Не затираем today/running — ждём первого успешного _poll (≤1с).
+        this._rebuildMenu(this._lastRunning, this._lastToday);
     }
 
-    // _stopServer останавливает запущенный сервер (SIGTERM).
+    // _stopServer останавливает только свой сервер (SIGTERM). Внешний не трогаем.
     _stopServer() {
         if (this._server === null)
             return;
@@ -257,7 +352,11 @@ class TaskyIndicator {
             console.log(`tasky-indicator: ${e}`);
         }
         this._server = null;
-        this._rebuildMenu(null, '—');
+        // Меню обновится когда HTTP начнёт отвечать null; покажем текущий reachable
+        // но с canStop=false.
+        this._rebuildMenu(this._lastRunning, this._lastToday);
+        // Форсируем опрос, чтобы быстрее обнаружить остановку.
+        this._poll();
     }
 
     // _openBrowser открывает веб-интерфейс в браузере по умолчанию.

@@ -145,6 +145,8 @@ type Task struct {
 	CreatedAt     int64                  `protobuf:"varint,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	CompletedAt   *int64                 `protobuf:"varint,7,opt,name=completed_at,json=completedAt,proto3,oneof" json:"completed_at,omitempty"`
 	SubCount      int32                  `protobuf:"varint,8,opt,name=sub_count,json=subCount,proto3" json:"sub_count,omitempty"`
+	DueDate       *int64                 `protobuf:"varint,9,opt,name=due_date,json=dueDate,proto3,oneof" json:"due_date,omitempty"`
+	ScheduleDate  *int64                 `protobuf:"varint,10,opt,name=schedule_date,json=scheduleDate,proto3,oneof" json:"schedule_date,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -235,6 +237,20 @@ func (x *Task) GetSubCount() int32 {
 	return 0
 }
 
+func (x *Task) GetDueDate() int64 {
+	if x != nil && x.DueDate != nil {
+		return *x.DueDate
+	}
+	return 0
+}
+
+func (x *Task) GetScheduleDate() int64 {
+	if x != nil && x.ScheduleDate != nil {
+		return *x.ScheduleDate
+	}
+	return 0
+}
+
 type SubtaskWithTime struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -247,6 +263,8 @@ type SubtaskWithTime struct {
 	CompletedAt   *int64                 `protobuf:"varint,8,opt,name=completed_at,json=completedAt,proto3,oneof" json:"completed_at,omitempty"`
 	TotalSeconds  int64                  `protobuf:"varint,9,opt,name=total_seconds,json=totalSeconds,proto3" json:"total_seconds,omitempty"`
 	ActiveSince   *int64                 `protobuf:"varint,10,opt,name=active_since,json=activeSince,proto3,oneof" json:"active_since,omitempty"`
+	DueDate       *int64                 `protobuf:"varint,11,opt,name=due_date,json=dueDate,proto3,oneof" json:"due_date,omitempty"`
+	ScheduleDate  *int64                 `protobuf:"varint,12,opt,name=schedule_date,json=scheduleDate,proto3,oneof" json:"schedule_date,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -347,6 +365,20 @@ func (x *SubtaskWithTime) GetTotalSeconds() int64 {
 func (x *SubtaskWithTime) GetActiveSince() int64 {
 	if x != nil && x.ActiveSince != nil {
 		return *x.ActiveSince
+	}
+	return 0
+}
+
+func (x *SubtaskWithTime) GetDueDate() int64 {
+	if x != nil && x.DueDate != nil {
+		return *x.DueDate
+	}
+	return 0
+}
+
+func (x *SubtaskWithTime) GetScheduleDate() int64 {
+	if x != nil && x.ScheduleDate != nil {
+		return *x.ScheduleDate
 	}
 	return 0
 }
@@ -4343,6 +4375,330 @@ func (x *TagsByTasksRequest) GetTaskIds() []int64 {
 	return nil
 }
 
+type FeedItem struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Kind          string                 `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
+	Title         string                 `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
+	Body          string                 `protobuf:"bytes,4,opt,name=body,proto3" json:"body,omitempty"`
+	RefTaskId     *int64                 `protobuf:"varint,5,opt,name=ref_task_id,json=refTaskId,proto3,oneof" json:"ref_task_id,omitempty"`
+	RefSubtaskId  *int64                 `protobuf:"varint,6,opt,name=ref_subtask_id,json=refSubtaskId,proto3,oneof" json:"ref_subtask_id,omitempty"`
+	DedupKey      string                 `protobuf:"bytes,7,opt,name=dedup_key,json=dedupKey,proto3" json:"dedup_key,omitempty"`
+	CreatedAt     int64                  `protobuf:"varint,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	IsRead        bool                   `protobuf:"varint,9,opt,name=is_read,json=isRead,proto3" json:"is_read,omitempty"`
+	IsArchived    bool                   `protobuf:"varint,10,opt,name=is_archived,json=isArchived,proto3" json:"is_archived,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FeedItem) Reset() {
+	*x = FeedItem{}
+	mi := &file_proto_tasky_proto_msgTypes[76]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FeedItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FeedItem) ProtoMessage() {}
+
+func (x *FeedItem) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_tasky_proto_msgTypes[76]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FeedItem.ProtoReflect.Descriptor instead.
+func (*FeedItem) Descriptor() ([]byte, []int) {
+	return file_proto_tasky_proto_rawDescGZIP(), []int{76}
+}
+
+func (x *FeedItem) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *FeedItem) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *FeedItem) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *FeedItem) GetBody() string {
+	if x != nil {
+		return x.Body
+	}
+	return ""
+}
+
+func (x *FeedItem) GetRefTaskId() int64 {
+	if x != nil && x.RefTaskId != nil {
+		return *x.RefTaskId
+	}
+	return 0
+}
+
+func (x *FeedItem) GetRefSubtaskId() int64 {
+	if x != nil && x.RefSubtaskId != nil {
+		return *x.RefSubtaskId
+	}
+	return 0
+}
+
+func (x *FeedItem) GetDedupKey() string {
+	if x != nil {
+		return x.DedupKey
+	}
+	return ""
+}
+
+func (x *FeedItem) GetCreatedAt() int64 {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return 0
+}
+
+func (x *FeedItem) GetIsRead() bool {
+	if x != nil {
+		return x.IsRead
+	}
+	return false
+}
+
+func (x *FeedItem) GetIsArchived() bool {
+	if x != nil {
+		return x.IsArchived
+	}
+	return false
+}
+
+type FeedFilter struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Kind            string                 `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
+	UnreadOnly      bool                   `protobuf:"varint,2,opt,name=unread_only,json=unreadOnly,proto3" json:"unread_only,omitempty"`
+	IncludeArchived bool                   `protobuf:"varint,3,opt,name=include_archived,json=includeArchived,proto3" json:"include_archived,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *FeedFilter) Reset() {
+	*x = FeedFilter{}
+	mi := &file_proto_tasky_proto_msgTypes[77]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FeedFilter) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FeedFilter) ProtoMessage() {}
+
+func (x *FeedFilter) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_tasky_proto_msgTypes[77]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FeedFilter.ProtoReflect.Descriptor instead.
+func (*FeedFilter) Descriptor() ([]byte, []int) {
+	return file_proto_tasky_proto_rawDescGZIP(), []int{77}
+}
+
+func (x *FeedFilter) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *FeedFilter) GetUnreadOnly() bool {
+	if x != nil {
+		return x.UnreadOnly
+	}
+	return false
+}
+
+func (x *FeedFilter) GetIncludeArchived() bool {
+	if x != nil {
+		return x.IncludeArchived
+	}
+	return false
+}
+
+type FeedItemListResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Items         []*FeedItem            `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FeedItemListResponse) Reset() {
+	*x = FeedItemListResponse{}
+	mi := &file_proto_tasky_proto_msgTypes[78]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FeedItemListResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FeedItemListResponse) ProtoMessage() {}
+
+func (x *FeedItemListResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_tasky_proto_msgTypes[78]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FeedItemListResponse.ProtoReflect.Descriptor instead.
+func (*FeedItemListResponse) Descriptor() ([]byte, []int) {
+	return file_proto_tasky_proto_rawDescGZIP(), []int{78}
+}
+
+func (x *FeedItemListResponse) GetItems() []*FeedItem {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+type CountResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Count         int64                  `protobuf:"varint,1,opt,name=count,proto3" json:"count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CountResponse) Reset() {
+	*x = CountResponse{}
+	mi := &file_proto_tasky_proto_msgTypes[79]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CountResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CountResponse) ProtoMessage() {}
+
+func (x *CountResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_tasky_proto_msgTypes[79]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CountResponse.ProtoReflect.Descriptor instead.
+func (*CountResponse) Descriptor() ([]byte, []int) {
+	return file_proto_tasky_proto_rawDescGZIP(), []int{79}
+}
+
+func (x *CountResponse) GetCount() int64 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
+type TaskDatesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	DueDate       *int64                 `protobuf:"varint,2,opt,name=due_date,json=dueDate,proto3,oneof" json:"due_date,omitempty"`
+	ScheduleDate  *int64                 `protobuf:"varint,3,opt,name=schedule_date,json=scheduleDate,proto3,oneof" json:"schedule_date,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TaskDatesRequest) Reset() {
+	*x = TaskDatesRequest{}
+	mi := &file_proto_tasky_proto_msgTypes[80]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TaskDatesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TaskDatesRequest) ProtoMessage() {}
+
+func (x *TaskDatesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_tasky_proto_msgTypes[80]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TaskDatesRequest.ProtoReflect.Descriptor instead.
+func (*TaskDatesRequest) Descriptor() ([]byte, []int) {
+	return file_proto_tasky_proto_rawDescGZIP(), []int{80}
+}
+
+func (x *TaskDatesRequest) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *TaskDatesRequest) GetDueDate() int64 {
+	if x != nil && x.DueDate != nil {
+		return *x.DueDate
+	}
+	return 0
+}
+
+func (x *TaskDatesRequest) GetScheduleDate() int64 {
+	if x != nil && x.ScheduleDate != nil {
+		return *x.ScheduleDate
+	}
+	return 0
+}
+
 var File_proto_tasky_proto protoreflect.FileDescriptor
 
 const file_proto_tasky_proto_rawDesc = "" +
@@ -4353,7 +4709,7 @@ const file_proto_tasky_proto_rawDesc = "" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
 	"\x04desc\x18\x03 \x01(\tR\x04desc\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\x04 \x01(\x03R\tcreatedAt\"\xfa\x01\n" +
+	"created_at\x18\x04 \x01(\x03R\tcreatedAt\"\xe3\x02\n" +
 	"\x04Task\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1d\n" +
 	"\n" +
@@ -4364,8 +4720,13 @@ const file_proto_tasky_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x06 \x01(\x03R\tcreatedAt\x12&\n" +
 	"\fcompleted_at\x18\a \x01(\x03H\x00R\vcompletedAt\x88\x01\x01\x12\x1b\n" +
-	"\tsub_count\x18\b \x01(\x05R\bsubCountB\x0f\n" +
-	"\r_completed_at\"\xdf\x02\n" +
+	"\tsub_count\x18\b \x01(\x05R\bsubCount\x12\x1e\n" +
+	"\bdue_date\x18\t \x01(\x03H\x01R\adueDate\x88\x01\x01\x12(\n" +
+	"\rschedule_date\x18\n" +
+	" \x01(\x03H\x02R\fscheduleDate\x88\x01\x01B\x0f\n" +
+	"\r_completed_atB\v\n" +
+	"\t_due_dateB\x10\n" +
+	"\x0e_schedule_date\"\xc8\x03\n" +
 	"\x0fSubtaskWithTime\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x17\n" +
 	"\atask_id\x18\x02 \x01(\x03R\x06taskId\x12\x14\n" +
@@ -4379,9 +4740,13 @@ const file_proto_tasky_proto_rawDesc = "" +
 	"\fcompleted_at\x18\b \x01(\x03H\x00R\vcompletedAt\x88\x01\x01\x12#\n" +
 	"\rtotal_seconds\x18\t \x01(\x03R\ftotalSeconds\x12&\n" +
 	"\factive_since\x18\n" +
-	" \x01(\x03H\x01R\vactiveSince\x88\x01\x01B\x0f\n" +
+	" \x01(\x03H\x01R\vactiveSince\x88\x01\x01\x12\x1e\n" +
+	"\bdue_date\x18\v \x01(\x03H\x02R\adueDate\x88\x01\x01\x12(\n" +
+	"\rschedule_date\x18\f \x01(\x03H\x03R\fscheduleDate\x88\x01\x01B\x0f\n" +
 	"\r_completed_atB\x0f\n" +
-	"\r_active_since\"\x9a\x01\n" +
+	"\r_active_sinceB\v\n" +
+	"\t_due_dateB\x10\n" +
+	"\x0e_schedule_date\"\x9a\x01\n" +
 	"\tTimeEntry\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1d\n" +
 	"\n" +
@@ -4676,11 +5041,43 @@ const file_proto_tasky_proto_rawDesc = "" +
 	"\x1eReportJournalEntryListResponse\x123\n" +
 	"\aentries\x18\x01 \x03(\v2\x19.tasky.ReportJournalEntryR\aentries\"/\n" +
 	"\x12TagsByTasksRequest\x12\x19\n" +
-	"\btask_ids\x18\x01 \x03(\x03R\ataskIds*0\n" +
+	"\btask_ids\x18\x01 \x03(\x03R\ataskIds\"\xc1\x02\n" +
+	"\bFeedItem\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
+	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x14\n" +
+	"\x05title\x18\x03 \x01(\tR\x05title\x12\x12\n" +
+	"\x04body\x18\x04 \x01(\tR\x04body\x12#\n" +
+	"\vref_task_id\x18\x05 \x01(\x03H\x00R\trefTaskId\x88\x01\x01\x12)\n" +
+	"\x0eref_subtask_id\x18\x06 \x01(\x03H\x01R\frefSubtaskId\x88\x01\x01\x12\x1b\n" +
+	"\tdedup_key\x18\a \x01(\tR\bdedupKey\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\b \x01(\x03R\tcreatedAt\x12\x17\n" +
+	"\ais_read\x18\t \x01(\bR\x06isRead\x12\x1f\n" +
+	"\vis_archived\x18\n" +
+	" \x01(\bR\n" +
+	"isArchivedB\x0e\n" +
+	"\f_ref_task_idB\x11\n" +
+	"\x0f_ref_subtask_id\"l\n" +
+	"\n" +
+	"FeedFilter\x12\x12\n" +
+	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x1f\n" +
+	"\vunread_only\x18\x02 \x01(\bR\n" +
+	"unreadOnly\x12)\n" +
+	"\x10include_archived\x18\x03 \x01(\bR\x0fincludeArchived\"=\n" +
+	"\x14FeedItemListResponse\x12%\n" +
+	"\x05items\x18\x01 \x03(\v2\x0f.tasky.FeedItemR\x05items\"%\n" +
+	"\rCountResponse\x12\x14\n" +
+	"\x05count\x18\x01 \x01(\x03R\x05count\"\x8b\x01\n" +
+	"\x10TaskDatesRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1e\n" +
+	"\bdue_date\x18\x02 \x01(\x03H\x00R\adueDate\x88\x01\x01\x12(\n" +
+	"\rschedule_date\x18\x03 \x01(\x03H\x01R\fscheduleDate\x88\x01\x01B\v\n" +
+	"\t_due_dateB\x10\n" +
+	"\x0e_schedule_date*0\n" +
 	"\vStatusOwner\x12\x0e\n" +
 	"\n" +
 	"OWNER_TASK\x10\x00\x12\x11\n" +
-	"\rOWNER_SUBTASK\x10\x012\x9b#\n" +
+	"\rOWNER_SUBTASK\x10\x012\x9c&\n" +
 	"\x05Tasky\x128\n" +
 	"\fListProjects\x12\f.tasky.Empty\x1a\x1a.tasky.ProjectListResponse\x12B\n" +
 	"\rCreateProject\x12\x19.tasky.ProjectNameRequest\x1a\x16.tasky.ProjectResponse\x12/\n" +
@@ -4755,7 +5152,14 @@ const file_proto_tasky_proto_rawDesc = "" +
 	"\rTagsByProject\x12\x17.tasky.ProjectIDRequest\x1a\x16.tasky.TagsMapResponse\x122\n" +
 	"\tCreateTag\x12\x11.tasky.TagRequest\x1a\x12.tasky.TagResponse\x122\n" +
 	"\tUpdateTag\x12\x17.tasky.TagUpdateRequest\x1a\f.tasky.Empty\x12+\n" +
-	"\tDeleteTag\x12\x10.tasky.IDRequest\x1a\f.tasky.Empty\x12>\n" +
+	"\tDeleteTag\x12\x10.tasky.IDRequest\x1a\f.tasky.Empty\x125\n" +
+	"\fSetTaskDates\x12\x17.tasky.TaskDatesRequest\x1a\f.tasky.Empty\x128\n" +
+	"\x0fSetSubtaskDates\x12\x17.tasky.TaskDatesRequest\x1a\f.tasky.Empty\x12:\n" +
+	"\bListFeed\x12\x11.tasky.FeedFilter\x1a\x1b.tasky.FeedItemListResponse\x12.\n" +
+	"\fMarkFeedRead\x12\x10.tasky.IDRequest\x1a\f.tasky.Empty\x125\n" +
+	"\x0fFeedUnreadCount\x12\f.tasky.Empty\x1a\x14.tasky.CountResponse\x121\n" +
+	"\vArchiveFeed\x12\f.tasky.Empty\x1a\x14.tasky.CountResponse\x128\n" +
+	"\x12DeleteArchivedFeed\x12\f.tasky.Empty\x1a\x14.tasky.CountResponse\x12>\n" +
 	"\n" +
 	"GetSetting\x12\x15.tasky.SettingRequest\x1a\x19.tasky.GetSettingResponse\x121\n" +
 	"\n" +
@@ -4774,7 +5178,7 @@ func file_proto_tasky_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_tasky_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_tasky_proto_msgTypes = make([]protoimpl.MessageInfo, 81)
+var file_proto_tasky_proto_msgTypes = make([]protoimpl.MessageInfo, 86)
 var file_proto_tasky_proto_goTypes = []any{
 	(StatusOwner)(0),                       // 0: tasky.StatusOwner
 	(*Project)(nil),                        // 1: tasky.Project
@@ -4853,24 +5257,29 @@ var file_proto_tasky_proto_goTypes = []any{
 	(*ReportEntryListResponse)(nil),        // 74: tasky.ReportEntryListResponse
 	(*ReportJournalEntryListResponse)(nil), // 75: tasky.ReportJournalEntryListResponse
 	(*TagsByTasksRequest)(nil),             // 76: tasky.TagsByTasksRequest
-	nil,                                    // 77: tasky.ChecklistCountsResponse.DoneEntry
-	nil,                                    // 78: tasky.ChecklistCountsResponse.TotalEntry
-	nil,                                    // 79: tasky.JournalTextsResponse.TextsEntry
-	nil,                                    // 80: tasky.ProjectLinksTextsResponse.TextsEntry
-	nil,                                    // 81: tasky.TagsMapResponse.TagsEntry
+	(*FeedItem)(nil),                       // 77: tasky.FeedItem
+	(*FeedFilter)(nil),                     // 78: tasky.FeedFilter
+	(*FeedItemListResponse)(nil),           // 79: tasky.FeedItemListResponse
+	(*CountResponse)(nil),                  // 80: tasky.CountResponse
+	(*TaskDatesRequest)(nil),               // 81: tasky.TaskDatesRequest
+	nil,                                    // 82: tasky.ChecklistCountsResponse.DoneEntry
+	nil,                                    // 83: tasky.ChecklistCountsResponse.TotalEntry
+	nil,                                    // 84: tasky.JournalTextsResponse.TextsEntry
+	nil,                                    // 85: tasky.ProjectLinksTextsResponse.TextsEntry
+	nil,                                    // 86: tasky.TagsMapResponse.TagsEntry
 }
 var file_proto_tasky_proto_depIdxs = []int32{
 	5,   // 0: tasky.TimeEntryInfoListResponse.entries:type_name -> tasky.TimeEntryInfo
 	13,  // 1: tasky.TagList.tags:type_name -> tasky.Tag
 	33,  // 2: tasky.ChecklistItemListResponse.items:type_name -> tasky.ChecklistItem
 	33,  // 3: tasky.ChecklistItemResponse.item:type_name -> tasky.ChecklistItem
-	77,  // 4: tasky.ChecklistCountsResponse.done:type_name -> tasky.ChecklistCountsResponse.DoneEntry
-	78,  // 5: tasky.ChecklistCountsResponse.total:type_name -> tasky.ChecklistCountsResponse.TotalEntry
+	82,  // 4: tasky.ChecklistCountsResponse.done:type_name -> tasky.ChecklistCountsResponse.DoneEntry
+	83,  // 5: tasky.ChecklistCountsResponse.total:type_name -> tasky.ChecklistCountsResponse.TotalEntry
 	0,   // 6: tasky.SetStatusRequest.owner:type_name -> tasky.StatusOwner
 	0,   // 7: tasky.HistoryRequest.owner:type_name -> tasky.StatusOwner
-	79,  // 8: tasky.JournalTextsResponse.texts:type_name -> tasky.JournalTextsResponse.TextsEntry
-	80,  // 9: tasky.ProjectLinksTextsResponse.texts:type_name -> tasky.ProjectLinksTextsResponse.TextsEntry
-	81,  // 10: tasky.TagsMapResponse.tags:type_name -> tasky.TagsMapResponse.TagsEntry
+	84,  // 8: tasky.JournalTextsResponse.texts:type_name -> tasky.JournalTextsResponse.TextsEntry
+	85,  // 9: tasky.ProjectLinksTextsResponse.texts:type_name -> tasky.ProjectLinksTextsResponse.TextsEntry
+	86,  // 10: tasky.TagsMapResponse.tags:type_name -> tasky.TagsMapResponse.TagsEntry
 	1,   // 11: tasky.ProjectListResponse.projects:type_name -> tasky.Project
 	1,   // 12: tasky.ProjectResponse.project:type_name -> tasky.Project
 	8,   // 13: tasky.LinkListResponse.links:type_name -> tasky.Link
@@ -4892,158 +5301,173 @@ var file_proto_tasky_proto_depIdxs = []int32{
 	13,  // 29: tasky.TagResponse.tag:type_name -> tasky.Tag
 	14,  // 30: tasky.ReportEntryListResponse.entries:type_name -> tasky.ReportEntry
 	15,  // 31: tasky.ReportJournalEntryListResponse.entries:type_name -> tasky.ReportJournalEntry
-	16,  // 32: tasky.TagsMapResponse.TagsEntry.value:type_name -> tasky.TagList
-	17,  // 33: tasky.Tasky.ListProjects:input_type -> tasky.Empty
-	22,  // 34: tasky.Tasky.CreateProject:input_type -> tasky.ProjectNameRequest
-	18,  // 35: tasky.Tasky.DeleteProject:input_type -> tasky.IDRequest
-	18,  // 36: tasky.Tasky.ProjectDescription:input_type -> tasky.IDRequest
-	30,  // 37: tasky.Tasky.UpdateProjectDescription:input_type -> tasky.TextRequest
-	23,  // 38: tasky.Tasky.ProjectLinks:input_type -> tasky.ProjectIDRequest
-	38,  // 39: tasky.Tasky.CreateProjectLink:input_type -> tasky.LinkOwnerRequest
-	28,  // 40: tasky.Tasky.UpdateProjectLink:input_type -> tasky.LinkNameRequest
-	18,  // 41: tasky.Tasky.DeleteProjectLink:input_type -> tasky.IDRequest
-	17,  // 42: tasky.Tasky.ProjectLinksTexts:input_type -> tasky.Empty
-	23,  // 43: tasky.Tasky.TasksByProject:input_type -> tasky.ProjectIDRequest
-	23,  // 44: tasky.Tasky.SubtasksByProject:input_type -> tasky.ProjectIDRequest
-	24,  // 45: tasky.Tasky.SubtasksWithTime:input_type -> tasky.TaskIDRequest
-	25,  // 46: tasky.Tasky.CreateTask:input_type -> tasky.CreateTaskRequest
-	18,  // 47: tasky.Tasky.DeleteTask:input_type -> tasky.IDRequest
-	26,  // 48: tasky.Tasky.CreateSubtask:input_type -> tasky.CreateSubtaskRequest
-	18,  // 49: tasky.Tasky.DeleteSubtask:input_type -> tasky.IDRequest
-	29,  // 50: tasky.Tasky.MoveTask:input_type -> tasky.MoveRequest
-	29,  // 51: tasky.Tasky.MoveSubtask:input_type -> tasky.MoveRequest
-	31,  // 52: tasky.Tasky.UpdateTaskTitle:input_type -> tasky.TitleRequest
-	31,  // 53: tasky.Tasky.UpdateSubtaskTitle:input_type -> tasky.TitleRequest
-	18,  // 54: tasky.Tasky.TaskDescription:input_type -> tasky.IDRequest
-	18,  // 55: tasky.Tasky.SubtaskDescription:input_type -> tasky.IDRequest
-	30,  // 56: tasky.Tasky.UpdateTaskDescription:input_type -> tasky.TextRequest
-	30,  // 57: tasky.Tasky.UpdateSubtaskDescription:input_type -> tasky.TextRequest
-	24,  // 58: tasky.Tasky.TaskLinks:input_type -> tasky.TaskIDRequest
-	27,  // 59: tasky.Tasky.SubtaskLinks:input_type -> tasky.SubtaskIDRequest
-	38,  // 60: tasky.Tasky.CreateTaskLink:input_type -> tasky.LinkOwnerRequest
-	28,  // 61: tasky.Tasky.UpdateTaskLink:input_type -> tasky.LinkNameRequest
-	38,  // 62: tasky.Tasky.CreateSubtaskLink:input_type -> tasky.LinkOwnerRequest
-	28,  // 63: tasky.Tasky.UpdateSubtaskLink:input_type -> tasky.LinkNameRequest
-	18,  // 64: tasky.Tasky.DeleteTaskLink:input_type -> tasky.IDRequest
-	18,  // 65: tasky.Tasky.DeleteSubtaskLink:input_type -> tasky.IDRequest
-	27,  // 66: tasky.Tasky.JournalEntries:input_type -> tasky.SubtaskIDRequest
-	32,  // 67: tasky.Tasky.CreateJournalEntry:input_type -> tasky.JournalTextRequest
-	32,  // 68: tasky.Tasky.UpdateJournalEntry:input_type -> tasky.JournalTextRequest
-	23,  // 69: tasky.Tasky.JournalTexts:input_type -> tasky.ProjectIDRequest
-	27,  // 70: tasky.Tasky.ChecklistItems:input_type -> tasky.SubtaskIDRequest
-	23,  // 71: tasky.Tasky.ChecklistCounts:input_type -> tasky.ProjectIDRequest
-	32,  // 72: tasky.Tasky.CreateChecklistItem:input_type -> tasky.JournalTextRequest
-	32,  // 73: tasky.Tasky.UpdateChecklistItemText:input_type -> tasky.JournalTextRequest
-	36,  // 74: tasky.Tasky.SetChecklistItemStatus:input_type -> tasky.ChecklistStatusRequest
-	29,  // 75: tasky.Tasky.MoveChecklistItem:input_type -> tasky.MoveRequest
-	18,  // 76: tasky.Tasky.DeleteChecklistItem:input_type -> tasky.IDRequest
-	39,  // 77: tasky.Tasky.StartSession:input_type -> tasky.TimeRequest
-	39,  // 78: tasky.Tasky.StopSession:input_type -> tasky.TimeRequest
-	27,  // 79: tasky.Tasky.TimeEntriesBySubtask:input_type -> tasky.SubtaskIDRequest
-	7,   // 80: tasky.Tasky.UpdateTimeEntry:input_type -> tasky.UpdateTimeEntryRequest
-	18,  // 81: tasky.Tasky.DeleteTimeEntry:input_type -> tasky.IDRequest
-	17,  // 82: tasky.Tasky.RunningSession:input_type -> tasky.Empty
-	17,  // 83: tasky.Tasky.TodayTotal:input_type -> tasky.Empty
-	17,  // 84: tasky.Tasky.WeeklyTotal:input_type -> tasky.Empty
-	40,  // 85: tasky.Tasky.ReportEntries:input_type -> tasky.RangeRequest
-	40,  // 86: tasky.Tasky.TimeEntriesInRange:input_type -> tasky.RangeRequest
-	41,  // 87: tasky.Tasky.JournalEntriesByRange:input_type -> tasky.RangeNoProjectRequest
-	76,  // 88: tasky.Tasky.TagsByTasks:input_type -> tasky.TagsByTasksRequest
-	17,  // 89: tasky.Tasky.ListStatuses:input_type -> tasky.Empty
-	42,  // 90: tasky.Tasky.CreateStatus:input_type -> tasky.StatusRequest
-	43,  // 91: tasky.Tasky.UpdateStatus:input_type -> tasky.StatusUpdateRequest
-	18,  // 92: tasky.Tasky.DeleteStatus:input_type -> tasky.IDRequest
-	44,  // 93: tasky.Tasky.SetStatus:input_type -> tasky.SetStatusRequest
-	45,  // 94: tasky.Tasky.StatusHistory:input_type -> tasky.HistoryRequest
-	17,  // 95: tasky.Tasky.ListTagTypes:input_type -> tasky.Empty
-	46,  // 96: tasky.Tasky.CreateTagType:input_type -> tasky.TagTypeRequest
-	47,  // 97: tasky.Tasky.UpdateTagType:input_type -> tasky.TagTypeUpdateRequest
-	18,  // 98: tasky.Tasky.DeleteTagType:input_type -> tasky.IDRequest
-	24,  // 99: tasky.Tasky.TaskTags:input_type -> tasky.TaskIDRequest
-	23,  // 100: tasky.Tasky.TagsByProject:input_type -> tasky.ProjectIDRequest
-	48,  // 101: tasky.Tasky.CreateTag:input_type -> tasky.TagRequest
-	49,  // 102: tasky.Tasky.UpdateTag:input_type -> tasky.TagUpdateRequest
-	18,  // 103: tasky.Tasky.DeleteTag:input_type -> tasky.IDRequest
-	50,  // 104: tasky.Tasky.GetSetting:input_type -> tasky.SettingRequest
-	50,  // 105: tasky.Tasky.SetSetting:input_type -> tasky.SettingRequest
-	55,  // 106: tasky.Tasky.ListProjects:output_type -> tasky.ProjectListResponse
-	56,  // 107: tasky.Tasky.CreateProject:output_type -> tasky.ProjectResponse
-	17,  // 108: tasky.Tasky.DeleteProject:output_type -> tasky.Empty
-	19,  // 109: tasky.Tasky.ProjectDescription:output_type -> tasky.StringResponse
-	17,  // 110: tasky.Tasky.UpdateProjectDescription:output_type -> tasky.Empty
-	57,  // 111: tasky.Tasky.ProjectLinks:output_type -> tasky.LinkListResponse
-	58,  // 112: tasky.Tasky.CreateProjectLink:output_type -> tasky.LinkResponse
-	58,  // 113: tasky.Tasky.UpdateProjectLink:output_type -> tasky.LinkResponse
-	17,  // 114: tasky.Tasky.DeleteProjectLink:output_type -> tasky.Empty
-	53,  // 115: tasky.Tasky.ProjectLinksTexts:output_type -> tasky.ProjectLinksTextsResponse
-	59,  // 116: tasky.Tasky.TasksByProject:output_type -> tasky.TaskListResponse
-	60,  // 117: tasky.Tasky.SubtasksByProject:output_type -> tasky.SubtaskListResponse
-	60,  // 118: tasky.Tasky.SubtasksWithTime:output_type -> tasky.SubtaskListResponse
-	61,  // 119: tasky.Tasky.CreateTask:output_type -> tasky.TaskResponse
-	17,  // 120: tasky.Tasky.DeleteTask:output_type -> tasky.Empty
-	62,  // 121: tasky.Tasky.CreateSubtask:output_type -> tasky.SubtaskResponse
-	17,  // 122: tasky.Tasky.DeleteSubtask:output_type -> tasky.Empty
-	17,  // 123: tasky.Tasky.MoveTask:output_type -> tasky.Empty
-	17,  // 124: tasky.Tasky.MoveSubtask:output_type -> tasky.Empty
-	17,  // 125: tasky.Tasky.UpdateTaskTitle:output_type -> tasky.Empty
-	17,  // 126: tasky.Tasky.UpdateSubtaskTitle:output_type -> tasky.Empty
-	19,  // 127: tasky.Tasky.TaskDescription:output_type -> tasky.StringResponse
-	19,  // 128: tasky.Tasky.SubtaskDescription:output_type -> tasky.StringResponse
-	17,  // 129: tasky.Tasky.UpdateTaskDescription:output_type -> tasky.Empty
-	17,  // 130: tasky.Tasky.UpdateSubtaskDescription:output_type -> tasky.Empty
-	57,  // 131: tasky.Tasky.TaskLinks:output_type -> tasky.LinkListResponse
-	57,  // 132: tasky.Tasky.SubtaskLinks:output_type -> tasky.LinkListResponse
-	58,  // 133: tasky.Tasky.CreateTaskLink:output_type -> tasky.LinkResponse
-	58,  // 134: tasky.Tasky.UpdateTaskLink:output_type -> tasky.LinkResponse
-	58,  // 135: tasky.Tasky.CreateSubtaskLink:output_type -> tasky.LinkResponse
-	58,  // 136: tasky.Tasky.UpdateSubtaskLink:output_type -> tasky.LinkResponse
-	17,  // 137: tasky.Tasky.DeleteTaskLink:output_type -> tasky.Empty
-	17,  // 138: tasky.Tasky.DeleteSubtaskLink:output_type -> tasky.Empty
-	65,  // 139: tasky.Tasky.JournalEntries:output_type -> tasky.JournalEntryListResponse
-	66,  // 140: tasky.Tasky.CreateJournalEntry:output_type -> tasky.JournalEntryResponse
-	17,  // 141: tasky.Tasky.UpdateJournalEntry:output_type -> tasky.Empty
-	52,  // 142: tasky.Tasky.JournalTexts:output_type -> tasky.JournalTextsResponse
-	34,  // 143: tasky.Tasky.ChecklistItems:output_type -> tasky.ChecklistItemListResponse
-	37,  // 144: tasky.Tasky.ChecklistCounts:output_type -> tasky.ChecklistCountsResponse
-	35,  // 145: tasky.Tasky.CreateChecklistItem:output_type -> tasky.ChecklistItemResponse
-	17,  // 146: tasky.Tasky.UpdateChecklistItemText:output_type -> tasky.Empty
-	17,  // 147: tasky.Tasky.SetChecklistItemStatus:output_type -> tasky.Empty
-	17,  // 148: tasky.Tasky.MoveChecklistItem:output_type -> tasky.Empty
-	17,  // 149: tasky.Tasky.DeleteChecklistItem:output_type -> tasky.Empty
-	17,  // 150: tasky.Tasky.StartSession:output_type -> tasky.Empty
-	17,  // 151: tasky.Tasky.StopSession:output_type -> tasky.Empty
-	63,  // 152: tasky.Tasky.TimeEntriesBySubtask:output_type -> tasky.TimeEntryListResponse
-	17,  // 153: tasky.Tasky.UpdateTimeEntry:output_type -> tasky.Empty
-	17,  // 154: tasky.Tasky.DeleteTimeEntry:output_type -> tasky.Empty
-	64,  // 155: tasky.Tasky.RunningSession:output_type -> tasky.RunningSessionResponse
-	21,  // 156: tasky.Tasky.TodayTotal:output_type -> tasky.DurationResponse
-	21,  // 157: tasky.Tasky.WeeklyTotal:output_type -> tasky.DurationResponse
-	74,  // 158: tasky.Tasky.ReportEntries:output_type -> tasky.ReportEntryListResponse
-	6,   // 159: tasky.Tasky.TimeEntriesInRange:output_type -> tasky.TimeEntryInfoListResponse
-	75,  // 160: tasky.Tasky.JournalEntriesByRange:output_type -> tasky.ReportJournalEntryListResponse
-	54,  // 161: tasky.Tasky.TagsByTasks:output_type -> tasky.TagsMapResponse
-	67,  // 162: tasky.Tasky.ListStatuses:output_type -> tasky.StatusListResponse
-	68,  // 163: tasky.Tasky.CreateStatus:output_type -> tasky.StatusResponse
-	17,  // 164: tasky.Tasky.UpdateStatus:output_type -> tasky.Empty
-	17,  // 165: tasky.Tasky.DeleteStatus:output_type -> tasky.Empty
-	17,  // 166: tasky.Tasky.SetStatus:output_type -> tasky.Empty
-	69,  // 167: tasky.Tasky.StatusHistory:output_type -> tasky.HistoryListResponse
-	70,  // 168: tasky.Tasky.ListTagTypes:output_type -> tasky.TagTypeListResponse
-	71,  // 169: tasky.Tasky.CreateTagType:output_type -> tasky.TagTypeResponse
-	17,  // 170: tasky.Tasky.UpdateTagType:output_type -> tasky.Empty
-	17,  // 171: tasky.Tasky.DeleteTagType:output_type -> tasky.Empty
-	72,  // 172: tasky.Tasky.TaskTags:output_type -> tasky.TagListResponse
-	54,  // 173: tasky.Tasky.TagsByProject:output_type -> tasky.TagsMapResponse
-	73,  // 174: tasky.Tasky.CreateTag:output_type -> tasky.TagResponse
-	17,  // 175: tasky.Tasky.UpdateTag:output_type -> tasky.Empty
-	17,  // 176: tasky.Tasky.DeleteTag:output_type -> tasky.Empty
-	51,  // 177: tasky.Tasky.GetSetting:output_type -> tasky.GetSettingResponse
-	17,  // 178: tasky.Tasky.SetSetting:output_type -> tasky.Empty
-	106, // [106:179] is the sub-list for method output_type
-	33,  // [33:106] is the sub-list for method input_type
-	33,  // [33:33] is the sub-list for extension type_name
-	33,  // [33:33] is the sub-list for extension extendee
-	0,   // [0:33] is the sub-list for field type_name
+	77,  // 32: tasky.FeedItemListResponse.items:type_name -> tasky.FeedItem
+	16,  // 33: tasky.TagsMapResponse.TagsEntry.value:type_name -> tasky.TagList
+	17,  // 34: tasky.Tasky.ListProjects:input_type -> tasky.Empty
+	22,  // 35: tasky.Tasky.CreateProject:input_type -> tasky.ProjectNameRequest
+	18,  // 36: tasky.Tasky.DeleteProject:input_type -> tasky.IDRequest
+	18,  // 37: tasky.Tasky.ProjectDescription:input_type -> tasky.IDRequest
+	30,  // 38: tasky.Tasky.UpdateProjectDescription:input_type -> tasky.TextRequest
+	23,  // 39: tasky.Tasky.ProjectLinks:input_type -> tasky.ProjectIDRequest
+	38,  // 40: tasky.Tasky.CreateProjectLink:input_type -> tasky.LinkOwnerRequest
+	28,  // 41: tasky.Tasky.UpdateProjectLink:input_type -> tasky.LinkNameRequest
+	18,  // 42: tasky.Tasky.DeleteProjectLink:input_type -> tasky.IDRequest
+	17,  // 43: tasky.Tasky.ProjectLinksTexts:input_type -> tasky.Empty
+	23,  // 44: tasky.Tasky.TasksByProject:input_type -> tasky.ProjectIDRequest
+	23,  // 45: tasky.Tasky.SubtasksByProject:input_type -> tasky.ProjectIDRequest
+	24,  // 46: tasky.Tasky.SubtasksWithTime:input_type -> tasky.TaskIDRequest
+	25,  // 47: tasky.Tasky.CreateTask:input_type -> tasky.CreateTaskRequest
+	18,  // 48: tasky.Tasky.DeleteTask:input_type -> tasky.IDRequest
+	26,  // 49: tasky.Tasky.CreateSubtask:input_type -> tasky.CreateSubtaskRequest
+	18,  // 50: tasky.Tasky.DeleteSubtask:input_type -> tasky.IDRequest
+	29,  // 51: tasky.Tasky.MoveTask:input_type -> tasky.MoveRequest
+	29,  // 52: tasky.Tasky.MoveSubtask:input_type -> tasky.MoveRequest
+	31,  // 53: tasky.Tasky.UpdateTaskTitle:input_type -> tasky.TitleRequest
+	31,  // 54: tasky.Tasky.UpdateSubtaskTitle:input_type -> tasky.TitleRequest
+	18,  // 55: tasky.Tasky.TaskDescription:input_type -> tasky.IDRequest
+	18,  // 56: tasky.Tasky.SubtaskDescription:input_type -> tasky.IDRequest
+	30,  // 57: tasky.Tasky.UpdateTaskDescription:input_type -> tasky.TextRequest
+	30,  // 58: tasky.Tasky.UpdateSubtaskDescription:input_type -> tasky.TextRequest
+	24,  // 59: tasky.Tasky.TaskLinks:input_type -> tasky.TaskIDRequest
+	27,  // 60: tasky.Tasky.SubtaskLinks:input_type -> tasky.SubtaskIDRequest
+	38,  // 61: tasky.Tasky.CreateTaskLink:input_type -> tasky.LinkOwnerRequest
+	28,  // 62: tasky.Tasky.UpdateTaskLink:input_type -> tasky.LinkNameRequest
+	38,  // 63: tasky.Tasky.CreateSubtaskLink:input_type -> tasky.LinkOwnerRequest
+	28,  // 64: tasky.Tasky.UpdateSubtaskLink:input_type -> tasky.LinkNameRequest
+	18,  // 65: tasky.Tasky.DeleteTaskLink:input_type -> tasky.IDRequest
+	18,  // 66: tasky.Tasky.DeleteSubtaskLink:input_type -> tasky.IDRequest
+	27,  // 67: tasky.Tasky.JournalEntries:input_type -> tasky.SubtaskIDRequest
+	32,  // 68: tasky.Tasky.CreateJournalEntry:input_type -> tasky.JournalTextRequest
+	32,  // 69: tasky.Tasky.UpdateJournalEntry:input_type -> tasky.JournalTextRequest
+	23,  // 70: tasky.Tasky.JournalTexts:input_type -> tasky.ProjectIDRequest
+	27,  // 71: tasky.Tasky.ChecklistItems:input_type -> tasky.SubtaskIDRequest
+	23,  // 72: tasky.Tasky.ChecklistCounts:input_type -> tasky.ProjectIDRequest
+	32,  // 73: tasky.Tasky.CreateChecklistItem:input_type -> tasky.JournalTextRequest
+	32,  // 74: tasky.Tasky.UpdateChecklistItemText:input_type -> tasky.JournalTextRequest
+	36,  // 75: tasky.Tasky.SetChecklistItemStatus:input_type -> tasky.ChecklistStatusRequest
+	29,  // 76: tasky.Tasky.MoveChecklistItem:input_type -> tasky.MoveRequest
+	18,  // 77: tasky.Tasky.DeleteChecklistItem:input_type -> tasky.IDRequest
+	39,  // 78: tasky.Tasky.StartSession:input_type -> tasky.TimeRequest
+	39,  // 79: tasky.Tasky.StopSession:input_type -> tasky.TimeRequest
+	27,  // 80: tasky.Tasky.TimeEntriesBySubtask:input_type -> tasky.SubtaskIDRequest
+	7,   // 81: tasky.Tasky.UpdateTimeEntry:input_type -> tasky.UpdateTimeEntryRequest
+	18,  // 82: tasky.Tasky.DeleteTimeEntry:input_type -> tasky.IDRequest
+	17,  // 83: tasky.Tasky.RunningSession:input_type -> tasky.Empty
+	17,  // 84: tasky.Tasky.TodayTotal:input_type -> tasky.Empty
+	17,  // 85: tasky.Tasky.WeeklyTotal:input_type -> tasky.Empty
+	40,  // 86: tasky.Tasky.ReportEntries:input_type -> tasky.RangeRequest
+	40,  // 87: tasky.Tasky.TimeEntriesInRange:input_type -> tasky.RangeRequest
+	41,  // 88: tasky.Tasky.JournalEntriesByRange:input_type -> tasky.RangeNoProjectRequest
+	76,  // 89: tasky.Tasky.TagsByTasks:input_type -> tasky.TagsByTasksRequest
+	17,  // 90: tasky.Tasky.ListStatuses:input_type -> tasky.Empty
+	42,  // 91: tasky.Tasky.CreateStatus:input_type -> tasky.StatusRequest
+	43,  // 92: tasky.Tasky.UpdateStatus:input_type -> tasky.StatusUpdateRequest
+	18,  // 93: tasky.Tasky.DeleteStatus:input_type -> tasky.IDRequest
+	44,  // 94: tasky.Tasky.SetStatus:input_type -> tasky.SetStatusRequest
+	45,  // 95: tasky.Tasky.StatusHistory:input_type -> tasky.HistoryRequest
+	17,  // 96: tasky.Tasky.ListTagTypes:input_type -> tasky.Empty
+	46,  // 97: tasky.Tasky.CreateTagType:input_type -> tasky.TagTypeRequest
+	47,  // 98: tasky.Tasky.UpdateTagType:input_type -> tasky.TagTypeUpdateRequest
+	18,  // 99: tasky.Tasky.DeleteTagType:input_type -> tasky.IDRequest
+	24,  // 100: tasky.Tasky.TaskTags:input_type -> tasky.TaskIDRequest
+	23,  // 101: tasky.Tasky.TagsByProject:input_type -> tasky.ProjectIDRequest
+	48,  // 102: tasky.Tasky.CreateTag:input_type -> tasky.TagRequest
+	49,  // 103: tasky.Tasky.UpdateTag:input_type -> tasky.TagUpdateRequest
+	18,  // 104: tasky.Tasky.DeleteTag:input_type -> tasky.IDRequest
+	81,  // 105: tasky.Tasky.SetTaskDates:input_type -> tasky.TaskDatesRequest
+	81,  // 106: tasky.Tasky.SetSubtaskDates:input_type -> tasky.TaskDatesRequest
+	78,  // 107: tasky.Tasky.ListFeed:input_type -> tasky.FeedFilter
+	18,  // 108: tasky.Tasky.MarkFeedRead:input_type -> tasky.IDRequest
+	17,  // 109: tasky.Tasky.FeedUnreadCount:input_type -> tasky.Empty
+	17,  // 110: tasky.Tasky.ArchiveFeed:input_type -> tasky.Empty
+	17,  // 111: tasky.Tasky.DeleteArchivedFeed:input_type -> tasky.Empty
+	50,  // 112: tasky.Tasky.GetSetting:input_type -> tasky.SettingRequest
+	50,  // 113: tasky.Tasky.SetSetting:input_type -> tasky.SettingRequest
+	55,  // 114: tasky.Tasky.ListProjects:output_type -> tasky.ProjectListResponse
+	56,  // 115: tasky.Tasky.CreateProject:output_type -> tasky.ProjectResponse
+	17,  // 116: tasky.Tasky.DeleteProject:output_type -> tasky.Empty
+	19,  // 117: tasky.Tasky.ProjectDescription:output_type -> tasky.StringResponse
+	17,  // 118: tasky.Tasky.UpdateProjectDescription:output_type -> tasky.Empty
+	57,  // 119: tasky.Tasky.ProjectLinks:output_type -> tasky.LinkListResponse
+	58,  // 120: tasky.Tasky.CreateProjectLink:output_type -> tasky.LinkResponse
+	58,  // 121: tasky.Tasky.UpdateProjectLink:output_type -> tasky.LinkResponse
+	17,  // 122: tasky.Tasky.DeleteProjectLink:output_type -> tasky.Empty
+	53,  // 123: tasky.Tasky.ProjectLinksTexts:output_type -> tasky.ProjectLinksTextsResponse
+	59,  // 124: tasky.Tasky.TasksByProject:output_type -> tasky.TaskListResponse
+	60,  // 125: tasky.Tasky.SubtasksByProject:output_type -> tasky.SubtaskListResponse
+	60,  // 126: tasky.Tasky.SubtasksWithTime:output_type -> tasky.SubtaskListResponse
+	61,  // 127: tasky.Tasky.CreateTask:output_type -> tasky.TaskResponse
+	17,  // 128: tasky.Tasky.DeleteTask:output_type -> tasky.Empty
+	62,  // 129: tasky.Tasky.CreateSubtask:output_type -> tasky.SubtaskResponse
+	17,  // 130: tasky.Tasky.DeleteSubtask:output_type -> tasky.Empty
+	17,  // 131: tasky.Tasky.MoveTask:output_type -> tasky.Empty
+	17,  // 132: tasky.Tasky.MoveSubtask:output_type -> tasky.Empty
+	17,  // 133: tasky.Tasky.UpdateTaskTitle:output_type -> tasky.Empty
+	17,  // 134: tasky.Tasky.UpdateSubtaskTitle:output_type -> tasky.Empty
+	19,  // 135: tasky.Tasky.TaskDescription:output_type -> tasky.StringResponse
+	19,  // 136: tasky.Tasky.SubtaskDescription:output_type -> tasky.StringResponse
+	17,  // 137: tasky.Tasky.UpdateTaskDescription:output_type -> tasky.Empty
+	17,  // 138: tasky.Tasky.UpdateSubtaskDescription:output_type -> tasky.Empty
+	57,  // 139: tasky.Tasky.TaskLinks:output_type -> tasky.LinkListResponse
+	57,  // 140: tasky.Tasky.SubtaskLinks:output_type -> tasky.LinkListResponse
+	58,  // 141: tasky.Tasky.CreateTaskLink:output_type -> tasky.LinkResponse
+	58,  // 142: tasky.Tasky.UpdateTaskLink:output_type -> tasky.LinkResponse
+	58,  // 143: tasky.Tasky.CreateSubtaskLink:output_type -> tasky.LinkResponse
+	58,  // 144: tasky.Tasky.UpdateSubtaskLink:output_type -> tasky.LinkResponse
+	17,  // 145: tasky.Tasky.DeleteTaskLink:output_type -> tasky.Empty
+	17,  // 146: tasky.Tasky.DeleteSubtaskLink:output_type -> tasky.Empty
+	65,  // 147: tasky.Tasky.JournalEntries:output_type -> tasky.JournalEntryListResponse
+	66,  // 148: tasky.Tasky.CreateJournalEntry:output_type -> tasky.JournalEntryResponse
+	17,  // 149: tasky.Tasky.UpdateJournalEntry:output_type -> tasky.Empty
+	52,  // 150: tasky.Tasky.JournalTexts:output_type -> tasky.JournalTextsResponse
+	34,  // 151: tasky.Tasky.ChecklistItems:output_type -> tasky.ChecklistItemListResponse
+	37,  // 152: tasky.Tasky.ChecklistCounts:output_type -> tasky.ChecklistCountsResponse
+	35,  // 153: tasky.Tasky.CreateChecklistItem:output_type -> tasky.ChecklistItemResponse
+	17,  // 154: tasky.Tasky.UpdateChecklistItemText:output_type -> tasky.Empty
+	17,  // 155: tasky.Tasky.SetChecklistItemStatus:output_type -> tasky.Empty
+	17,  // 156: tasky.Tasky.MoveChecklistItem:output_type -> tasky.Empty
+	17,  // 157: tasky.Tasky.DeleteChecklistItem:output_type -> tasky.Empty
+	17,  // 158: tasky.Tasky.StartSession:output_type -> tasky.Empty
+	17,  // 159: tasky.Tasky.StopSession:output_type -> tasky.Empty
+	63,  // 160: tasky.Tasky.TimeEntriesBySubtask:output_type -> tasky.TimeEntryListResponse
+	17,  // 161: tasky.Tasky.UpdateTimeEntry:output_type -> tasky.Empty
+	17,  // 162: tasky.Tasky.DeleteTimeEntry:output_type -> tasky.Empty
+	64,  // 163: tasky.Tasky.RunningSession:output_type -> tasky.RunningSessionResponse
+	21,  // 164: tasky.Tasky.TodayTotal:output_type -> tasky.DurationResponse
+	21,  // 165: tasky.Tasky.WeeklyTotal:output_type -> tasky.DurationResponse
+	74,  // 166: tasky.Tasky.ReportEntries:output_type -> tasky.ReportEntryListResponse
+	6,   // 167: tasky.Tasky.TimeEntriesInRange:output_type -> tasky.TimeEntryInfoListResponse
+	75,  // 168: tasky.Tasky.JournalEntriesByRange:output_type -> tasky.ReportJournalEntryListResponse
+	54,  // 169: tasky.Tasky.TagsByTasks:output_type -> tasky.TagsMapResponse
+	67,  // 170: tasky.Tasky.ListStatuses:output_type -> tasky.StatusListResponse
+	68,  // 171: tasky.Tasky.CreateStatus:output_type -> tasky.StatusResponse
+	17,  // 172: tasky.Tasky.UpdateStatus:output_type -> tasky.Empty
+	17,  // 173: tasky.Tasky.DeleteStatus:output_type -> tasky.Empty
+	17,  // 174: tasky.Tasky.SetStatus:output_type -> tasky.Empty
+	69,  // 175: tasky.Tasky.StatusHistory:output_type -> tasky.HistoryListResponse
+	70,  // 176: tasky.Tasky.ListTagTypes:output_type -> tasky.TagTypeListResponse
+	71,  // 177: tasky.Tasky.CreateTagType:output_type -> tasky.TagTypeResponse
+	17,  // 178: tasky.Tasky.UpdateTagType:output_type -> tasky.Empty
+	17,  // 179: tasky.Tasky.DeleteTagType:output_type -> tasky.Empty
+	72,  // 180: tasky.Tasky.TaskTags:output_type -> tasky.TagListResponse
+	54,  // 181: tasky.Tasky.TagsByProject:output_type -> tasky.TagsMapResponse
+	73,  // 182: tasky.Tasky.CreateTag:output_type -> tasky.TagResponse
+	17,  // 183: tasky.Tasky.UpdateTag:output_type -> tasky.Empty
+	17,  // 184: tasky.Tasky.DeleteTag:output_type -> tasky.Empty
+	17,  // 185: tasky.Tasky.SetTaskDates:output_type -> tasky.Empty
+	17,  // 186: tasky.Tasky.SetSubtaskDates:output_type -> tasky.Empty
+	79,  // 187: tasky.Tasky.ListFeed:output_type -> tasky.FeedItemListResponse
+	17,  // 188: tasky.Tasky.MarkFeedRead:output_type -> tasky.Empty
+	80,  // 189: tasky.Tasky.FeedUnreadCount:output_type -> tasky.CountResponse
+	80,  // 190: tasky.Tasky.ArchiveFeed:output_type -> tasky.CountResponse
+	80,  // 191: tasky.Tasky.DeleteArchivedFeed:output_type -> tasky.CountResponse
+	51,  // 192: tasky.Tasky.GetSetting:output_type -> tasky.GetSettingResponse
+	17,  // 193: tasky.Tasky.SetSetting:output_type -> tasky.Empty
+	114, // [114:194] is the sub-list for method output_type
+	34,  // [34:114] is the sub-list for method input_type
+	34,  // [34:34] is the sub-list for extension type_name
+	34,  // [34:34] is the sub-list for extension extendee
+	0,   // [0:34] is the sub-list for field type_name
 }
 
 func init() { file_proto_tasky_proto_init() }
@@ -5056,13 +5480,15 @@ func file_proto_tasky_proto_init() {
 	file_proto_tasky_proto_msgTypes[3].OneofWrappers = []any{}
 	file_proto_tasky_proto_msgTypes[4].OneofWrappers = []any{}
 	file_proto_tasky_proto_msgTypes[6].OneofWrappers = []any{}
+	file_proto_tasky_proto_msgTypes[76].OneofWrappers = []any{}
+	file_proto_tasky_proto_msgTypes[80].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_tasky_proto_rawDesc), len(file_proto_tasky_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   81,
+			NumMessages:   86,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

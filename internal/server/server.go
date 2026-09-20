@@ -6,6 +6,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/detrenasama/tasky/internal/db"
 	"github.com/detrenasama/tasky/internal/rpc"
 	"github.com/detrenasama/tasky/internal/store"
 	"google.golang.org/grpc"
@@ -588,6 +589,89 @@ func (s *Server) DeleteTag(_ context.Context, req *rpc.IDRequest) (*rpc.Empty, e
 		return nil, rpc.DBErrorToStatus(err)
 	}
 	return &rpc.Empty{}, nil
+}
+
+// --- Сроки ---
+
+func (s *Server) SetTaskDates(_ context.Context, req *rpc.TaskDatesRequest) (*rpc.Empty, error) {
+	var due, sched *time.Time
+	if req.DueDate != nil {
+		t := time.Unix(*req.DueDate, 0)
+		due = &t
+	}
+	if req.ScheduleDate != nil {
+		t := time.Unix(*req.ScheduleDate, 0)
+		sched = &t
+	}
+	if err := s.st.SetTaskDates(req.Id, due, sched); err != nil {
+		return nil, rpc.DBErrorToStatus(err)
+	}
+	return &rpc.Empty{}, nil
+}
+
+func (s *Server) SetSubtaskDates(_ context.Context, req *rpc.TaskDatesRequest) (*rpc.Empty, error) {
+	var due, sched *time.Time
+	if req.DueDate != nil {
+		t := time.Unix(*req.DueDate, 0)
+		due = &t
+	}
+	if req.ScheduleDate != nil {
+		t := time.Unix(*req.ScheduleDate, 0)
+		sched = &t
+	}
+	if err := s.st.SetSubtaskDates(req.Id, due, sched); err != nil {
+		return nil, rpc.DBErrorToStatus(err)
+	}
+	return &rpc.Empty{}, nil
+}
+
+// --- Лента ---
+
+func (s *Server) ListFeed(_ context.Context, req *rpc.FeedFilter) (*rpc.FeedItemListResponse, error) {
+	filter := s.stFeedFilter(req)
+	items, err := s.st.FeedItems(filter)
+	if err != nil {
+		return nil, rpc.DBErrorToStatus(err)
+	}
+	return &rpc.FeedItemListResponse{Items: rpc.ToFeedItems(items)}, nil
+}
+
+func (s *Server) stFeedFilter(req *rpc.FeedFilter) db.FeedFilter {
+	if req == nil {
+		return db.FeedFilter{}
+	}
+	return db.FeedFilter{Kind: req.Kind, UnreadOnly: req.UnreadOnly, IncludeArchived: req.IncludeArchived}
+}
+
+func (s *Server) MarkFeedRead(_ context.Context, req *rpc.IDRequest) (*rpc.Empty, error) {
+	if err := s.st.MarkFeedRead(req.Id); err != nil {
+		return nil, rpc.DBErrorToStatus(err)
+	}
+	return &rpc.Empty{}, nil
+}
+
+func (s *Server) FeedUnreadCount(_ context.Context, _ *rpc.Empty) (*rpc.CountResponse, error) {
+	n, err := s.st.FeedUnreadCount()
+	if err != nil {
+		return nil, rpc.DBErrorToStatus(err)
+	}
+	return &rpc.CountResponse{Count: int64(n)}, nil
+}
+
+func (s *Server) ArchiveFeed(_ context.Context, _ *rpc.Empty) (*rpc.CountResponse, error) {
+	n, err := s.st.ArchiveFeed()
+	if err != nil {
+		return nil, rpc.DBErrorToStatus(err)
+	}
+	return &rpc.CountResponse{Count: int64(n)}, nil
+}
+
+func (s *Server) DeleteArchivedFeed(_ context.Context, _ *rpc.Empty) (*rpc.CountResponse, error) {
+	n, err := s.st.DeleteArchivedFeed()
+	if err != nil {
+		return nil, rpc.DBErrorToStatus(err)
+	}
+	return &rpc.CountResponse{Count: int64(n)}, nil
 }
 
 // --- Настройки ---

@@ -90,6 +90,13 @@ const (
 	Tasky_CreateTag_FullMethodName                = "/tasky.Tasky/CreateTag"
 	Tasky_UpdateTag_FullMethodName                = "/tasky.Tasky/UpdateTag"
 	Tasky_DeleteTag_FullMethodName                = "/tasky.Tasky/DeleteTag"
+	Tasky_SetTaskDates_FullMethodName             = "/tasky.Tasky/SetTaskDates"
+	Tasky_SetSubtaskDates_FullMethodName          = "/tasky.Tasky/SetSubtaskDates"
+	Tasky_ListFeed_FullMethodName                 = "/tasky.Tasky/ListFeed"
+	Tasky_MarkFeedRead_FullMethodName             = "/tasky.Tasky/MarkFeedRead"
+	Tasky_FeedUnreadCount_FullMethodName          = "/tasky.Tasky/FeedUnreadCount"
+	Tasky_ArchiveFeed_FullMethodName              = "/tasky.Tasky/ArchiveFeed"
+	Tasky_DeleteArchivedFeed_FullMethodName       = "/tasky.Tasky/DeleteArchivedFeed"
 	Tasky_GetSetting_FullMethodName               = "/tasky.Tasky/GetSetting"
 	Tasky_SetSetting_FullMethodName               = "/tasky.Tasky/SetSetting"
 )
@@ -180,6 +187,15 @@ type TaskyClient interface {
 	CreateTag(ctx context.Context, in *TagRequest, opts ...grpc.CallOption) (*TagResponse, error)
 	UpdateTag(ctx context.Context, in *TagUpdateRequest, opts ...grpc.CallOption) (*Empty, error)
 	DeleteTag(ctx context.Context, in *IDRequest, opts ...grpc.CallOption) (*Empty, error)
+	// Сроки.
+	SetTaskDates(ctx context.Context, in *TaskDatesRequest, opts ...grpc.CallOption) (*Empty, error)
+	SetSubtaskDates(ctx context.Context, in *TaskDatesRequest, opts ...grpc.CallOption) (*Empty, error)
+	// Лента.
+	ListFeed(ctx context.Context, in *FeedFilter, opts ...grpc.CallOption) (*FeedItemListResponse, error)
+	MarkFeedRead(ctx context.Context, in *IDRequest, opts ...grpc.CallOption) (*Empty, error)
+	FeedUnreadCount(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*CountResponse, error)
+	ArchiveFeed(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*CountResponse, error)
+	DeleteArchivedFeed(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*CountResponse, error)
 	// Настройки.
 	GetSetting(ctx context.Context, in *SettingRequest, opts ...grpc.CallOption) (*GetSettingResponse, error)
 	SetSetting(ctx context.Context, in *SettingRequest, opts ...grpc.CallOption) (*Empty, error)
@@ -903,6 +919,76 @@ func (c *taskyClient) DeleteTag(ctx context.Context, in *IDRequest, opts ...grpc
 	return out, nil
 }
 
+func (c *taskyClient) SetTaskDates(ctx context.Context, in *TaskDatesRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, Tasky_SetTaskDates_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskyClient) SetSubtaskDates(ctx context.Context, in *TaskDatesRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, Tasky_SetSubtaskDates_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskyClient) ListFeed(ctx context.Context, in *FeedFilter, opts ...grpc.CallOption) (*FeedItemListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FeedItemListResponse)
+	err := c.cc.Invoke(ctx, Tasky_ListFeed_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskyClient) MarkFeedRead(ctx context.Context, in *IDRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, Tasky_MarkFeedRead_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskyClient) FeedUnreadCount(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*CountResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CountResponse)
+	err := c.cc.Invoke(ctx, Tasky_FeedUnreadCount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskyClient) ArchiveFeed(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*CountResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CountResponse)
+	err := c.cc.Invoke(ctx, Tasky_ArchiveFeed_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskyClient) DeleteArchivedFeed(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*CountResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CountResponse)
+	err := c.cc.Invoke(ctx, Tasky_DeleteArchivedFeed_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *taskyClient) GetSetting(ctx context.Context, in *SettingRequest, opts ...grpc.CallOption) (*GetSettingResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetSettingResponse)
@@ -1009,6 +1095,15 @@ type TaskyServer interface {
 	CreateTag(context.Context, *TagRequest) (*TagResponse, error)
 	UpdateTag(context.Context, *TagUpdateRequest) (*Empty, error)
 	DeleteTag(context.Context, *IDRequest) (*Empty, error)
+	// Сроки.
+	SetTaskDates(context.Context, *TaskDatesRequest) (*Empty, error)
+	SetSubtaskDates(context.Context, *TaskDatesRequest) (*Empty, error)
+	// Лента.
+	ListFeed(context.Context, *FeedFilter) (*FeedItemListResponse, error)
+	MarkFeedRead(context.Context, *IDRequest) (*Empty, error)
+	FeedUnreadCount(context.Context, *Empty) (*CountResponse, error)
+	ArchiveFeed(context.Context, *Empty) (*CountResponse, error)
+	DeleteArchivedFeed(context.Context, *Empty) (*CountResponse, error)
 	// Настройки.
 	GetSetting(context.Context, *SettingRequest) (*GetSettingResponse, error)
 	SetSetting(context.Context, *SettingRequest) (*Empty, error)
@@ -1234,6 +1329,27 @@ func (UnimplementedTaskyServer) UpdateTag(context.Context, *TagUpdateRequest) (*
 }
 func (UnimplementedTaskyServer) DeleteTag(context.Context, *IDRequest) (*Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteTag not implemented")
+}
+func (UnimplementedTaskyServer) SetTaskDates(context.Context, *TaskDatesRequest) (*Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetTaskDates not implemented")
+}
+func (UnimplementedTaskyServer) SetSubtaskDates(context.Context, *TaskDatesRequest) (*Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetSubtaskDates not implemented")
+}
+func (UnimplementedTaskyServer) ListFeed(context.Context, *FeedFilter) (*FeedItemListResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListFeed not implemented")
+}
+func (UnimplementedTaskyServer) MarkFeedRead(context.Context, *IDRequest) (*Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method MarkFeedRead not implemented")
+}
+func (UnimplementedTaskyServer) FeedUnreadCount(context.Context, *Empty) (*CountResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method FeedUnreadCount not implemented")
+}
+func (UnimplementedTaskyServer) ArchiveFeed(context.Context, *Empty) (*CountResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ArchiveFeed not implemented")
+}
+func (UnimplementedTaskyServer) DeleteArchivedFeed(context.Context, *Empty) (*CountResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteArchivedFeed not implemented")
 }
 func (UnimplementedTaskyServer) GetSetting(context.Context, *SettingRequest) (*GetSettingResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetSetting not implemented")
@@ -2540,6 +2656,132 @@ func _Tasky_DeleteTag_Handler(srv interface{}, ctx context.Context, dec func(int
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Tasky_SetTaskDates_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TaskDatesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskyServer).SetTaskDates(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Tasky_SetTaskDates_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskyServer).SetTaskDates(ctx, req.(*TaskDatesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Tasky_SetSubtaskDates_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TaskDatesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskyServer).SetSubtaskDates(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Tasky_SetSubtaskDates_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskyServer).SetSubtaskDates(ctx, req.(*TaskDatesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Tasky_ListFeed_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FeedFilter)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskyServer).ListFeed(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Tasky_ListFeed_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskyServer).ListFeed(ctx, req.(*FeedFilter))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Tasky_MarkFeedRead_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IDRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskyServer).MarkFeedRead(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Tasky_MarkFeedRead_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskyServer).MarkFeedRead(ctx, req.(*IDRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Tasky_FeedUnreadCount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskyServer).FeedUnreadCount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Tasky_FeedUnreadCount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskyServer).FeedUnreadCount(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Tasky_ArchiveFeed_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskyServer).ArchiveFeed(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Tasky_ArchiveFeed_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskyServer).ArchiveFeed(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Tasky_DeleteArchivedFeed_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskyServer).DeleteArchivedFeed(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Tasky_DeleteArchivedFeed_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskyServer).DeleteArchivedFeed(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Tasky_GetSetting_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SettingRequest)
 	if err := dec(in); err != nil {
@@ -2866,6 +3108,34 @@ var Tasky_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteTag",
 			Handler:    _Tasky_DeleteTag_Handler,
+		},
+		{
+			MethodName: "SetTaskDates",
+			Handler:    _Tasky_SetTaskDates_Handler,
+		},
+		{
+			MethodName: "SetSubtaskDates",
+			Handler:    _Tasky_SetSubtaskDates_Handler,
+		},
+		{
+			MethodName: "ListFeed",
+			Handler:    _Tasky_ListFeed_Handler,
+		},
+		{
+			MethodName: "MarkFeedRead",
+			Handler:    _Tasky_MarkFeedRead_Handler,
+		},
+		{
+			MethodName: "FeedUnreadCount",
+			Handler:    _Tasky_FeedUnreadCount_Handler,
+		},
+		{
+			MethodName: "ArchiveFeed",
+			Handler:    _Tasky_ArchiveFeed_Handler,
+		},
+		{
+			MethodName: "DeleteArchivedFeed",
+			Handler:    _Tasky_DeleteArchivedFeed_Handler,
 		},
 		{
 			MethodName: "GetSetting",

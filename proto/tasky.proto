@@ -22,6 +22,8 @@ message Task {
   int64 created_at = 6;
   optional int64 completed_at = 7;
   int32 sub_count = 8;
+  optional int64 due_date = 9;
+  optional int64 schedule_date = 10;
 }
 
 message SubtaskWithTime {
@@ -35,6 +37,8 @@ message SubtaskWithTime {
   optional int64 completed_at = 8;
   int64 total_seconds = 9;
   optional int64 active_since = 10;
+  optional int64 due_date = 11;
+  optional int64 schedule_date = 12;
 }
 
 message TimeEntry {
@@ -436,6 +440,39 @@ message TagsByTasksRequest {
   repeated int64 task_ids = 1;
 }
 
+message FeedItem {
+  int64 id = 1;
+  string kind = 2;
+  string title = 3;
+  string body = 4;
+  optional int64 ref_task_id = 5;
+  optional int64 ref_subtask_id = 6;
+  string dedup_key = 7;
+  int64 created_at = 8;
+  bool is_read = 9;
+  bool is_archived = 10;
+}
+
+message FeedFilter {
+  string kind = 1;
+  bool unread_only = 2;
+  bool include_archived = 3;
+}
+
+message FeedItemListResponse {
+  repeated FeedItem items = 1;
+}
+
+message CountResponse {
+  int64 count = 1;
+}
+
+message TaskDatesRequest {
+  int64 id = 1;
+  optional int64 due_date = 2;
+  optional int64 schedule_date = 3;
+}
+
 // Tasky — тонкий CRUD-сервис, зеркало интерфейса store.Store.
 service Tasky {
   // Проекты.
@@ -526,6 +563,17 @@ service Tasky {
   rpc CreateTag(TagRequest) returns (TagResponse);
   rpc UpdateTag(TagUpdateRequest) returns (Empty);
   rpc DeleteTag(IDRequest) returns (Empty);
+
+  // Сроки.
+  rpc SetTaskDates(TaskDatesRequest) returns (Empty);
+  rpc SetSubtaskDates(TaskDatesRequest) returns (Empty);
+
+  // Лента.
+  rpc ListFeed(FeedFilter) returns (FeedItemListResponse);
+  rpc MarkFeedRead(IDRequest) returns (Empty);
+  rpc FeedUnreadCount(Empty) returns (CountResponse);
+  rpc ArchiveFeed(Empty) returns (CountResponse);
+  rpc DeleteArchivedFeed(Empty) returns (CountResponse);
 
   // Настройки.
   rpc GetSetting(SettingRequest) returns (GetSettingResponse);

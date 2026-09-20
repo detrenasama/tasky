@@ -21,6 +21,8 @@ func NewSQLite(conn *sql.DB) *SQLite {
 	return &SQLite{conn: conn}
 }
 
+func (s *SQLite) DB() *sql.DB { return s.conn }
+
 func (s *SQLite) Projects() ([]db.Project, error) { return db.Projects(s.conn) }
 func (s *SQLite) CreateProject(name string) (db.Project, error) {
 	return db.CreateProject(s.conn, name)
@@ -204,6 +206,24 @@ func (s *SQLite) UpdateTag(id, typeID int64, text, url string) error {
 	return db.UpdateTag(s.conn, id, typeID, text, url)
 }
 func (s *SQLite) DeleteTag(id int64) error { return db.DeleteTag(s.conn, id) }
+
+func (s *SQLite) SetTaskDates(id int64, due, sched *time.Time) error {
+	return db.SetTaskDates(s.conn, id, due, sched)
+}
+func (s *SQLite) SetSubtaskDates(id int64, due, sched *time.Time) error {
+	return db.SetSubtaskDates(s.conn, id, due, sched)
+}
+
+func (s *SQLite) FeedItems(filter db.FeedFilter) ([]db.FeedItem, error) {
+	return db.ListFeed(s.conn, filter)
+}
+func (s *SQLite) MarkFeedRead(id int64) error   { return db.MarkFeedRead(s.conn, id) }
+func (s *SQLite) FeedUnreadCount() (int, error) { return db.FeedUnreadCount(s.conn) }
+func (s *SQLite) ArchiveFeed() (int, error) {
+	cutoff := time.Now().AddDate(0, 0, -7)
+	return db.ArchiveFeedBefore(s.conn, cutoff)
+}
+func (s *SQLite) DeleteArchivedFeed() (int, error) { return db.DeleteArchivedFeed(s.conn) }
 
 func (s *SQLite) GetSetting(key string) (string, bool, error) { return db.GetSetting(s.conn, key) }
 func (s *SQLite) SetSetting(key, value string) error          { return db.SetSetting(s.conn, key, value) }

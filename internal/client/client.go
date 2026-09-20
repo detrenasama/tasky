@@ -749,6 +749,85 @@ func (c *Client) DeleteTag(id int64) error {
 	return rpc.StatusToDBError(err)
 }
 
+func (c *Client) SetTaskDates(id int64, due, sched *time.Time) error {
+	ctx, cancel := callCtx()
+	defer cancel()
+	req := &rpc.TaskDatesRequest{Id: id}
+	if due != nil {
+		v := due.Unix()
+		req.DueDate = &v
+	}
+	if sched != nil {
+		v := sched.Unix()
+		req.ScheduleDate = &v
+	}
+	_, err := c.rpc.SetTaskDates(ctx, req)
+	return rpc.StatusToDBError(err)
+}
+
+func (c *Client) SetSubtaskDates(id int64, due, sched *time.Time) error {
+	ctx, cancel := callCtx()
+	defer cancel()
+	req := &rpc.TaskDatesRequest{Id: id}
+	if due != nil {
+		v := due.Unix()
+		req.DueDate = &v
+	}
+	if sched != nil {
+		v := sched.Unix()
+		req.ScheduleDate = &v
+	}
+	_, err := c.rpc.SetSubtaskDates(ctx, req)
+	return rpc.StatusToDBError(err)
+}
+
+func (c *Client) FeedItems(filter db.FeedFilter) ([]db.FeedItem, error) {
+	ctx, cancel := callCtx()
+	defer cancel()
+	resp, err := c.rpc.ListFeed(ctx, &rpc.FeedFilter{Kind: filter.Kind, UnreadOnly: filter.UnreadOnly, IncludeArchived: filter.IncludeArchived})
+	if err != nil {
+		return nil, rpc.StatusToDBError(err)
+	}
+	return rpc.FromFeedItems(resp.Items), nil
+}
+
+func (c *Client) MarkFeedRead(id int64) error {
+	ctx, cancel := callCtx()
+	defer cancel()
+	_, err := c.rpc.MarkFeedRead(ctx, &rpc.IDRequest{Id: id})
+	return rpc.StatusToDBError(err)
+}
+
+func (c *Client) FeedUnreadCount() (int, error) {
+	ctx, cancel := callCtx()
+	defer cancel()
+	resp, err := c.rpc.FeedUnreadCount(ctx, &rpc.Empty{})
+	if err != nil {
+		return 0, rpc.StatusToDBError(err)
+	}
+	return int(resp.Count), nil
+}
+
+func (c *Client) ArchiveFeed() (int, error) {
+	ctx, cancel := callCtx()
+	defer cancel()
+	resp, err := c.rpc.ArchiveFeed(ctx, &rpc.Empty{})
+	if err != nil {
+		return 0, rpc.StatusToDBError(err)
+	}
+	return int(resp.Count), nil
+}
+
+func (c *Client) DeleteArchivedFeed() (int, error) {
+	ctx, cancel := callCtx()
+	defer cancel()
+	resp, err := c.rpc.DeleteArchivedFeed(ctx, &rpc.Empty{})
+	if err != nil {
+		return 0, rpc.StatusToDBError(err)
+	}
+	return int(resp.Count), nil
+}
+
 // --- Настройки ---
 
 func (c *Client) GetSetting(key string) (string, bool, error) {

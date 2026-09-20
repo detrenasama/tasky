@@ -105,6 +105,17 @@ type Store interface {
 	UpdateTag(id, typeID int64, text, url string) error
 	DeleteTag(id int64) error
 
+	// Сроки задач/подзадач.
+	SetTaskDates(id int64, due, sched *time.Time) error
+	SetSubtaskDates(id int64, due, sched *time.Time) error
+
+	// Лента новостей.
+	FeedItems(filter db.FeedFilter) ([]db.FeedItem, error)
+	MarkFeedRead(id int64) error
+	FeedUnreadCount() (int, error)
+	ArchiveFeed() (int, error)
+	DeleteArchivedFeed() (int, error)
+
 	// Настройки.
 	GetSetting(key string) (string, bool, error)
 	SetSetting(key, value string) error

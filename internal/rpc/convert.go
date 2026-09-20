@@ -44,6 +44,12 @@ func ToTask(t db.Task) *Task {
 	if t.CompletedAt != nil {
 		p.CompletedAt = Int64Ptr(t.CompletedAt.Unix())
 	}
+	if t.DueDate != nil {
+		p.DueDate = Int64Ptr(t.DueDate.Unix())
+	}
+	if t.ScheduleDate != nil {
+		p.ScheduleDate = Int64Ptr(t.ScheduleDate.Unix())
+	}
 	return p
 }
 
@@ -54,6 +60,14 @@ func FromTask(t *Task) db.Task {
 	if t.CompletedAt != nil {
 		c := time.Unix(*t.CompletedAt, 0)
 		out.CompletedAt = &c
+	}
+	if t.DueDate != nil {
+		c := time.Unix(*t.DueDate, 0)
+		out.DueDate = &c
+	}
+	if t.ScheduleDate != nil {
+		c := time.Unix(*t.ScheduleDate, 0)
+		out.ScheduleDate = &c
 	}
 	return out
 }
@@ -84,6 +98,12 @@ func ToSubtask(s db.SubtaskWithTime) *SubtaskWithTime {
 	if s.ActiveSince != nil {
 		p.ActiveSince = Int64Ptr(*s.ActiveSince)
 	}
+	if s.DueDate != nil {
+		p.DueDate = Int64Ptr(s.DueDate.Unix())
+	}
+	if s.ScheduleDate != nil {
+		p.ScheduleDate = Int64Ptr(s.ScheduleDate.Unix())
+	}
 	return p
 }
 
@@ -97,6 +117,14 @@ func FromSubtask(s *SubtaskWithTime) db.SubtaskWithTime {
 	}
 	if s.ActiveSince != nil {
 		out.ActiveSince = s.ActiveSince
+	}
+	if s.DueDate != nil {
+		c := time.Unix(*s.DueDate, 0)
+		out.DueDate = &c
+	}
+	if s.ScheduleDate != nil {
+		c := time.Unix(*s.ScheduleDate, 0)
+		out.ScheduleDate = &c
 	}
 	return out
 }
@@ -481,6 +509,50 @@ func FromChecklistCounts(r *ChecklistCountsResponse) map[int64][2]int {
 	out := make(map[int64][2]int, len(r.GetDone()))
 	for id, done := range r.GetDone() {
 		out[id] = [2]int{int(done), int(r.GetTotal()[id])}
+	}
+	return out
+}
+
+func ToFeedItem(it db.FeedItem) *FeedItem {
+	p := &FeedItem{Id: it.ID, Kind: it.Kind, Title: it.Title, Body: it.Body,
+		DedupKey: it.DedupKey, CreatedAt: it.CreatedAt.Unix(),
+		IsRead: it.IsRead, IsArchived: it.IsArchived}
+	if it.RefTaskID != nil {
+		p.RefTaskId = Int64Ptr(*it.RefTaskID)
+	}
+	if it.RefSubtaskID != nil {
+		p.RefSubtaskId = Int64Ptr(*it.RefSubtaskID)
+	}
+	return p
+}
+
+func FromFeedItem(it *FeedItem) db.FeedItem {
+	out := db.FeedItem{ID: it.Id, Kind: it.Kind, Title: it.Title, Body: it.Body,
+		DedupKey: it.DedupKey, CreatedAt: time.Unix(it.CreatedAt, 0),
+		IsRead: it.IsRead, IsArchived: it.IsArchived}
+	if it.RefTaskId != nil {
+		v := *it.RefTaskId
+		out.RefTaskID = &v
+	}
+	if it.RefSubtaskId != nil {
+		v := *it.RefSubtaskId
+		out.RefSubtaskID = &v
+	}
+	return out
+}
+
+func ToFeedItems(items []db.FeedItem) []*FeedItem {
+	out := make([]*FeedItem, len(items))
+	for i, it := range items {
+		out[i] = ToFeedItem(it)
+	}
+	return out
+}
+
+func FromFeedItems(items []*FeedItem) []db.FeedItem {
+	out := make([]db.FeedItem, len(items))
+	for i, it := range items {
+		out[i] = FromFeedItem(it)
 	}
 	return out
 }

@@ -35,6 +35,7 @@ type paletteRow struct {
 // доступна всегда, действия — только на экранах задач и проектов.
 func (m *model) paletteGroups() []cmdGroup {
 	nav := cmdGroup{name: "Навигация", cmds: []cmdItem{
+		{title: "Лента", keys: "", run: func(m *model) { m.switchScreen(screenFeed) }},
 		{title: "Задачи", keys: "ctrl+t", run: func(m *model) { m.switchScreen(screenTasks) }},
 		{title: "Проекты", keys: "ctrl+p", run: func(m *model) { m.switchScreen(screenProjects) }},
 		{title: "Отчеты", keys: "ctrl+r", run: func(m *model) {
@@ -54,6 +55,7 @@ func (m *model) paletteGroups() []cmdGroup {
 			{title: "Новая задача", keys: "n", run: func(m *model) { m.tasks.startNewTask() }},
 			{title: "Новая подзадача", keys: "a", run: func(m *model) { m.tasks.startNewSubtask() }},
 			{title: "Изменить название", keys: "e", run: func(m *model) { m.tasks.startEditTitle() }},
+			{title: "Срок и план", keys: "", run: func(m *model) { m.openTaskDates() }},
 			{title: "Изменить описание", keys: "enter", run: func(m *model) { m.tasks.startEditDescription() }},
 			{title: "Удалить задачу", keys: "d", run: func(m *model) { m.tasks.startDelete() }},
 			{title: "Чеклист", keys: "i", run: func(m *model) { m.tasks.openChecklist() }},

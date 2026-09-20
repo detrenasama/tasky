@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/detrenasama/tasky/internal/feed"
 	"github.com/detrenasama/tasky/internal/store"
 	"github.com/detrenasama/tasky/internal/ui/theme"
 	"github.com/detrenasama/tasky/internal/update"
@@ -18,7 +19,8 @@ import (
 type screen int
 
 const (
-	screenTasks screen = iota
+	screenFeed screen = iota
+	screenTasks
 	screenProjects
 	screenReports
 	screenSettings
@@ -40,6 +42,7 @@ type sidebarItem struct {
 // патченый шрифт Nerd Font; при его отсутствии glyph можно заменить на
 // буквы T/P/R/S.
 var sidebarItems = []sidebarItem{
+	{screenFeed, "\uf1ea"},     // nf-fa-newspaper
 	{screenTasks, "\uf0ae"},    // nf-fa-tasks
 	{screenProjects, "\uf07b"}, // nf-fa-folder
 	{screenReports, "\uf080"},  // nf-fa-bar_chart
@@ -50,8 +53,9 @@ var sidebarItems = []sidebarItem{
 // Каждая вкладка — блок 5×3 со значком по центру (по 2 пробела с каждой
 // стороны от одноширинного значка); активная залита фоном Selection,
 // остальные — фоном Panel; строки ниже последней вкладки продолжают панель
-// тем же фоном.
-func sidebarView(cur screen, h int) string {
+// тем же фоном. unread — число непрочитанных в ленте, рисует красную точку
+// в правом верхнем углу таба ленты.
+func sidebarView(cur screen, h int, unread int) string {
 	const sideW = 5
 	lines := make([]string, max(h, 0))
 	for i := range lines {
@@ -72,6 +76,11 @@ func sidebarView(cur screen, h int) string {
 			if r == top+1 {
 				cell = "  " + it.glyph + "  "
 			}
+			// красная точка на ленте
+			if it.scr == screenFeed && unread > 0 && r == top {
+				// правый верхний угол (колонка 4)
+				cell = "    " + theme.ErrorStyle.Render("●")
+			}
 			lines[r] = st.Render(cell)
 		}
 	}
@@ -86,10 +95,14 @@ type model struct {
 	width  int
 	height int
 
+	feed     *feedScreen
 	tasks    *tasksScreen
 	proj     *projectsScreen
 	reports  *reportsScreen
 	settings *settingsScreen
+
+	unreadFeed int
+	modal      ModalHost
 
 	// quitting — подтверждение выхода при запущенном учёте времени;
 	// quitTitle — название подзадачи с идущим временем.
@@ -117,7 +130,9 @@ type model struct {
 // загрузка данных. dataDir — корень данных (база, отчёты по умолчанию);
 // version — версия сборки.
 func New(st store.Store, dataDir, version string) *model {
-	m := &model{store: st, version: version}
+	m := &model{store: st, version: version, screen: screenFeed}
+	m.feed = newFeedScreen(st)
+	m.feed.load()
 	m.tasks = newTasksScreen(st)
 	m.tasks.now = time.Now()
 	m.tasks.load()
@@ -127,6 +142,9 @@ func New(st store.Store, dataDir, version string) *model {
 	m.reports = newReportsScreen(st, repCfg)
 	m.reports.load()
 	m.settings = newSettingsScreen(st, repCfg)
+	if n, _ := st.FeedUnreadCount(); n >= 0 {
+		m.unreadFeed = n
+	}
 	pi := textinput.New()
 	pi.Placeholder = "поиск команд…"
 	pi.Prompt = "> "
@@ -170,10 +188,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// нижние/правые строки колонок (в т.ч. описания) усекаются.
 		innerW := m.width - sideW - rightW - 4
 		innerH := m.height - 5
-		m.tasks.resize(innerW, innerH)
-		m.proj.resize(innerW, innerH)
-		m.reports.resize(innerW, innerH)
-		m.settings.resize(innerW, innerH)
+		if m.feed != nil {
+			m.feed.resize(innerW, innerH)
+		}
+		if m.tasks != nil {
+			m.tasks.resize(innerW, innerH)
+		}
+		if m.proj != nil {
+			m.proj.resize(innerW, innerH)
+		}
+		if m.reports != nil {
+			m.reports.resize(innerW, innerH)
+		}
+		if m.settings != nil {
+			m.settings.resize(innerW, innerH)
+		}
 		return m, nil
 	case editReturnMsg:
 		if m.screen == screenProjects {
@@ -208,6 +237,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.reportConfirm = false
 			}
 			return m, nil
+		}
+		if m.modal.Active() {
+			cmd := m.modal.Update(msg)
+			return m, cmd
 		}
 		if m.paletteOpen {
 			return m.updatePalette(msg)
@@ -265,12 +298,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.openPalette()
 				return m, nil
 			case "alt+1":
-				m.switchScreen(screenTasks)
+				m.switchScreen(screenFeed)
 				return m, nil
 			case "alt+2":
-				m.switchScreen(screenProjects)
+				m.switchScreen(screenTasks)
 				return m, nil
 			case "alt+3":
+				m.switchScreen(screenProjects)
+				return m, nil
+			case "alt+4":
 				if run, err := m.store.RunningSession(); err == nil && run != nil {
 					m.reportConfirm = true
 					m.reportTitle = run.Title
@@ -278,10 +314,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.switchScreen(screenReports)
 				return m, nil
-			case "alt+4":
+			case "alt+5":
 				m.switchScreen(screenSettings)
 				return m, nil
 			}
+		}
+		if m.screen == screenFeed {
+			return m.updateFeed(msg)
 		}
 		if m.screen == screenTasks {
 			return m.updateTasks(msg)
@@ -295,10 +334,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case tickMsg:
 		now := time.Time(msg)
-		m.tasks.now = now
-		if m.screen == screenTasks {
+		if m.tasks != nil {
+			m.tasks.now = now
+		}
+		if m.screen == screenTasks && m.tasks != nil {
 			m.tasks.today, _ = m.store.TodayTotal(now)
 			m.tasks.weekly, _ = m.store.WeeklyTotal(now)
+		}
+		// feed генерация (раз в секунду проверяем NeedsGenerate)
+		if s, ok := m.store.(*store.SQLite); ok {
+			if feed.NeedsGenerate(s.DB(), now) {
+				_, _ = feed.GenerateDaily(s.DB(), now)
+			}
+		}
+		if n, _ := m.store.FeedUnreadCount(); n != m.unreadFeed {
+			m.unreadFeed = n
+			if m.screen == screenFeed && m.feed != nil {
+				m.feed.load()
+			}
 		}
 		return m, tea.Tick(time.Second, tickCmd)
 	case updateMsg:
@@ -306,38 +359,164 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			update.Compare(string(msg), m.version) > 0 {
 			m.updateVer = string(msg)
 			m.tasks.updateVer = string(msg)
+			if s, ok := m.store.(*store.SQLite); ok {
+				_, _ = feed.GenerateUpdate(s.DB(), string(msg), "", time.Now())
+			}
+			if n, _ := m.store.FeedUnreadCount(); n >= 0 {
+				m.unreadFeed = n
+			}
 		}
 		return m, nil
 	}
 	return m, nil
 }
 
+func (m *model) updateFeed(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.feed == nil {
+		return m, nil
+	}
+	// delegate
+	_, cmd := m.feed.updateFeed(msg)
+	// after update, check unread changed
+	if sel := m.feed.selected(); sel != nil && !sel.IsRead {
+		// selected changed inside updateFeed already marked read
+	}
+	if n, _ := m.store.FeedUnreadCount(); n >= 0 {
+		m.unreadFeed = n
+	}
+	return m, cmd
+}
+
+func (m *model) openTaskDates() {
+	kind, id := m.tasks.selectedKindID()
+	if id == 0 {
+		return
+	}
+	var dueStr, schedStr string
+	if kind == kindTask {
+		for _, t := range m.tasks.tasks {
+			if t.ID == id {
+				if t.DueDate != nil {
+					dueStr = t.DueDate.Format("02.01.2006")
+				}
+				if t.ScheduleDate != nil {
+					schedStr = t.ScheduleDate.Format("02.01.2006")
+				}
+				break
+			}
+		}
+	} else {
+		for _, st := range m.tasks.subs {
+			if st.ID == id {
+				if st.DueDate != nil {
+					dueStr = st.DueDate.Format("02.01.2006")
+				}
+				if st.ScheduleDate != nil {
+					schedStr = st.ScheduleDate.Format("02.01.2006")
+				}
+				break
+			}
+		}
+	}
+	form := NewForm("Срок и план", []Field{
+		{Key: "due", Label: "Срок (ДД.ММ.ГГГГ)", Value: dueStr, Placeholder: "пусто — без срока", Width: 30},
+		{Key: "sched", Label: "Запланировано (ДД.ММ.ГГГГ)", Value: schedStr, Placeholder: "пусто — без плана", Width: 30},
+	}, func(vals map[string]string) (bool, error) {
+		due, err := parseDateField(vals["due"])
+		if err != nil {
+			return true, err
+		}
+		sched, err := parseDateField(vals["sched"])
+		if err != nil {
+			return true, err
+		}
+		var e error
+		if kind == kindTask {
+			e = m.store.SetTaskDates(id, due, sched)
+		} else {
+			e = m.store.SetSubtaskDates(id, due, sched)
+		}
+		if e != nil {
+			return true, e
+		}
+		m.tasks.load()
+		return false, nil
+	})
+	m.modal.Show(form)
+}
+
+func parseDateField(s string) (*time.Time, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil, nil
+	}
+	// layout "2.1.2006" accepts without leading zeros, like reports custom period
+	t, err := time.Parse("2.1.2006", s)
+	if err != nil {
+		return nil, fmt.Errorf("неверный формат даты %q, ожидается ДД.ММ.ГГГГ", s)
+	}
+	// normalize to 00:00 local
+	nd := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.Local)
+	return &nd, nil
+}
+
 func (m *model) modalOpen() bool {
+	if m.modal.Active() {
+		return true
+	}
 	if m.settings != nil && m.settings.mode != settingsBrowse {
 		return true
 	}
-	return m.tasks.mode != taskBrowse || m.proj.mode != projBrowse
+	if m.tasks != nil && m.tasks.mode != taskBrowse {
+		return true
+	}
+	if m.proj != nil && m.proj.mode != projBrowse {
+		return true
+	}
+	return false
 }
 
 // retheme пересобирает стили делегатов списков после смены темы (панели и
 // модалки читают стили на рендере, им обновление не нужно).
 func (m *model) retheme() {
-	m.tasks.retheme()
-	m.proj.retheme()
+	if m.feed != nil {
+		m.feed.retheme()
+	}
+	if m.tasks != nil {
+		m.tasks.retheme()
+	}
+	if m.proj != nil {
+		m.proj.retheme()
+	}
 }
 
 // switchScreen переключает страницу и подгружает её данные.
 func (m *model) switchScreen(s screen) {
 	m.screen = s
 	switch s {
+	case screenFeed:
+		if m.feed != nil {
+			m.feed.load()
+		}
 	case screenTasks:
-		m.tasks.load()
+		if m.tasks != nil {
+			m.tasks.load()
+		}
 	case screenProjects:
-		m.proj.load()
+		if m.proj != nil {
+			m.proj.load()
+		}
 	case screenReports:
-		m.reports.load()
+		if m.reports != nil {
+			m.reports.load()
+		}
 	case screenSettings:
-		m.settings.load()
+		if m.settings != nil {
+			m.settings.load()
+		}
+	}
+	if n, _ := m.store.FeedUnreadCount(); n >= 0 {
+		m.unreadFeed = n
 	}
 }
 
@@ -356,6 +535,18 @@ func (m model) View() string {
 	var dlg string
 	var modalOpen bool
 	switch m.screen {
+	case screenFeed:
+		if m.feed != nil {
+			mid = m.feed.view(centralW-4, midH-4)
+			footer = m.feed.footer(centralW)
+			rightMid = m.feed.rightContent(midH - 1)
+			dlg, modalOpen = m.feed.dialog()
+		} else {
+			mid = m.tasks.view(centralW-4, midH-4)
+			footer = m.tasks.footer(centralW)
+			rightMid = m.tasks.rightContent(midH - 1)
+			dlg, modalOpen = m.tasks.dialog()
+		}
 	case screenProjects:
 		mid = m.proj.view(centralW-4, midH-4)
 		footer = m.proj.footer(centralW)
@@ -395,7 +586,7 @@ func (m model) View() string {
 	footLine := padW(truncateW(styleHints(footer), footLeftW), footLeftW) + footRight
 	footPanel := renderPane(boxStyle, padLines(footLine, footInnerW, 1))
 
-	sbLines := strings.Split(sidebarView(m.screen, h), "\n")
+	sbLines := strings.Split(sidebarView(m.screen, h, m.unreadFeed), "\n")
 	railLines := strings.Split(rightRail(m.version, rightW, h, rightMid), "\n")
 	midLines := strings.Split(mid, "\n")
 	footLines := strings.Split(footPanel, "\n")
@@ -432,6 +623,10 @@ func (m model) View() string {
 		if d != "" {
 			full = overlay(full, d, w, h, 0)
 		}
+	}
+	if m.modal.Active() {
+		d := m.modal.View()
+		full = overlay(full, d, w, h, dialogMaxW(w))
 	}
 	if m.quitting {
 		d := dialog{

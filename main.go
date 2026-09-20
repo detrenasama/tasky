@@ -9,12 +9,14 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/charmbracelet/bubbletea"
 
 	"github.com/detrenasama/tasky/internal/browser"
 	"github.com/detrenasama/tasky/internal/client"
 	"github.com/detrenasama/tasky/internal/db"
+	"github.com/detrenasama/tasky/internal/feed"
 	"github.com/detrenasama/tasky/internal/server"
 	"github.com/detrenasama/tasky/internal/store"
 	"github.com/detrenasama/tasky/internal/ui"
@@ -141,6 +143,10 @@ func runDefault(args []string) int {
 
 	st, closeDB := openServerDB(dir)
 	defer closeDB()
+	// генерация ленты при старте (если нужно)
+	if feed.NeedsGenerate(st.DB(), time.Now()) {
+		_, _ = feed.GenerateDaily(st.DB(), time.Now())
+	}
 	lis, err := server.Listen(sp)
 	if err != nil {
 		log.Fatalf("не удалось открыть сокет %s: %v", sp, err)
@@ -181,6 +187,9 @@ func runServeInner(args []string, openBrowser bool) int {
 
 	st, closeDB := openServerDB(dir)
 	defer closeDB()
+	if feed.NeedsGenerate(st.DB(), time.Now()) {
+		_, _ = feed.GenerateDaily(st.DB(), time.Now())
+	}
 	lis, err := server.Listen(sp)
 	if err != nil {
 		if errors.Is(err, server.ErrAlreadyRunning) {
@@ -190,6 +199,24 @@ func runServeInner(args []string, openBrowser bool) int {
 	}
 	defer os.Remove(sp)
 	gs := server.Serve(lis, st)
+
+	// фоновая генерация ленты (утренний тик 06:00, архивация)
+	doneFeed := make(chan struct{})
+	go func() {
+		tk := time.NewTicker(time.Minute)
+		defer tk.Stop()
+		for {
+			select {
+			case <-tk.C:
+				if feed.NeedsGenerate(st.DB(), time.Now()) {
+					_, _ = feed.GenerateDaily(st.DB(), time.Now())
+				}
+			case <-doneFeed:
+				return
+			}
+		}
+	}()
+	defer close(doneFeed)
 
 	hs := startHTTP(args, st)
 	fmt.Printf("Сервер Tasky слушает: %s\n", sp)

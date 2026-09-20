@@ -31,6 +31,17 @@ func (s *tasksScreen) infoTop(topH int) string {
 		}
 		body = append(body, st.Title)
 		body = append(body, theme.Faint("Статус: ")+s.statusText(st.Status))
+		if st.DueDate != nil {
+			dStr := st.DueDate.Format("02.01.2006")
+			label := theme.Faint("Срок: ") + dStr
+			if isOverdue(*st.DueDate, st.Status, s.now) {
+				label = theme.ErrorStyle.Render("Срок: " + dStr + " (просрочено)")
+			}
+			body = append(body, label)
+		}
+		if st.ScheduleDate != nil {
+			body = append(body, theme.Faint("Запланировано: ")+st.ScheduleDate.Format("02.01.2006"))
+		}
 		total := time.Duration(st.TotalSeconds) * time.Second
 		if st.ActiveSince != nil {
 			total += s.now.Sub(time.Unix(*st.ActiveSince, 0))
@@ -77,6 +88,17 @@ func (s *tasksScreen) infoTop(topH int) string {
 		}
 		body = append(body, t.Title)
 		body = append(body, theme.Faint("Статус: ")+s.statusText(t.Status))
+		if t.DueDate != nil {
+			dStr := t.DueDate.Format("02.01.2006")
+			label := theme.Faint("Срок: ") + dStr
+			if isOverdue(*t.DueDate, t.Status, s.now) {
+				label = theme.ErrorStyle.Render("Срок: " + dStr + " (просрочено)")
+			}
+			body = append(body, label)
+		}
+		if t.ScheduleDate != nil {
+			body = append(body, theme.Faint("Запланировано: ")+t.ScheduleDate.Format("02.01.2006"))
+		}
 		plural := "подзадач"
 		if t.SubCount == 1 {
 			plural = "подзадача"
@@ -139,6 +161,7 @@ func (s *tasksScreen) historyLines() []string {
 	}
 	return body
 }
+
 // visibleChecklist фильтрует чек-лист для правой панели: new/in_progress всегда,
 // done/cancelled — только если статус изменён сегодня или вчера (локальное время).
 func visibleChecklist(items []db.ChecklistItem, now time.Time) []db.ChecklistItem {
@@ -167,6 +190,12 @@ func entryLine(e db.TimeEntry, now time.Time) string {
 	}
 	d := time.Duration(e.EndedAt.Sub(e.StartedAt))
 	return start + "–" + e.EndedAt.Format("15:04") + " · " + fmtDur(d)
+}
+
+func isOverdue(due time.Time, status string, now time.Time) bool {
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	dueDay := time.Date(due.Year(), due.Month(), due.Day(), 0, 0, 0, 0, due.Location())
+	return dueDay.Before(today)
 }
 
 func (s *tasksScreen) infoBottom() string {

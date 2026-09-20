@@ -16,7 +16,7 @@ import (
 func TestSidebarView(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.ANSI256)
 	const h = 30
-	view := sidebarView(screenProjects, h)
+	view := sidebarView(screenProjects, h, 0)
 	lines := strings.Split(view, "\n")
 	if len(lines) != h {
 		t.Errorf("строк %d, ожидалось %d", len(lines), h)

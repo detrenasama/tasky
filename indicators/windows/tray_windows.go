@@ -3,6 +3,8 @@
 package main
 
 import (
+	"time"
+
 	"github.com/getlantern/systray"
 )
 
@@ -21,24 +23,72 @@ func onReady() {
 	mOpen := systray.AddMenuItem("Открыть в браузере", "Открыть веб-интерфейс")
 	mQuit := systray.AddMenuItem("Выход", "Выйти из индикатора")
 
-	mStop.Disable()
+	// Синхронизация меню с реальным состоянием сервера (HTTP + owned).
+	syncMenu := func() {
+		reachable := serverReachable()
+		owned := serverCmd != nil && serverCmd.Process != nil
+		canStart := !reachable && !owned
+		canStop := reachable && owned
+		if canStart {
+			mStart.Enable()
+		} else {
+			mStart.Disable()
+		}
+		if canStop {
+			mStop.Enable()
+		} else {
+			mStop.Disable()
+		}
+	}
+
+	// Первичная синхронизация — если сервер уже запущен извне (консоль),
+	// сразу покажем правильное состояние.
+	syncMenu()
+
+	// Фондовый опрос — раз в секунду, как в GNOME extension.js:19.
+	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+		for range ticker.C {
+			syncMenu()
+		}
+	}()
 
 	go func() {
 		for {
 			select {
 			case <-mStart.ClickedCh:
-				if err := startServer(); err == nil {
-					mStart.Disable()
-					mStop.Enable()
-				} else {
+				if err := startServer(); err != nil {
 					systray.SetTooltip("Tasky: " + err.Error())
 				}
-			case <-mStop.ClickedCh:
-				if err := stopServer(); err == nil {
-					mStop.Disable()
+				// Состояние обновится на следующем тике; форсируем.
+				reachable := serverReachable()
+				owned := serverCmd != nil && serverCmd.Process != nil
+				if !reachable && !owned {
 					mStart.Enable()
 				} else {
+					mStart.Disable()
+				}
+				if reachable && owned {
+					mStop.Enable()
+				} else {
+					mStop.Disable()
+				}
+			case <-mStop.ClickedCh:
+				if err := stopServer(); err != nil {
 					systray.SetTooltip("Tasky: " + err.Error())
+				}
+				reachable := serverReachable()
+				owned := serverCmd != nil && serverCmd.Process != nil
+				if !reachable && !owned {
+					mStart.Enable()
+				} else {
+					mStart.Disable()
+				}
+				if reachable && owned {
+					mStop.Enable()
+				} else {
+					mStop.Disable()
 				}
 			case <-mOpen.ClickedCh:
 				if err := openBrowser(); err != nil {

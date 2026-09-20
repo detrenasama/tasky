@@ -112,6 +112,27 @@ func (m *model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			s.mode = settingsBrowse
 		}
 		return m, nil
+	case settingsFeedInput:
+		s.feedInput, _ = s.feedInput.Update(msg)
+		switch msg.String() {
+		case "enter":
+			n, err := parseFeedHour(s.feedInput.Value())
+			if err != nil {
+				s.lastErr = err
+				return m, nil
+			}
+			if err := s.store.SetSetting("feed_gen_hour", strconv.Itoa(n)); err != nil {
+				s.lastErr = err
+				return m, nil
+			}
+			s.feedHour = n
+			s.lastErr = nil
+			s.mode = settingsBrowse
+		case "esc":
+			s.lastErr = nil
+			s.mode = settingsBrowse
+		}
+		return m, nil
 	case settingsStatusList:
 		switch msg.String() {
 		case "up":
@@ -318,9 +339,9 @@ func (m *model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	switch msg.String() {
 	case "up":
-		s.sel = (s.sel + 7) % 8
+		s.sel = (s.sel + 8) % 9
 	case "down":
-		s.sel = (s.sel + 1) % 8
+		s.sel = (s.sel + 1) % 9
 	case "enter":
 		switch s.sel {
 		case 0:
@@ -338,12 +359,16 @@ func (m *model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			s.hideInput.Focus()
 			s.mode = settingsHideInput
 		case 5:
-			s.lastErr = nil
-			s.mode = settingsStatusList
+			s.feedInput.SetValue(strconv.Itoa(s.feedHour))
+			s.feedInput.Focus()
+			s.mode = settingsFeedInput
 		case 6:
 			s.lastErr = nil
-			s.mode = settingsTagTypeList
+			s.mode = settingsStatusList
 		case 7:
+			s.lastErr = nil
+			s.mode = settingsTagTypeList
+		case 8:
 			s.lastErr = nil
 			s.themePick.items = nil
 			for _, n := range theme.Themes() {

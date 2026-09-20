@@ -22,6 +22,7 @@ const (
 	settingsPeriodList
 	settingsPeriodInput
 	settingsHideInput
+	settingsFeedInput
 	settingsStatusList
 	settingsStatusEdit
 	settingsColorPick
@@ -50,7 +51,9 @@ type settingsScreen struct {
 	dirInput    textinput.Model
 	periodInput textinput.Model
 	hideInput   textinput.Model
+	feedInput   textinput.Model
 	hideDays    int
+	feedHour    int
 	projPick    pickList
 	periodPick  pickList
 	lastErr     error
@@ -89,6 +92,9 @@ func newSettingsScreen(st store.Store, cfg *reportConfig) *settingsScreen {
 	s.hideInput = textinput.New()
 	s.hideInput.Placeholder = "7"
 	s.hideInput.Prompt = "> "
+	s.feedInput = textinput.New()
+	s.feedInput.Placeholder = "6"
+	s.feedInput.Prompt = "> "
 	s.projPick.setVisible(12)
 	s.periodPick.setVisible(12)
 	s.statusPick.setVisible(12)
@@ -151,6 +157,7 @@ func (s *settingsScreen) load() {
 	}
 	s.tagTypePick.items = tItems
 	s.hideDays = loadHideDays(s.store)
+	s.feedHour = loadFeedHour(s.store)
 }
 
 // loadHideDays читает порог скрытия завершённых задач из БД (по умолчанию 7).
@@ -164,6 +171,26 @@ func loadHideDays(st store.Store) int {
 		return 7
 	}
 	return n
+}
+
+func loadFeedHour(st store.Store) int {
+	v, ok, err := st.GetSetting("feed_gen_hour")
+	if err != nil || !ok {
+		return 6
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(v))
+	if err != nil || n < 0 || n > 23 {
+		return 6
+	}
+	return n
+}
+
+func parseFeedHour(s string) (int, error) {
+	n, err := strconv.Atoi(strings.TrimSpace(s))
+	if err != nil || n < 0 || n > 23 {
+		return 0, fmt.Errorf("час должен быть 0..23")
+	}
+	return n, nil
 }
 
 func (s *settingsScreen) resize(w, h int) {
@@ -228,6 +255,8 @@ func (s *settingsScreen) hideName() string {
 	return fmt.Sprintf("%d дн", s.hideDays)
 }
 
+func (s *settingsScreen) feedName() string { return fmt.Sprintf("%02d:00", s.feedHour) }
+
 func (s *settingsScreen) view(w, h int) string {
 	rows := []string{
 		"Период:  " + s.periodName(),
@@ -235,6 +264,7 @@ func (s *settingsScreen) view(w, h int) string {
 		"Журнал:  " + boolWord(s.cfg.includeJournal),
 		"Каталог: " + s.dirName(),
 		"Скрытие: " + s.hideName() + " (завершённые)",
+		"Лента:   " + s.feedName(),
 		"Статусы: " + fmt.Sprintf("%d", len(s.statuses)),
 		"Типы тегов: " + fmt.Sprintf("%d", len(s.tagTypes)),
 		"Тема:    " + theme.ActiveName(),

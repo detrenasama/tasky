@@ -42,6 +42,15 @@ func (s *settingsScreen) dialog() (string, bool) {
 			body:    body,
 			primary: "Enter — сохранить", esc: "Esc — отмена"}
 		return d.render(), true
+	case settingsFeedInput:
+		body2 := s.feedInput.View()
+		if s.lastErr != nil {
+			body2 += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
+		}
+		d2 := dialog{title: "Час генерации ленты",
+			body:    body2,
+			primary: "Enter — сохранить · 0..23", esc: "Esc — отмена"}
+		return d2.render(), true
 	case settingsStatusList:
 		body := s.statusPick.view()
 		if s.lastErr != nil {

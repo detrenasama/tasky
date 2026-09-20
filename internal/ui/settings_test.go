@@ -318,11 +318,11 @@ func TestSettingsStatusesManage(t *testing.T) {
 	m.switchScreen(screenSettings)
 	down := func() { m.updateSettings(tea.KeyMsg{Type: tea.KeyDown}) }
 
-	// строка «Статусы» — пятое нажатие вниз (период→проект→журнал→каталог→скрытие→статусы)
-	for i := 0; i < 5; i++ {
+	// строка «Статусы» — (период→проект→журнал→каталог→скрытие→лента→статусы)
+	for i := 0; i < 6; i++ {
 		down()
 	}
-	if m.settings.sel != 5 {
+	if m.settings.sel != 6 {
 		t.Fatalf("sel=%d, ожидался статусы", m.settings.sel)
 	}
 	if !strings.Contains(m.View(), "Статусы: 8") {

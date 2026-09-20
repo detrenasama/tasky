@@ -217,11 +217,11 @@ func TestSettingsTagTypesManage(t *testing.T) {
 	if !strings.Contains(m.View(), "Типы тегов: 2") {
 		t.Error("нет строки «Типы тегов» в настройках")
 	}
-	for i := 0; i < 6; i++ {
+	for i := 0; i < 7; i++ {
 		m.updateSettings(tea.KeyMsg{Type: tea.KeyDown})
 	}
-	if m.settings.sel != 6 {
-		t.Fatalf("sel = %d, ожидался 6", m.settings.sel)
+	if m.settings.sel != 7 {
+		t.Fatalf("sel = %d, ожидался 7", m.settings.sel)
 	}
 	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
 	if m.settings.mode != settingsTagTypeList {

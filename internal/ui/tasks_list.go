@@ -182,7 +182,7 @@ func (s *tasksScreen) buildItems() {
 		s.items = append(s.items, taskItem{t: t, expanded: s.expanded[t.ID], scr: s})
 		if s.expanded[t.ID] {
 			for _, st := range s.subs {
-				if st.TaskID == t.ID {
+				if st.TaskID == t.ID && !s.hiddenSubtaskDue(st) {
 					s.items = append(s.items, subItem{st: st, scr: s})
 				}
 			}
@@ -191,18 +191,34 @@ func (s *tasksScreen) buildItems() {
 	s.finishBuildItems()
 }
 
-// hiddenDue возвращает true, если задачу нужно скрыть: статус завершённого
-// типа, задача завершена hideDays и более дней назад. Поиск (buildSearchItems)
-// фильтр не применяет — скрытые задачи остаются доступны через поиск.
-func (s *tasksScreen) hiddenDue(t db.Task) bool {
-	if s.hideDays <= 0 || t.CompletedAt == nil {
+// hiddenCompleted — общее правило скрытия завершённых элементов: статус
+// завершённого типа и завершение hideDays и более дней назад.
+func (s *tasksScreen) hiddenCompleted(status string, completedAt *time.Time) bool {
+	if s.hideDays <= 0 || completedAt == nil {
 		return false
 	}
-	st, ok := s.statusDef(t.Status)
+	st, ok := s.statusDef(status)
 	if !ok || st.Type != "done" {
 		return false
 	}
-	return s.now.Sub(*t.CompletedAt) >= time.Duration(s.hideDays)*24*time.Hour
+	return s.now.Sub(*completedAt) >= time.Duration(s.hideDays)*24*time.Hour
+}
+
+// hiddenDue возвращает true, если задачу нужно скрыть. Поиск
+// (buildSearchItems) фильтр не применяет — скрытые задачи остаются доступны
+// через поиск.
+func (s *tasksScreen) hiddenDue(t db.Task) bool {
+	return s.hiddenCompleted(t.Status, t.CompletedAt)
+}
+
+// hiddenSubtaskDue возвращает true, если подзадачу нужно скрыть. Подзадача с
+// активной сессией учёта времени не скрывается: иначе таймер пропал бы из
+// списка. Поиск скрытые подзадачи находит (см. buildSearchItems).
+func (s *tasksScreen) hiddenSubtaskDue(st db.SubtaskWithTime) bool {
+	if st.ActiveSince != nil {
+		return false
+	}
+	return s.hiddenCompleted(st.Status, st.CompletedAt)
 }
 
 // buildSearchItems собирает дерево по запросу q (регистронезависимо):

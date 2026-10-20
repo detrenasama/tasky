@@ -5,7 +5,6 @@ import (
 	"github.com/detrenasama/tasky/internal/db"
 	"github.com/detrenasama/tasky/internal/ui/theme"
 	"strings"
-	"time"
 )
 
 func (s *tasksScreen) loadData() {
@@ -385,23 +384,6 @@ func (s *tasksScreen) switchProject(dir int) {
 	}
 	s.projIdx = (s.projIdx + dir + len(s.projects)) % len(s.projects)
 	s.loadData()
-}
-
-func (s *tasksScreen) toggleTimer() {
-	item, ok := s.list.SelectedItem().(subItem)
-	if !ok {
-		return
-	}
-	now := time.Now()
-	if item.st.ActiveSince != nil {
-		s.store.StopSession(item.st.ID, now)
-	} else {
-		s.store.StartSession(item.st.ID, now)
-	}
-	s.now = now
-	s.loadData()
-	s.today, _ = s.store.TodayTotal(now)
-	s.weekly, _ = s.store.WeeklyTotal(now)
 }
 
 func (s *tasksScreen) createItem(kind paneKind, title string) (int64, error) {

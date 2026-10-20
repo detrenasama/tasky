@@ -196,3 +196,52 @@ func (s *tasksScreen) renderTimeEdit() string {
 	}
 	return b.String()
 }
+
+// toggleTimer — ctrl+l: для подзадачи запускает/останавливает её сессию; на
+// задаче запускать нечего, поэтому только останавливаем текущую сессию (если
+// она идёт).
+func (s *tasksScreen) toggleTimer() {
+	now := time.Now()
+	item, ok := s.list.SelectedItem().(subItem)
+	if !ok {
+		if s.stopRunning(now) {
+			s.refreshTimers(now)
+		}
+		return
+	}
+	if item.st.ActiveSince != nil {
+		s.store.StopSession(item.st.ID, now)
+	} else {
+		s.store.StartSession(item.st.ID, now)
+	}
+	s.refreshTimers(now)
+}
+
+// stopTimer — ctrl+k: останавливает текущую сессию учёта времени независимо от
+// того, что выделено в списке.
+func (s *tasksScreen) stopTimer() {
+	now := time.Now()
+	if s.stopRunning(now) {
+		s.refreshTimers(now)
+	}
+}
+
+// stopRunning останавливает активную сессию (она одна на всё приложение) и
+// сообщает, была ли она.
+func (s *tasksScreen) stopRunning(now time.Time) bool {
+	run, err := s.store.RunningSession()
+	if err != nil || run == nil {
+		return false
+	}
+	s.store.StopSession(run.ID, now)
+	return true
+}
+
+// refreshTimers перечитывает данные экрана после старта/остановки сессии:
+// таймеры, записи времени и суммы за сегодня/неделю.
+func (s *tasksScreen) refreshTimers(now time.Time) {
+	s.now = now
+	s.loadData()
+	s.today, _ = s.store.TodayTotal(now)
+	s.weekly, _ = s.store.WeeklyTotal(now)
+}

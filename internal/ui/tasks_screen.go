@@ -178,6 +178,7 @@ type tasksScreen struct {
 	statusTarget *db.StatusDef
 
 	hideDays     int
+	hideSaved    int
 	searchInput  textinput.Model
 	searchQuery  string
 	journalTexts map[int64]string
@@ -330,7 +331,12 @@ func (s *tasksScreen) load() {
 		s.projIdx = 0
 	}
 	s.statuses, _ = s.store.Statuses()
-	s.hideDays = loadHideDays(s.store)
+	// порог скрытия: смена настройки в БД перекрывает сессионное переключение
+	// (ctrl+h), а сам сессионный режим при перезагрузке экрана сохраняется
+	if n := loadHideDays(s.store); n != s.hideSaved {
+		s.hideSaved = n
+		s.hideDays = n
+	}
 	items := make([]pickItem, 0, len(s.statuses))
 	for _, st := range s.statuses {
 		items = append(items, pickItem{value: st.ID, label: st.Name})

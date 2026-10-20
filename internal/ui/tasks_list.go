@@ -191,36 +191,6 @@ func (s *tasksScreen) buildItems() {
 	s.finishBuildItems()
 }
 
-// hiddenCompleted — общее правило скрытия завершённых элементов: статус
-// завершённого типа и завершение hideDays и более дней назад.
-func (s *tasksScreen) hiddenCompleted(status string, completedAt *time.Time) bool {
-	if s.hideDays <= 0 || completedAt == nil {
-		return false
-	}
-	st, ok := s.statusDef(status)
-	if !ok || st.Type != "done" {
-		return false
-	}
-	return s.now.Sub(*completedAt) >= time.Duration(s.hideDays)*24*time.Hour
-}
-
-// hiddenDue возвращает true, если задачу нужно скрыть. Поиск
-// (buildSearchItems) фильтр не применяет — скрытые задачи остаются доступны
-// через поиск.
-func (s *tasksScreen) hiddenDue(t db.Task) bool {
-	return s.hiddenCompleted(t.Status, t.CompletedAt)
-}
-
-// hiddenSubtaskDue возвращает true, если подзадачу нужно скрыть. Подзадача с
-// активной сессией учёта времени не скрывается: иначе таймер пропал бы из
-// списка. Поиск скрытые подзадачи находит (см. buildSearchItems).
-func (s *tasksScreen) hiddenSubtaskDue(st db.SubtaskWithTime) bool {
-	if st.ActiveSince != nil {
-		return false
-	}
-	return s.hiddenCompleted(st.Status, st.CompletedAt)
-}
-
 // buildSearchItems собирает дерево по запросу q (регистронезависимо):
 // задача попадает, если совпадает её название или описание (тогда видны все
 // её подзадачи); подзадача — если совпадает название, описание или текст
@@ -415,56 +385,6 @@ func (s *tasksScreen) switchProject(dir int) {
 	}
 	s.projIdx = (s.projIdx + dir + len(s.projects)) % len(s.projects)
 	s.loadData()
-}
-
-// moveSelected перемещает выбранную задачу/подзадачу на одну позицию
-// (dir = -1 вверх, +1 вниз) и сохраняет выделение.
-func (s *tasksScreen) moveSelected(dir int) {
-	kind, id := s.selectedKindID()
-	if id == 0 {
-		return
-	}
-	switch kind {
-	case kindTask:
-		idx := -1
-		for i, t := range s.tasks {
-			if t.ID == id {
-				idx = i
-				break
-			}
-		}
-		if idx < 0 || idx+dir < 0 || idx+dir >= len(s.tasks) {
-			return
-		}
-		if err := s.store.MoveTask(id, dir); err != nil {
-			s.lastErr = err
-			return
-		}
-	case kindSubtask:
-		parentID := s.selectedTaskID()
-		idx, siblings := -1, 0
-		for _, st := range s.subs {
-			if st.TaskID != parentID {
-				continue
-			}
-			if st.ID == id {
-				idx = siblings
-			}
-			siblings++
-		}
-		if idx < 0 || idx+dir < 0 || idx+dir >= siblings {
-			return
-		}
-		if err := s.store.MoveSubtask(id, dir); err != nil {
-			s.lastErr = err
-			return
-		}
-	}
-	s.lastErr = nil
-	s.loadData()
-	s.selectByKindID(kind, id)
-	s.loadInfo()
-	s.loadDesc()
 }
 
 func (s *tasksScreen) toggleTimer() {

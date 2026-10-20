@@ -164,11 +164,11 @@ func (s *settingsScreen) load() {
 func loadHideDays(st store.Store) int {
 	v, ok, err := st.GetSetting("hide_days")
 	if err != nil || !ok {
-		return 7
+		return defaultHideDays
 	}
 	n, err := strconv.Atoi(strings.TrimSpace(v))
 	if err != nil || n < 0 {
-		return 7
+		return defaultHideDays
 	}
 	return n
 }

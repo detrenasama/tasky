@@ -67,6 +67,9 @@ func (m *model) updateTasksBase(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+l":
 		s.toggleTimer()
 		return m, nil
+	case "ctrl+h":
+		s.toggleHide()
+		return m, nil
 	case "y":
 		if s.focus == taskFocusDesc {
 			if err := copyToClipboard(s.desc); err != nil {

@@ -51,7 +51,11 @@ func (m *model) paletteGroups() []cmdGroup {
 	groups := []cmdGroup{nav}
 	switch m.screen {
 	case screenTasks:
-		groups = append(groups, cmdGroup{name: "Действия", cmds: []cmdItem{
+		hideTitle := "Скрыть выполненные"
+		if m.tasks != nil && m.tasks.hideDays == 0 {
+			hideTitle = "Показать выполненные"
+		}
+		cmds := []cmdItem{
 			{title: "Новая задача", keys: "n", run: func(m *model) { m.tasks.startNewTask() }},
 			{title: "Новая подзадача", keys: "a", run: func(m *model) { m.tasks.startNewSubtask() }},
 			{title: "Изменить название", keys: "e", run: func(m *model) { m.tasks.startEditTitle() }},
@@ -72,8 +76,14 @@ func (m *model) paletteGroups() []cmdGroup {
 			{title: "Открыть ссылки", keys: "o", run: func(m *model) { m.tasks.openLinks() }},
 			{title: "Запись журнала", keys: "ctrl+j", run: func(m *model) { m.tasks.startJournal() }},
 			{title: "Изменить запись", keys: "j", run: func(m *model) { m.tasks.editTodayJournal() }},
+			{title: hideTitle, keys: "ctrl+h", run: func(m *model) { m.tasks.toggleHide() }},
 			{title: "Поиск", keys: "/", run: func(m *model) { m.tasks.startSearch() }},
-		}})
+		}
+		if m.tasks != nil && m.tasks.searchQuery != "" {
+			// при активном поиске перемещение недоступно — не показываем команды
+			cmds = withoutMoveCmds(cmds)
+		}
+		groups = append(groups, cmdGroup{name: "Действия", cmds: cmds})
 	case screenProjects:
 		groups = append(groups, cmdGroup{name: "Действия", cmds: []cmdItem{
 			{title: "Новый проект", keys: "n", run: func(m *model) { m.proj.startNew() }},
@@ -84,6 +94,19 @@ func (m *model) paletteGroups() []cmdGroup {
 		}})
 	}
 	return groups
+}
+
+// withoutMoveCmds убирает команды перемещения (ctrl+up/ctrl+down): при
+// активном поиске они недоступны.
+func withoutMoveCmds(cmds []cmdItem) []cmdItem {
+	out := make([]cmdItem, 0, len(cmds))
+	for _, c := range cmds {
+		if c.keys == "ctrl+up" || c.keys == "ctrl+down" {
+			continue
+		}
+		out = append(out, c)
+	}
+	return out
 }
 
 // paletteVisible — число видимых строк палитры: зависит от высоты экрана.

@@ -7,6 +7,9 @@ import (
 )
 
 func (s *tasksScreen) footer(w int) string {
+	if s.hideDays == 0 {
+		return "Скрытие выполненных выключено · ctrl+h — включить"
+	}
 	// подсказки и заметки (успех/ошибка) рисуются внутри модалки описания
 	// (descModalFooter / renderDescModal), в общей панели подсказок не дублируем
 	return ""
@@ -114,7 +117,14 @@ func (s *tasksScreen) view(w, h int) string {
 	}
 	W := max(colW-leftStyle.GetHorizontalFrameSize(), 0)
 	H := max(s.midH, 1)
-	titleLine := theme.HeaderStyle.Render("Задачи")
+	headerText := theme.HeaderStyle.Render("Задачи")
+	titleLine := headerText
+	if label := s.statusLabel(); label != "" {
+		// серый режим списка после заголовка; обрезаем метку сами, чтобы padW
+		// не обрезал ANSI-последовательность и цвет не тёк в отступ строки
+		avail := max(W-lipgloss.Width(headerText)-3, 1)
+		titleLine += " " + theme.Faint("("+truncateWEnd(label, avail)+")")
+	}
 	if name := s.currentProjectName(); name != "" {
 		projNameStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#ffffff"))
 		right := projNameStyle.Render(name)

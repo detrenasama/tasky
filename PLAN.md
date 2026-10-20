@@ -62,7 +62,9 @@
 
 Фильтр применяется на уровне UI в `buildItems()` (элементы не попадают в список): скрытый элемент остаётся в данных, поэтому полнотекстовый поиск (`/`) его находит, а смена статуса из `done` (очистка `completed_at`) сразу возвращает его в список. Подзадача с активной сессией учёта времени не скрывается. Правая колонка (подзадачи со временем) и отчёты не фильтруются (отчёты — исторические данные). Пересборка списка происходит при `loadData()` — при переключении экрана, смене проекта/статуса/поиска.
 
-Реализация: `internal/db/settings.go` (`GetSetting`/`SetSetting`), таблица `settings` в `schema.go`, `loadHideDays`/`parseHideDays`/модалка `settingsHideInput` в `settings_screen.go`, `hiddenCompleted`/`hiddenDue`/`hiddenSubtaskDue` в `tasks_list.go`, тесты в `internal/db/settings_test.go`, `settings_test.go` и `tasks_test.go` (`TestHideCompletedTasks`).
+Быстрое переключение — `ctrl+h` на экране задач: временно показывает завершённые (`hideDays` 0 ↔ запомненный порог `hideSaved`), настройку `hide_days` не меняет — режим живёт до перезапуска; если в настройках 0, включение берёт порог по умолчанию (7). Текущий режим выводится серым сразу после заголовка «Задачи» (`statusLabel`): `(Активные)` при включённом скрытии, `(Все)` при выключенном, `(Поиск: "…")` при активном поиске (поиск важнее скрытия); при выключенном скрытии в подвале подсказка «Скрытие выполненных выключено · ctrl+h — включить», в палитре — команда «Скрыть/показать выполненные».
+
+Реализация: `internal/db/settings.go` (`GetSetting`/`SetSetting`), таблица `settings` в `schema.go`, `loadHideDays`/`parseHideDays`/модалка `settingsHideInput` в `settings_screen.go`, `hiddenCompleted`/`hiddenDue`/`hiddenSubtaskDue`/`toggleHide`/`statusLabel` в `tasks_hide.go`, `moveSelected` в `tasks_move.go`, тесты в `internal/db/settings_test.go`, `settings_test.go`, `tasks_test.go` (`TestHideCompletedTasks`) и `tasks_hide_test.go`.
 
 ## Этап 7. Теги задач — [x] завершён
 

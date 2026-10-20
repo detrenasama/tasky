@@ -36,6 +36,32 @@ func (s *tasksScreen) tagsChips(taskID int64) string {
 	return tagsLine(s.tagsMap[taskID])
 }
 
+// tagsLines — цветные чипы тегов, разложенные по строкам не шире width:
+// первая строка с серым префиксом, продолжения — с отступом на его ширину.
+// Чип не разрывается между строками.
+func tagsLines(prefix string, tags []db.Tag, width int) []string {
+	if len(tags) == 0 {
+		return nil
+	}
+	head := theme.Faint(prefix) + " "
+	indent := strings.Repeat(" ", lipgloss.Width(prefix)+1)
+	var out []string
+	line := head
+	for _, tg := range tags {
+		chip := tagChip(tg)
+		if line != head && line != indent &&
+			lipgloss.Width(line)+1+lipgloss.Width(chip) > width {
+			out = append(out, line)
+			line = indent
+		}
+		if line != head && line != indent {
+			line += " "
+		}
+		line += chip
+	}
+	return append(out, line)
+}
+
 // tagTypeName возвращает имя и цвет типа тега по id (пустые, если не найден).
 func (s *tasksScreen) tagTypeName(id int64) (string, string) {
 	for _, tt := range s.tagTypes {

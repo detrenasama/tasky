@@ -29,15 +29,12 @@ func (s *tasksScreen) infoTop(topH int) string {
 			body = append(body, theme.Faint("Подзадача не найдена."))
 			break
 		}
+		w := max(rightW-4, 1)
+		body = append(body, s.parentTaskLines(st, w)...)
 		body = append(body, st.Title)
 		body = append(body, theme.Faint("Статус: ")+s.statusText(st.Status))
-		if st.DueDate != nil {
-			dStr := st.DueDate.Format("02.01.2006")
-			label := theme.Faint("Срок: ") + dStr
-			if isOverdue(*st.DueDate, st.Status, s.now) {
-				label = theme.ErrorStyle.Render("Срок: " + dStr + " (просрочено)")
-			}
-			body = append(body, label)
+		if line, ok := s.dueLine(st.DueDate, st.Status); ok {
+			body = append(body, line)
 		}
 		if st.ScheduleDate != nil {
 			body = append(body, theme.Faint("Запланировано: ")+st.ScheduleDate.Format("02.01.2006"))
@@ -76,25 +73,15 @@ func (s *tasksScreen) infoTop(topH int) string {
 		}
 		body = append(body, s.historyLines()...)
 	case kind == kindTask:
-		var t *db.Task
-		for i := range s.tasks {
-			if s.tasks[i].ID == id {
-				t = &s.tasks[i]
-			}
-		}
+		t := s.taskByID(id)
 		if t == nil {
 			body = append(body, theme.Faint("Задача не найдена."))
 			break
 		}
 		body = append(body, t.Title)
 		body = append(body, theme.Faint("Статус: ")+s.statusText(t.Status))
-		if t.DueDate != nil {
-			dStr := t.DueDate.Format("02.01.2006")
-			label := theme.Faint("Срок: ") + dStr
-			if isOverdue(*t.DueDate, t.Status, s.now) {
-				label = theme.ErrorStyle.Render("Срок: " + dStr + " (просрочено)")
-			}
-			body = append(body, label)
+		if line, ok := s.dueLine(t.DueDate, t.Status); ok {
+			body = append(body, line)
 		}
 		if t.ScheduleDate != nil {
 			body = append(body, theme.Faint("Запланировано: ")+t.ScheduleDate.Format("02.01.2006"))
@@ -133,6 +120,67 @@ func (s *tasksScreen) infoTop(topH int) string {
 	inner := strings.Join(body, "\n")
 	inner = padLines(inner, max(rightW-4, 1), topH)
 	return inner
+}
+
+// taskByID возвращает задачу текущего проекта по ID (задачи загружаются
+// целиком, включая скрытые фильтром), nil — если не найдена.
+func (s *tasksScreen) taskByID(id int64) *db.Task {
+	for i := range s.tasks {
+		if s.tasks[i].ID == id {
+			return &s.tasks[i]
+		}
+	}
+	return nil
+}
+
+// dueLine — строка срока: обычная или красная с пометкой «просрочено»;
+// ok=false — срок не задан.
+func (s *tasksScreen) dueLine(due *time.Time, status string) (string, bool) {
+	if due == nil {
+		return "", false
+	}
+	dStr := due.Format("02.01.2006")
+	if isOverdue(*due, status, s.now) {
+		return theme.ErrorStyle.Render("Срок: " + dStr + " (просрочено)"), true
+	}
+	return theme.Faint("Срок: ") + dStr, true
+}
+
+// parentTaskLines — контекст родительской задачи над выбранной подзадачей:
+// название, теги, статус, срок и разделитель. Родитель берётся из s.tasks,
+// поэтому блок виден, даже когда строка задачи скрыта фильтром или поиском.
+func (s *tasksScreen) parentTaskLines(st *db.SubtaskWithTime, w int) []string {
+	t := s.taskByID(st.TaskID)
+	if t == nil {
+		return nil
+	}
+	body := titleLines("Задача:", t.Title, w)
+	if tags := s.tagsMap[t.ID]; len(tags) > 0 {
+		body = append(body, tagsLines("Теги:", tags, w)...)
+	}
+	body = append(body, theme.Faint("Статус: ")+s.statusText(t.Status))
+	if line, ok := s.dueLine(t.DueDate, t.Status); ok {
+		body = append(body, line)
+	}
+	body = append(body, theme.Faint(strings.Repeat("─", w)))
+	return body
+}
+
+// titleLines — строка «метка: текст» с переносом текста по словам; продолжения
+// выравниваются под текстом (отступ на ширину метки с двоеточием).
+func titleLines(label, title string, w int) []string {
+	indentW := lipgloss.Width(label) + 1
+	indent := strings.Repeat(" ", indentW)
+	lines := strings.Split(wrapText(title, max(w-indentW, 8)), "\n")
+	out := make([]string, 0, len(lines))
+	for i, ln := range lines {
+		prefix := indent
+		if i == 0 {
+			prefix = theme.Faint(label) + " "
+		}
+		out = append(out, prefix+ln)
+	}
+	return out
 }
 
 // historyLines — последние 8 переходов статусов выбранного элемента с индикатором

@@ -169,11 +169,13 @@
 
 ## Этап 18. Обновления и список изменений — [x] завершён
 
-При запуске приложение проверяет свежий релиз на GitHub и показывает доступную версию в правой панели под текущей (`↑ доступно vY · tasky upgrade`). После обновления первый запуск открывает модалку «Что нового» с изменениями между `seen_version` и текущей версией; при первом запуске показывается секция текущей версии, при откате версии `seen_version` обновляется молча. Модалка прокручивается (↑/↓/PgUp/PgDn) и закрывается Enter/Esc/q/ctrl+c. Команда «Что нового» в палитре открывает полную историю версий до текущей (без изменения `seen_version`).
+При запуске приложение проверяет свежий релиз на GitHub и показывает доступную версию в правой панели под текущей (`↑ доступно vY · ctrl+p → Обновить`). После обновления первый запуск открывает модалку «Что нового» с изменениями между `seen_version` и текущей версией; при первом запуске показывается секция текущей версии, при откате версии `seen_version` обновляется молча. Модалка прокручивается (↑/↓/PgUp/PgDn) и закрывается Enter/Esc/q/ctrl+c. Команда «Что нового» в палитре открывает полную историю версий до текущей (без изменения `seen_version`).
+
+Обновление можно запустить из палитры команд («Обновить», только релизные сборки): модалка показывает прогресс-бар и чек-лист этапов, а после установки предлагает выйти по Enter (активная сессия останавливается). Двойной Esc прерывает обновление, пока идёт проверка релиза или загрузка; после проверки контрольной суммы прерывание недоступно. CLI-команда `tasky upgrade` сохранена.
 
 Источник изменений — `changelog/CHANGELOG.md` (формат `## vX.Y.Z — ГГГГ-ММ-ДД` + пункты), встраивается в бинарник через `go:embed`. Тот же файл `scripts/release.sh` вырезает в `dist/release/RELEASE_NOTES.md` для `gh release create --notes-file`. Для `dev`/git-describe/dirty-сборок проверка обновлений и модалка отключены (`update.IsRelease`).
 
-Реализация: `changelog/` (`Parse`/`All`/`Current`/`Between`/`Render`), `internal/update` (`IsRelease`/`Canonical`), `internal/ui/update_notice.go` (стартовая логика, `seen_version`), `internal/ui/changelog_modal.go`, `internal/ui/app.go` (`rightRail`, `pendingChangelog`, открытие на первом `WindowSizeMsg`), `internal/ui/palette.go` (группа «Помощь»), `theme.AccentText`, `scripts/release.sh`, тесты `changelog/changelog_test.go`, `internal/ui/update_notice_test.go`, `internal/ui/right_rail_test.go`.
+Реализация: `changelog/` (`Parse`/`All`/`Current`/`Between`/`Render`), `internal/update` (`IsRelease`/`Canonical`/`UpgradeContext` с отменой по контексту, `StepCheck`), `internal/ui/update_notice.go` (стартовая логика, `seen_version`), `internal/ui/changelog_modal.go`, `internal/ui/update_modal.go` (прогресс-бар, отмена по двойному Esc), `internal/ui/app.go` (`rightRail`, `pendingChangelog`, открытие на первом `WindowSizeMsg`), `internal/ui/palette.go` (группа «Помощь»), `theme.AccentText`, `scripts/release.sh`, тесты `changelog/changelog_test.go`, `internal/update/update_test.go`, `internal/ui/update_notice_test.go`, `internal/ui/update_modal_test.go`, `internal/ui/right_rail_test.go`.
 
 ## Веб-интерфейс (для коллеги, не работающей в терминале)
 

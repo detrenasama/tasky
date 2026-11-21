@@ -4,6 +4,7 @@ package update
 import (
 	"archive/tar"
 	"compress/gzip"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -43,7 +44,10 @@ var client = &http.Client{Timeout: 15 * time.Second}
 type Step int
 
 const (
-	StepDownload Step = iota
+	// StepCheck — запрос последнего релиза; до этого момента обновление
+	// можно прервать без последствий.
+	StepCheck Step = iota
+	StepDownload
 	StepChecksum
 	StepExtract
 	StepInstall
@@ -72,8 +76,16 @@ type release struct {
 }
 
 func latestRelease() (*release, error) {
+	return latestReleaseContext(context.Background())
+}
+
+func latestReleaseContext(ctx context.Context) (*release, error) {
 	url := apiBaseURL() + "/repos/" + Repo + "/releases/latest"
-	resp, err := client.Get(url)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -178,6 +190,12 @@ func assetURL(rel *release, name string) (string, error) {
 // текущий бинарник. Возвращает новую версию; replaced=false, если версия уже
 // актуальна. rep получает уведомления о ходе обновления (может быть nil).
 func Upgrade(current string, rep Reporter) (newVersion string, replaced bool, err error) {
+	return UpgradeContext(context.Background(), current, rep)
+}
+
+// UpgradeContext — как Upgrade, но операцию можно прервать отменой ctx.
+// Отмена до этапа проверки контрольной суммы оставляет бинарник нетронутым.
+func UpgradeContext(ctx context.Context, current string, rep Reporter) (newVersion string, replaced bool, err error) {
 	exe, err := os.Executable()
 	if err != nil {
 		return "", false, err
@@ -186,22 +204,32 @@ func Upgrade(current string, rep Reporter) (newVersion string, replaced bool, er
 	if err != nil {
 		return "", false, err
 	}
-	return upgradeTo(current, exe, rep)
+	return upgradeToContext(ctx, current, exe, rep)
 }
 
-// upgradeTo — как Upgrade, но заменяет бинарник по заданному пути (exePath
-// переопределяется в тестах).
+// upgradeTo — как UpgradeContext с context.Background(); exePath
+// переопределяется в тестах.
 func upgradeTo(current, exePath string, rep Reporter) (newVersion string, replaced bool, err error) {
+	return upgradeToContext(context.Background(), current, exePath, rep)
+}
+
+// upgradeToContext — как Upgrade, но заменяет бинарник по заданному пути
+// (exePath переопределяется в тестах) и учитывает отмену ctx.
+func upgradeToContext(ctx context.Context, current, exePath string, rep Reporter) (newVersion string, replaced bool, err error) {
 	if TrimV(current) == "" {
 		return "", false, fmt.Errorf("неизвестная версия сборки")
 	}
-	rel, err := latestRelease()
+	report(rep, StepCheck, "Проверка обновления…", -1)
+	rel, err := latestReleaseContext(ctx)
 	if err != nil {
 		return "", false, err
 	}
 	latest := rel.TagName
 	if Compare(latest, current) <= 0 {
 		return latest, false, nil
+	}
+	if err := ctx.Err(); err != nil {
+		return "", false, err
 	}
 
 	binURL, err := assetURL(rel, assetName())
@@ -221,13 +249,17 @@ func upgradeTo(current, exePath string, rep Reporter) (newVersion string, replac
 
 	tarPath := filepath.Join(tmp, assetName())
 	report(rep, StepDownload, "Загрузка "+binURL, 0)
-	if err := download(binURL, tarPath, rep); err != nil {
+	if err := download(ctx, binURL, tarPath, rep); err != nil {
+		return "", false, err
+	}
+	// Отмена во время загрузки не должна переходить к проверке и установке.
+	if err := ctx.Err(); err != nil {
 		return "", false, err
 	}
 	report(rep, StepDownload, "Загружено.", 1)
 
 	report(rep, StepChecksum, "Проверка контрольной суммы…", -1)
-	want, err := fetchChecksum(tmp, sumsURL, assetName())
+	want, err := fetchChecksum(ctx, tmp, sumsURL, assetName())
 	if err != nil {
 		return "", false, err
 	}
@@ -236,6 +268,11 @@ func upgradeTo(current, exePath string, rep Reporter) (newVersion string, replac
 	}
 	report(rep, StepChecksum, "Контрольная сумма совпадает.", -1)
 
+	// После проверки суммы обновление уже не отменяется из интерфейса, но
+	// контекст может быть отменён извне — не трогаем бинарник.
+	if err := ctx.Err(); err != nil {
+		return "", false, err
+	}
 	report(rep, StepExtract, "Распаковка…", -1)
 	newBin := filepath.Join(filepath.Dir(exePath), ".tasky.new")
 	if err := extractTar(tarPath, newBin); err != nil {
@@ -356,8 +393,12 @@ func (p *progressReader) Read(b []byte) (int, error) {
 	return n, err
 }
 
-func download(url, dst string, rep Reporter) error {
-	resp, err := client.Get(url)
+func download(ctx context.Context, url, dst string, rep Reporter) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -372,15 +413,20 @@ func download(url, dst string, rep Reporter) error {
 	reader := &progressReader{r: resp.Body, total: resp.ContentLength, rep: rep}
 	if _, err := io.Copy(out, reader); err != nil {
 		out.Close()
+		// Причиной ошибки чтения могла быть отмена контекста — возвращаем
+		// её напрямую, чтобы вызывающий мог отличить отмену от сбоя сети.
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
 		return err
 	}
 	return out.Close()
 }
 
 // fetchChecksum скачивает SHA256SUMS и возвращает хеш для файла name.
-func fetchChecksum(dir, url, name string) (string, error) {
+func fetchChecksum(ctx context.Context, dir, url, name string) (string, error) {
 	sumsPath := filepath.Join(dir, "SHA256SUMS")
-	if err := download(url, sumsPath, nil); err != nil {
+	if err := download(ctx, url, sumsPath, nil); err != nil {
 		return "", err
 	}
 	data, err := os.ReadFile(sumsPath)

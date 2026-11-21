@@ -4,15 +4,20 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestCompare(t *testing.T) {
@@ -331,8 +336,8 @@ func TestUpgradeReporter(t *testing.T) {
 	if len(steps) == 0 {
 		t.Fatal("репортер не вызывался")
 	}
-	if steps[0] != StepDownload {
-		t.Fatalf("первый шаг = %v, ожидался StepDownload", steps[0])
+	if steps[0] != StepCheck {
+		t.Fatalf("первый шаг = %v, ожидался StepCheck", steps[0])
 	}
 	lastDownload := -1
 	for i, s := range steps {
@@ -353,6 +358,84 @@ func TestUpgradeReporter(t *testing.T) {
 	}
 	if !sawDownloadFrac {
 		t.Error("репортер не получил прогресс загрузки с frac>0")
+	}
+}
+
+// TestUpgradeContextCancel проверяет отмену во время загрузки: бинарник не
+// заменяется, возвращается context.Canceled.
+func TestUpgradeContextCancel(t *testing.T) {
+	binData := make([]byte, 512*1024)
+	if _, err := rand.Read(binData); err != nil {
+		t.Fatal(err)
+	}
+	tarBytes := makeTar(t, binData)
+	good := sum(tarBytes)
+
+	started := make(chan struct{}, 1)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/repos/"+Repo+"/releases/latest", func(w http.ResponseWriter, r *http.Request) {
+		u := "http://" + r.Host
+		fmt.Fprintf(w, `{"tag_name":"v2.0.0","assets":[`+
+			`{"name":%q,"browser_download_url":%q},`+
+			`{"name":"SHA256SUMS","browser_download_url":%q}]}`,
+			assetName(), u+"/bin", u+"/sums")
+	})
+	mux.HandleFunc("/bin", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", strconv.Itoa(len(tarBytes)))
+		_, _ = w.Write(tarBytes[:1024])
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+		select {
+		case started <- struct{}{}:
+		default:
+		}
+		<-r.Context().Done()
+	})
+	mux.HandleFunc("/sums", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "%s  %s\n", good, assetName())
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	oldBase := apiBase
+	apiBase = srv.URL
+	defer func() { apiBase = oldBase }()
+
+	exe := filepath.Join(t.TempDir(), "tasky")
+	if err := os.WriteFile(exe, []byte("old"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		_, _, err := upgradeToContext(ctx, "v1.0.0", exe, nil)
+		done <- err
+	}()
+
+	select {
+	case <-started:
+	case <-time.After(5 * time.Second):
+		cancel()
+		t.Fatal("загрузка не началась")
+	}
+	cancel()
+
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("ошибка = %v, ожидался context.Canceled", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("обновление не прервалось после отмены")
+	}
+
+	got, err := os.ReadFile(exe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "old" {
+		t.Error("бинарник заменён при отмене загрузки")
 	}
 }
 

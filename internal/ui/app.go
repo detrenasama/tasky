@@ -382,6 +382,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, nil
+	default:
+		// Прочие сообщения (например, прогресс обновления) получает активная
+		// модалка — иначе они теряются и канал обновления переполняется.
+		if m.modal.Active() {
+			return m, m.modal.Update(msg)
+		}
 	}
 	return m, nil
 }
@@ -678,7 +684,7 @@ func rightRail(version, updateVer string, width, height int, middle string) stri
 	footer = append(footer, "")
 	footer = append(footer, versionLine)
 	if updateVer != "" {
-		line := truncateW("↑ доступно "+updateVer+" · tasky upgrade", innerW)
+		line := truncateW("↑ доступно "+updateVer+" · ctrl+p → Обновить", innerW)
 		footer = append(footer, theme.AccentText(line))
 	}
 	if len(footer) > innerH {

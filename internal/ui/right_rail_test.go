@@ -10,7 +10,7 @@ func TestRightRailUpdateNotice(t *testing.T) {
 	if !strings.Contains(out, "Tasky v0.5.4") {
 		t.Fatalf("нет текущей версии:\n%s", out)
 	}
-	if !strings.Contains(out, "↑ доступно v0.6.0 · tasky upgrade") {
+	if !strings.Contains(out, "↑ доступно v0.6.0 · ctrl+p → Обновить") {
 		t.Fatalf("нет строки обновления:\n%s", out)
 	}
 	if strings.Index(out, "Tasky v0.5.4") > strings.Index(out, "↑ доступно") {

@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/detrenasama/tasky/internal/ui/theme"
+	"github.com/detrenasama/tasky/internal/update"
 )
 
 // cmdItem — команда палитры: название, необязательное короткое описание,
@@ -16,6 +17,9 @@ type cmdItem struct {
 	desc  string
 	keys  string
 	run   func(m *model)
+	// runCmd — асинхронная команда: палитра возвращает tea.Cmd, который
+	// начинается сразу после её закрытия (например, запуск обновления).
+	runCmd func(m *model) tea.Cmd
 }
 
 // cmdGroup — группа команд палитры с заголовком.
@@ -48,9 +52,21 @@ func (m *model) paletteGroups() []cmdGroup {
 		}},
 		{title: "Настройки", keys: "ctrl+s", run: func(m *model) { m.switchScreen(screenSettings) }},
 	}}
-	help := cmdGroup{name: "Помощь", cmds: []cmdItem{
-		{title: "Что нового", desc: "вся история версий", keys: "", run: func(m *model) { m.openCurrentChangelog() }},
-	}}
+	helpCmds := make([]cmdItem, 0, 2)
+	if update.IsRelease(m.version) {
+		desc := "проверить обновления"
+		if v := update.Canonical(m.updateVer); v != "" {
+			desc = "доступно " + v
+		}
+		helpCmds = append(helpCmds, cmdItem{
+			title: "Обновить", desc: desc,
+			runCmd: func(m *model) tea.Cmd { return m.startUpdate() },
+		})
+	}
+	helpCmds = append(helpCmds,
+		cmdItem{title: "Что нового", desc: "вся история версий", keys: "",
+			run: func(m *model) { m.openCurrentChangelog() }})
+	help := cmdGroup{name: "Помощь", cmds: helpCmds}
 	groups := []cmdGroup{nav}
 	switch m.screen {
 	case screenTasks:
@@ -195,38 +211,45 @@ func (m *model) paletteMove(d int) {
 	}
 }
 
-// execPaletteCmd закрывает палитру и выполняет команду.
-func (m *model) execPaletteCmd(c *cmdItem) {
-	if c == nil || c.run == nil {
+// execPaletteCmd закрывает палитру и выполняет команду. Если у команды задан
+// runCmd, возвращает её tea.Cmd (асинхронный запуск), иначе nil.
+func (m *model) execPaletteCmd(c *cmdItem) tea.Cmd {
+	if c == nil {
 		m.closePalette()
-		return
+		return nil
 	}
-	run := c.run
+	run, runCmd := c.run, c.runCmd
 	m.closePalette()
-	run(m)
+	if runCmd != nil {
+		return runCmd(m)
+	}
+	if run != nil {
+		run(m)
+	}
+	return nil
 }
 
 // paletteExec выполняет выбранную команду (Enter).
-func (m *model) paletteExec() {
+func (m *model) paletteExec() tea.Cmd {
 	if m.paletteSel < 0 || m.paletteSel >= len(m.paletteRows) {
 		m.closePalette()
-		return
+		return nil
 	}
-	m.execPaletteCmd(m.paletteRows[m.paletteSel].cmd)
+	return m.execPaletteCmd(m.paletteRows[m.paletteSel].cmd)
 }
 
 // paletteExecKey сразу выполняет команду по её сочетанию клавиш. Команда
 // ищется в нефильтрованных группах: хоткей работает даже при активном
 // фильтре, скрывшем пункт навигации.
-func (m *model) paletteExecKey(keys string) {
+func (m *model) paletteExecKey(keys string) tea.Cmd {
 	for _, g := range m.paletteGroups() {
 		for _, c := range g.cmds {
 			if c.keys == keys {
-				m.execPaletteCmd(&c)
-				return
+				return m.execPaletteCmd(&c)
 			}
 		}
 	}
+	return nil
 }
 
 func (m *model) openPalette() {
@@ -263,14 +286,12 @@ func (m model) updatePalette(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.paletteMove(m.paletteVisible())
 		return m, nil
 	case "enter":
-		m.paletteExec()
-		return m, nil
+		return m, m.paletteExec()
 	case "esc", "ctrl+c":
 		m.closePalette()
 		return m, nil
 	case "ctrl+t", "ctrl+p", "ctrl+r", "ctrl+s":
-		m.paletteExecKey(msg.String())
-		return m, nil
+		return m, m.paletteExecKey(msg.String())
 	default:
 		var cmd tea.Cmd
 		m.paletteInput, cmd = m.paletteInput.Update(msg)

@@ -35,6 +35,43 @@ func TestCompare(t *testing.T) {
 	}
 }
 
+func TestIsRelease(t *testing.T) {
+	cases := []struct {
+		v  string
+		ok bool
+	}{
+		{"v0.5.4", true},
+		{"0.5.4", true},
+		{" v1.2.3 ", true},
+		{"v0.5", false},
+		{"v0.5.4.1", false},
+		{"dev", false},
+		{"v0.5.4-3-gabc123", false},
+		{"v0.5.4-dirty", false},
+		{"", false},
+	}
+	for _, c := range cases {
+		if got := IsRelease(c.v); got != c.ok {
+			t.Errorf("IsRelease(%q) = %v, want %v", c.v, got, c.ok)
+		}
+	}
+}
+
+func TestCanonical(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"v0.5.4", "v0.5.4"},
+		{"0.5.4", "v0.5.4"},
+		{" v1.2.3 ", "v1.2.3"},
+		{"dev", ""},
+		{"v0.5.4-1-gabc", ""},
+	}
+	for _, c := range cases {
+		if got := Canonical(c.in); got != c.want {
+			t.Errorf("Canonical(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
 func makeTar(t *testing.T, binData []byte) []byte {
 	t.Helper()
 	var buf bytes.Buffer

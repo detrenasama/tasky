@@ -83,6 +83,9 @@ func SidebarActive() lipgloss.Style {
 
 func Faint(s string) string { return MutedStyle.Render(s) }
 
+// AccentText — текст акцентным цветом активной темы.
+func AccentText(s string) string { return lipgloss.NewStyle().Foreground(Accent).Render(s) }
+
 // Text — основной (белый) цвет текста: явный foreground, чтобы сочетания
 // клавиш в подсказках были белыми независимо от умолчаний терминала.
 func Text(s string) string { return TextStyle.Render(s) }

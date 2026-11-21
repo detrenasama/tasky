@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -92,6 +93,24 @@ func latestRelease() (*release, error) {
 
 // TrimV убирает ведущую «v» из версии.
 func TrimV(s string) string { return strings.TrimPrefix(strings.TrimSpace(s), "v") }
+
+var releaseVersion = regexp.MustCompile(`^v?\d+\.\d+\.\d+$`)
+
+// IsRelease сообщает, является ли версия обычным релизом vX.Y.Z.
+// Локальные сборки (dev, v0.5.3-4-gabc123, ...-dirty) релизными не считаются.
+func IsRelease(v string) bool {
+	return releaseVersion.MatchString(strings.TrimSpace(v))
+}
+
+// Canonical приводит релизную версию к виду vX.Y.Z; для нерелизной
+// возвращает пустую строку.
+func Canonical(v string) string {
+	v = strings.TrimSpace(v)
+	if !IsRelease(v) {
+		return ""
+	}
+	return "v" + TrimV(v)
+}
 
 // Compare сравнивает версии вида X.Y.Z (ведущая «v» не обязательна):
 // -1 если a < b, 0 если равны, 1 если a > b.

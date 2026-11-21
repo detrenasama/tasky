@@ -167,6 +167,14 @@
 
 Реализация: `internal/db/checklist.go` (таблица `checklist_items` в `schema.go`, `ChecklistItems`/`ChecklistCounts`/`CreateChecklistItem`/`UpdateChecklistItemText`/`SetChecklistItemStatus`/`MoveChecklistItem`/`DeleteChecklistItem`; `MoveChecklistItem` через `moveOrderedRow`), `internal/db/types.go` (`ChecklistItem`), `internal/store` (интерфейс + `NewSQLite`), `proto/tasky.proto` + сгенерированный `internal/rpc` (`just proto`) + `convert.go`, `internal/server`/`internal/client`, `internal/ui/tasks_screen.go` (режимы `taskChecklist`/`taskChecklistConfirm`, поля, `openChecklist`/`checklistLoad`/`updateChecklist`, значок в `subItem.Title`, раздел в `infoTop`, `checkIndicator`), `internal/ui/app.go` (маршрутизация), `internal/ui/palette.go` (команда «Чеклист»), тесты `internal/db/checklist_test.go`.
 
+## Этап 18. Обновления и список изменений — [x] завершён
+
+При запуске приложение проверяет свежий релиз на GitHub и показывает доступную версию в правой панели под текущей (`↑ доступно vY · tasky upgrade`). После обновления первый запуск открывает модалку «Что нового» с изменениями между `seen_version` и текущей версией; при первом запуске показывается секция текущей версии, при откате версии `seen_version` обновляется молча. Модалка прокручивается (↑/↓/PgUp/PgDn) и закрывается Enter/Esc/q/ctrl+c. Команда «Что нового» в палитре открывает полную историю версий до текущей (без изменения `seen_version`).
+
+Источник изменений — `changelog/CHANGELOG.md` (формат `## vX.Y.Z — ГГГГ-ММ-ДД` + пункты), встраивается в бинарник через `go:embed`. Тот же файл `scripts/release.sh` вырезает в `dist/release/RELEASE_NOTES.md` для `gh release create --notes-file`. Для `dev`/git-describe/dirty-сборок проверка обновлений и модалка отключены (`update.IsRelease`).
+
+Реализация: `changelog/` (`Parse`/`All`/`Current`/`Between`/`Render`), `internal/update` (`IsRelease`/`Canonical`), `internal/ui/update_notice.go` (стартовая логика, `seen_version`), `internal/ui/changelog_modal.go`, `internal/ui/app.go` (`rightRail`, `pendingChangelog`, открытие на первом `WindowSizeMsg`), `internal/ui/palette.go` (группа «Помощь»), `theme.AccentText`, `scripts/release.sh`, тесты `changelog/changelog_test.go`, `internal/ui/update_notice_test.go`, `internal/ui/right_rail_test.go`.
+
 ## Веб-интерфейс (для коллеги, не работающей в терминале)
 
 Цель: богатый веб-UI с тем же функционалом, что TUI, но с кнопками и

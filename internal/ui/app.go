@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/detrenasama/tasky/changelog"
 	"github.com/detrenasama/tasky/internal/feed"
 	"github.com/detrenasama/tasky/internal/store"
 	"github.com/detrenasama/tasky/internal/ui/theme"
@@ -118,6 +119,10 @@ type model struct {
 	version   string
 	updateVer string
 
+	// pendingChangelog — изменения, которые нужно показать на первом
+	// WindowSizeMsg (когда уже известны размеры окна).
+	pendingChangelog []changelog.Entry
+
 	// palette — палитра команд (ctrl+p): поисковая строка и список групп.
 	paletteOpen   bool
 	paletteInput  textinput.Model
@@ -151,6 +156,7 @@ func New(st store.Store, dataDir, version string) *model {
 	pi.CharLimit = 64
 	pi.Width = 40
 	m.paletteInput = pi
+	m.initChangelog()
 	return m
 }
 
@@ -172,7 +178,11 @@ func checkUpdateCmd() tea.Cmd {
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(tea.Tick(time.Second, tickCmd), checkUpdateCmd())
+	cmds := []tea.Cmd{tea.Tick(time.Second, tickCmd)}
+	if update.IsRelease(m.version) {
+		cmds = append(cmds, checkUpdateCmd())
+	}
+	return tea.Batch(cmds...)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -203,7 +213,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.settings != nil {
 			m.settings.resize(innerW, innerH)
 		}
-		return m, nil
+		var cmd tea.Cmd
+		if m.modal.Active() {
+			cmd = m.modal.Update(msg)
+		}
+		m.openPendingChangelog()
+		return m, cmd
 	case editReturnMsg:
 		if m.screen == screenProjects {
 			m.proj.applyExternalEdit(msg)
@@ -355,12 +370,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, tea.Tick(time.Second, tickCmd)
 	case updateMsg:
-		if msg != "" && m.version != "" && m.version != "dev" &&
+		if msg != "" && update.IsRelease(m.version) &&
 			update.Compare(string(msg), m.version) > 0 {
 			m.updateVer = string(msg)
-			m.tasks.updateVer = string(msg)
+			body := changelog.Render(changelog.Current(string(msg)))
 			if s, ok := m.store.(*store.SQLite); ok {
-				_, _ = feed.GenerateUpdate(s.DB(), string(msg), "", time.Now())
+				_, _ = feed.GenerateUpdate(s.DB(), string(msg), body, time.Now())
 			}
 			if n, _ := m.store.FeedUnreadCount(); n >= 0 {
 				m.unreadFeed = n
@@ -587,7 +602,7 @@ func (m model) View() string {
 	footPanel := renderPane(boxStyle, padLines(footLine, footInnerW, 1))
 
 	sbLines := strings.Split(sidebarView(m.screen, h, m.unreadFeed), "\n")
-	railLines := strings.Split(rightRail(m.version, rightW, h, rightMid), "\n")
+	railLines := strings.Split(rightRail(m.version, m.updateVer, rightW, h, rightMid), "\n")
 	midLines := strings.Split(mid, "\n")
 	footLines := strings.Split(footPanel, "\n")
 
@@ -649,23 +664,42 @@ func (m model) View() string {
 	return full
 }
 
-// rightRail — правая колонка (шириной rightW, высотой height) с общим
+// rightRail — правая колонка (шириной width, высотой height) с общим
 // паддингом (вертикальный 1, горизонтальный 2): сверху содержимое экрана
-// (middle), снизу — «Tasky vX».
-func rightRail(version string, width, height int, middle string) string {
+// (middle), снизу — «Tasky vX», а при наличии обновления под ней —
+// «↑ доступно vY · tasky upgrade».
+func rightRail(version, updateVer string, width, height int, middle string) string {
 	innerW := max(width-4, 1)  // 2 пробела слева и справа
 	innerH := max(height-2, 1) // 1 строка сверху и снизу
+	versionLine := theme.HeaderStyle.Render("Tasky") + " " +
+		theme.Faint("v"+strings.TrimPrefix(version, "v"))
+
+	footer := make([]string, 0, 3)
+	footer = append(footer, "")
+	footer = append(footer, versionLine)
+	if updateVer != "" {
+		line := truncateW("↑ доступно "+updateVer+" · tasky upgrade", innerW)
+		footer = append(footer, theme.AccentText(line))
+	}
+	if len(footer) > innerH {
+		footer = footer[len(footer)-innerH:]
+	}
+
+	midH := innerH - len(footer)
 	midLines := strings.Split(middle, "\n")
-	lines := make([]string, innerH)
-	for i := 0; i < innerH-2; i++ {
+	lines := make([]string, 0, innerH)
+	for i := 0; i < midH; i++ {
 		if i < len(midLines) {
-			lines[i] = midLines[i]
+			lines = append(lines, midLines[i])
 		} else {
-			lines[i] = ""
+			lines = append(lines, "")
 		}
 	}
-	lines[innerH-2] = ""
-	lines[innerH-1] = theme.HeaderStyle.Render("Tasky") + " " + theme.Faint("v"+strings.TrimPrefix(version, "v"))
+	lines = append(lines, footer...)
+	for len(lines) < innerH {
+		lines = append(lines, "")
+	}
+
 	inner := strings.Join(lines, "\n")
 	style := lipgloss.NewStyle().Padding(1, 2).Background(theme.PanelColor())
 	return renderPane(style, padLines(inner, innerW, innerH))

@@ -27,6 +27,28 @@ else
 fi
 
 rm -rf dist/release && mkdir -p dist/release
+
+# Заметки GitHub-релиза берём из встроенного changelog: тот же текст увидит
+# пользователь в окне «Что нового» после обновления.
+NOTES_FILE="dist/release/RELEASE_NOTES.md"
+CHANGELOG_FILE="changelog/CHANGELOG.md"
+write_release_notes() {
+    local ver="${VERSION#v}"
+    : > "$NOTES_FILE"
+    if [ -f "$CHANGELOG_FILE" ]; then
+        awk -v ver="$ver" '
+            $0 ~ "^##[[:space:]]+v?" ver "([[:space:]]|$)" { found=1; next }
+            found && /^##[[:space:]]/ { exit }
+            found { print }
+        ' "$CHANGELOG_FILE" | sed -e '/./,$!d' > "$NOTES_FILE"
+    fi
+    if [ ! -s "$NOTES_FILE" ] || ! grep -q '[^[:space:]]' "$NOTES_FILE"; then
+        echo "ВНИМАНИЕ: в $CHANGELOG_FILE нет секции $VERSION — заметки релиза будут краткими."
+        printf 'Tasky %s\n' "$VERSION" > "$NOTES_FILE"
+    fi
+}
+write_release_notes
+
 for t in $RELEASES; do
     os="${t%-*}"; arch="${t#*-}"
     just build-target "$os" "$arch" "$VERSION"
@@ -48,7 +70,7 @@ done
 rm -rf dist/release/stage
 ( cd dist/release && sha256sum *.tar.gz > SHA256SUMS )
 echo ""
-echo "Готово: dist/release/*.tar.gz + SHA256SUMS"
+echo "Готово: dist/release/*.tar.gz + SHA256SUMS + RELEASE_NOTES.md"
 echo "Публикация:"
 echo "  gh release create $VERSION dist/release/*.tar.gz dist/release/SHA256SUMS \\"
-echo "      --title 'Tasky $VERSION' --notes '...'"
+echo "      --title 'Tasky $VERSION' --notes-file dist/release/RELEASE_NOTES.md"

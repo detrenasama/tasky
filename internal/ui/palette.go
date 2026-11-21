@@ -48,6 +48,9 @@ func (m *model) paletteGroups() []cmdGroup {
 		}},
 		{title: "Настройки", keys: "ctrl+s", run: func(m *model) { m.switchScreen(screenSettings) }},
 	}}
+	help := cmdGroup{name: "Помощь", cmds: []cmdItem{
+		{title: "Что нового", desc: "вся история версий", keys: "", run: func(m *model) { m.openCurrentChangelog() }},
+	}}
 	groups := []cmdGroup{nav}
 	switch m.screen {
 	case screenTasks:
@@ -94,6 +97,7 @@ func (m *model) paletteGroups() []cmdGroup {
 			{title: "Поиск", keys: "/", run: func(m *model) { m.proj.startSearch() }},
 		}})
 	}
+	groups = append(groups, help)
 	return groups
 }
 

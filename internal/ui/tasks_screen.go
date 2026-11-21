@@ -131,8 +131,6 @@ type tasksScreen struct {
 	listDelegate selDelegate
 	linkDelegate *list.DefaultDelegate
 
-	updateVer string
-
 	entries []db.TimeEntry
 	run     *db.SubtaskWithTime
 

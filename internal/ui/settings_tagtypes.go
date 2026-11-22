@@ -39,6 +39,10 @@ func (s *settingsScreen) openTagTypeEdit(id int64) {
 		}
 	}
 	s.editFocus = 0
+	s.editNameOrig = s.editName.Value()
+	s.editTypeOrig = s.editType
+	s.editColorOrig = s.editColor
+	s.esc.Reset()
 	s.editName.Focus()
 	s.mode = settingsTagTypeEdit
 }

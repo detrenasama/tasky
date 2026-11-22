@@ -23,6 +23,12 @@ func (s *projectsScreen) descTitle() string {
 }
 
 func (s *projectsScreen) descModalFooter() string {
+	if s.esc.Armed() {
+		if s.dmState == dmEdit {
+			return "Нажмите Esc ещё раз, чтобы отменить ввод · Ctrl+S — сохранить"
+		}
+		return "Нажмите Esc ещё раз, чтобы отменить изменения"
+	}
 	switch s.dmState {
 	case dmView:
 		return "↑↓/PgUp/PgDn — прокрутка · e — править · E — редактор · v — выделение · y — копировать · Esc — выйти"
@@ -82,13 +88,6 @@ func (s *projectsScreen) renderDescModal() string {
 	b.WriteString(padW(styleHints(footer), innerW))
 	inner := padLines(b.String(), innerW, innerH)
 	box := renderPane(style, inner)
-
-	if s.dmState == dmDiscard {
-		d := dialog{title: "Несохранённые изменения",
-			body:    "Описание изменено, но не сохранено.",
-			primary: "y — отбросить", esc: "Esc — остаться"}
-		box = overlay(box, d.render(), mW, mH, 0)
-	}
 	return box
 }
 

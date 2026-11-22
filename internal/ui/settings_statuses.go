@@ -49,6 +49,12 @@ func (s *settingsScreen) openStatusEdit(id int64) {
 		}
 	}
 	s.editFocus = 0
+	s.editNameOrig = s.editName.Value()
+	s.editNoteOrig = s.editNote.Value()
+	s.editTypeOrig = s.editType
+	s.editColorOrig = s.editColor
+	s.editQuickOrig = s.editQuick
+	s.esc.Reset()
 	s.editName.Focus()
 	s.editNote.Blur()
 	s.mode = settingsStatusEdit

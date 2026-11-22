@@ -157,27 +157,24 @@ func TestProjectsDescEdit(t *testing.T) {
 		t.Errorf("описание в БД = %q, ожидалось «новое описание»", got)
 	}
 
-	// Esc с несохранёнными изменениями — подтверждение
+	// Esc с несохранённым вводом — предупреждение, второй Esc отбрасывает ввод
 	m.updateProjects(key('e'))
 	m.proj.descText.SetValue("не сохранять")
 	m.updateProjects(tea.KeyMsg{Type: tea.KeyEsc})
-	if m.proj.dmState != dmDiscard {
-		t.Fatalf("Esc с изменениями должен открыть подтверждение, dm=%d", m.proj.dmState)
+	if m.proj.dmState != dmEdit || !m.proj.esc.Armed() {
+		t.Fatalf("первый Esc должен предупредить, dm=%d armed=%v", m.proj.dmState, m.proj.esc.Armed())
 	}
 	if got, _ := db.ProjectDescription(conn, p.ID); got != "новое описание" {
-		t.Errorf("подтверждение не должно сохранять: %q", got)
+		t.Errorf("предупреждение не должно сохранять: %q", got)
 	}
-	// Esc в подтверждении — возврат к правке
-	m.updateProjects(tea.KeyMsg{Type: tea.KeyEsc})
-	if m.proj.dmState != dmEdit {
-		t.Fatalf("Esc в подтверждении должен вернуть к правке, dm=%d", m.proj.dmState)
-	}
-	// неизменённое описание — Esc в просмотр, затем выход
-	m.proj.descText.SetValue("новое описание")
 	m.updateProjects(tea.KeyMsg{Type: tea.KeyEsc})
 	if m.proj.dmState != dmView {
-		t.Fatalf("Esc без изменений должен выйти в просмотр, dm=%d", m.proj.dmState)
+		t.Fatalf("второй Esc должен выйти в просмотр, dm=%d", m.proj.dmState)
 	}
+	if m.proj.descWork != "новое описание" {
+		t.Errorf("второй Esc должен отбросить ввод, descWork=%q", m.proj.descWork)
+	}
+	// неизменённое описание — Esc выходит из модалки
 	m.updateProjects(tea.KeyMsg{Type: tea.KeyEsc})
 	if m.proj.mode != projBrowse {
 		t.Fatalf("Esc без изменений должен выйти, mode=%d", m.proj.mode)

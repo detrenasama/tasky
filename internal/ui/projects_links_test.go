@@ -108,8 +108,12 @@ func TestProjectLinkAddFlow(t *testing.T) {
 	m.proj.linkName.SetValue("Имя")
 	m.proj.linkInput.SetValue("https://example.org")
 	m.updateProjects(tea.KeyMsg{Type: tea.KeyEsc})
+	if m.proj.mode != projLinkEdit || !m.proj.esc.Armed() {
+		t.Fatalf("первый Esc должен предупредить (mode=%d armed=%v)", m.proj.mode, m.proj.esc.Armed())
+	}
+	m.updateProjects(tea.KeyMsg{Type: tea.KeyEsc})
 	if m.proj.mode != projLinks {
-		t.Fatalf("Esc не вернул в список ссылок (mode=%d)", m.proj.mode)
+		t.Fatalf("второй Esc не вернул в список ссылок (mode=%d)", m.proj.mode)
 	}
 	// повторный Esc уже закрывает список
 	m.updateProjects(tea.KeyMsg{Type: tea.KeyEsc})

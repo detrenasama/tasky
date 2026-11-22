@@ -105,6 +105,8 @@ func (s *tasksScreen) applyStatus(kind paneKind, id int64, st db.StatusDef) {
 		t := st
 		s.statusTarget = &t
 		s.statusNote.SetValue("")
+		s.statusNoteOrig = ""
+		s.esc.Reset()
 		s.statusNote.Focus()
 		s.mode = taskStatusNote
 		return

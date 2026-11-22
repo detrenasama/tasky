@@ -73,8 +73,12 @@ func TestSettingsForm(t *testing.T) {
 		t.Error("нет подсказки про формат")
 	}
 	m.updateSettings(tea.KeyMsg{Type: tea.KeyEsc})
+	if !m.settings.esc.Armed() || m.settings.mode != settingsPeriodInput {
+		t.Fatal("первый Esc должен предупредить")
+	}
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEsc})
 	if m.settings.mode != settingsBrowse || m.settings.cfg.period != periodYesterday {
-		t.Error("Esc после ошибки вёл себя неверно")
+		t.Error("второй Esc после ошибки вёл себя неверно")
 	}
 
 	// верный диапазон: снова модалка (курсор на «вчера»), ↓×3 до «свой…»
@@ -164,8 +168,12 @@ func TestSettingsForm(t *testing.T) {
 	m.updateSettings(tea.KeyMsg{Type: tea.KeyEnter})
 	m.settings.dirInput.SetValue("другой")
 	m.updateSettings(tea.KeyMsg{Type: tea.KeyEsc})
+	if !m.settings.esc.Armed() || m.settings.mode != settingsDirInput {
+		t.Fatal("первый Esc должен предупредить")
+	}
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEsc})
 	if m.settings.mode != settingsBrowse || m.settings.cfg.saveDir != "out/reports" {
-		t.Error("Esc не отменил изменение каталога")
+		t.Error("второй Esc не отменил изменение каталога")
 	}
 }
 
@@ -252,8 +260,12 @@ func TestSettingsHideInput(t *testing.T) {
 		t.Errorf("ошибочный ввод записал настройку: %q", v)
 	}
 	m.updateSettings(tea.KeyMsg{Type: tea.KeyEsc})
+	if !m.settings.esc.Armed() || m.settings.mode != settingsHideInput {
+		t.Fatal("первый Esc должен предупредить")
+	}
+	m.updateSettings(tea.KeyMsg{Type: tea.KeyEsc})
 	if m.settings.mode != settingsBrowse || m.settings.lastErr != nil {
-		t.Error("Esc после ошибки вёл себя неверно")
+		t.Error("второй Esc после ошибки вёл себя неверно")
 	}
 
 	// отрицательное число — тоже ошибка

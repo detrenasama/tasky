@@ -61,8 +61,12 @@ func TestTasksLinkAddFlow(t *testing.T) {
 	}
 	s.linkInput.SetValue("https://example.org")
 	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
+	if s.mode != taskLinkEdit || !s.esc.Armed() {
+		t.Fatalf("первый Esc должен предупредить (mode=%d armed=%v)", s.mode, s.esc.Armed())
+	}
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
 	if s.mode != taskLinks {
-		t.Fatalf("Esc не вернул в список ссылок (mode=%d)", s.mode)
+		t.Fatalf("второй Esc не вернул в список ссылок (mode=%d)", s.mode)
 	}
 	// повторный Esc уже закрывает список
 	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})

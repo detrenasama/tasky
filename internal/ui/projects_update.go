@@ -9,6 +9,9 @@ import (
 func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	s := m.proj
 	s.notice = ""
+	if msg.String() != "esc" {
+		s.esc.Reset()
+	}
 	switch s.mode {
 	case projInput:
 		var cmd tea.Cmd
@@ -24,10 +27,16 @@ func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				}
 			}
 			s.input.SetValue("")
+			s.inputOrig = ""
 			s.input.Blur()
+			s.esc.Reset()
 			s.mode = projBrowse
 		case "esc":
+			if !s.esc.Press(strings.TrimSpace(s.input.Value()) != strings.TrimSpace(s.inputOrig)) {
+				return m, cmd
+			}
 			s.input.SetValue("")
+			s.inputOrig = ""
 			s.input.Blur()
 			s.mode = projBrowse
 		}
@@ -130,12 +139,16 @@ func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				s.dmState = dmView
 				s.refreshDescViewer()
 			case "esc":
-				if s.descWork != s.desc {
-					s.dmPrev = s.dmState
-					s.dmState = dmDiscard
-				} else {
-					s.mode = projBrowse
+				dirty := s.descWork != s.desc
+				if !s.esc.Press(dirty) {
+					return m, nil
 				}
+				if dirty {
+					s.descWork = s.desc
+					s.refreshDescViewer()
+					return m, nil
+				}
+				s.mode = projBrowse
 			}
 			return m, nil
 		case dmEdit:
@@ -146,28 +159,17 @@ func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				s.descWork = s.descText.Value()
 				s.saveDescWork()
 				s.descText.Blur()
+				s.esc.Reset()
 				s.dmState = dmView
 				s.refreshDescViewer()
 			case "esc":
-				if s.descText.Value() != s.descWork {
-					s.dmPrev = dmEdit
-					s.dmState = dmDiscard
-				} else {
-					s.descText.Blur()
-					s.dmState = dmView
+				if !s.esc.Press(s.descText.Value() != s.descWork) {
+					return m, cmd
 				}
+				s.descText.Blur()
+				s.dmState = dmView
 			}
 			return m, cmd
-		case dmDiscard:
-			switch msg.String() {
-			case "y":
-				s.descWork = s.desc
-				s.refreshDescViewer()
-				s.dmState = dmView
-			case "n", "esc":
-				s.dmState = s.dmPrev
-			}
-			return m, nil
 		}
 	case projLinkEdit:
 		var cmd tea.Cmd
@@ -206,6 +208,8 @@ func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				s.linkName.Blur()
 				s.linkInput.SetValue("")
 				s.linkInput.Blur()
+				s.linkNameOrig, s.linkInputOrig = "", ""
+				s.esc.Reset()
 				if s.lastErr == nil {
 					s.mode = projLinks
 				} else {
@@ -217,11 +221,15 @@ func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				s.linkInput.Focus()
 			}
 		case "esc":
+			if !s.esc.Press(s.linkEditDirty()) {
+				return m, cmd
+			}
 			s.editLinkID = 0
 			s.linkName.SetValue("")
 			s.linkName.Blur()
 			s.linkInput.SetValue("")
 			s.linkInput.Blur()
+			s.linkNameOrig, s.linkInputOrig = "", ""
 			s.mode = projLinks
 		}
 		return m, cmd
@@ -251,6 +259,7 @@ func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case "esc":
+			s.esc.Reset()
 			s.mode = projBrowse
 			s.lastErr = nil
 		}
@@ -276,6 +285,7 @@ func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			s.buildItems()
 			s.loadDesc()
 		case "esc":
+			s.esc.Reset()
 			s.searchQuery = ""
 			s.searchInput.Blur()
 			s.mode = projBrowse
@@ -353,4 +363,10 @@ func (m *model) updateProjects(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		s.descV.GotoTop()
 	}
 	return m, cmd
+}
+
+// linkEditDirty — изменились ли поля модалки ссылки проекта.
+func (s *projectsScreen) linkEditDirty() bool {
+	return strings.TrimSpace(s.linkName.Value()) != strings.TrimSpace(s.linkNameOrig) ||
+		strings.TrimSpace(s.linkInput.Value()) != strings.TrimSpace(s.linkInputOrig)
 }

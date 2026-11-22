@@ -24,28 +24,27 @@ func TestTaskJournalAddAndEdit(t *testing.T) {
 		t.Error("запись журнала не рендерится как модалка")
 	}
 
-	// Esc с несохранёнными изменениями — подтверждение, а не выход
+	// Esc с несохранённым вводом — предупреждение, второй Esc выходит
 	s.journalText.SetValue("не сохранять")
 	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
-	if s.mode != taskJournalDiscard {
-		t.Fatalf("Esc с изменениями должен открыть подтверждение (mode=%d)", s.mode)
+	if s.mode != taskJournal || !s.esc.Armed() {
+		t.Fatalf("первый Esc должен предупредить (mode=%d armed=%v)", s.mode, s.esc.Armed())
 	}
 	if entries, _ := db.JournalEntries(conn, st.ID); len(entries) != 0 {
-		t.Errorf("подтверждение создало запись: %d", len(entries))
+		t.Errorf("предупреждение создало запись: %d", len(entries))
 	}
-	// Esc в подтверждении — возврат к редактированию
-	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
-	if s.mode != taskJournal {
-		t.Fatalf("Esc в подтверждении должен вернуть к редактированию (mode=%d)", s.mode)
-	}
-	// пустое (без изменений) — Esc сразу выходит
-	s.journalText.SetValue("")
 	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
 	if s.mode != taskBrowse {
-		t.Fatalf("Esc без изменений должен выйти (mode=%d)", s.mode)
+		t.Fatalf("второй Esc должен выйти (mode=%d)", s.mode)
 	}
 	if entries, _ := db.JournalEntries(conn, st.ID); len(entries) != 0 {
 		t.Errorf("отменённая запись создалась: %d", len(entries))
+	}
+	// пустое (без изменений) — Esc сразу выходит
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyCtrlJ})
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
+	if s.mode != taskBrowse {
+		t.Fatalf("Esc без изменений должен выйти (mode=%d)", s.mode)
 	}
 
 	// Ctrl+J → Ctrl+S сохраняет

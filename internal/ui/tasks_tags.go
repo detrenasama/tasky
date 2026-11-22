@@ -80,6 +80,7 @@ func (s *tasksScreen) openTags() {
 		return
 	}
 	s.lastErr = nil
+	s.esc.Reset()
 	s.tagTaskID = taskID
 	s.loadTags()
 	s.tagTypePick.sel = 0
@@ -106,6 +107,7 @@ func (s *tasksScreen) loadTags() {
 func (s *tasksScreen) openTagEdit(id int64) {
 	s.tagEditID = id
 	s.lastErr = nil
+	s.esc.Reset()
 	s.tagEditText.SetValue("")
 	s.tagEditURL.SetValue("")
 	s.tagEditType = 0
@@ -120,6 +122,9 @@ func (s *tasksScreen) openTagEdit(id int64) {
 		s.tagEditURL.SetValue(t.URL)
 		s.tagEditType = t.TypeID
 	}
+	s.tagTextOrig = s.tagEditText.Value()
+	s.tagURLOrig = s.tagEditURL.Value()
+	s.tagTypeOrig = s.tagEditType
 	s.tagEditFocus = 0
 	s.tagEditText.Blur()
 	s.tagEditURL.Blur()
@@ -161,6 +166,7 @@ func (s *tasksScreen) saveTagEdit() {
 		return
 	}
 	s.lastErr = nil
+	s.esc.Reset()
 	s.loadTags()
 	s.loadData()
 	s.mode = taskTags

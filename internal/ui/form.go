@@ -30,20 +30,24 @@ type formField struct {
 // отправляет значения в onSubmit. onSubmit возвращает (stayOpen, err):
 // при err != nil форма остаётся открытой и показывает ошибку; при
 // stayOpen == true — тоже остаётся (для live-логики без ошибки).
-// Esc закрывает форму (вызывает onCancel, если задан); Tab/↑/↓ перемещают
-// фокус. Добавление формы = один вызов NewForm в одном месте.
+// Esc закрывает форму (вызывает onCancel, если задан); если значения полей
+// изменены, первый Esc только предупреждает, второй — закрывает. Tab/↑/↓
+// перемещают фокус. Добавление формы = один вызов NewForm в одном месте.
 type Form struct {
-	title    string
-	fields   []formField
-	focus    int
-	err      error
-	onSubmit func(values map[string]string) (stayOpen bool, err error)
-	onCancel func()
+	title     string
+	fields    []formField
+	originals []string
+	focus     int
+	err       error
+	escArmed  bool
+	onSubmit  func(values map[string]string) (stayOpen bool, err error)
+	onCancel  func()
 }
 
 // NewForm создаёт форму из полей и обработчика submit. Первое поле в фокусе.
 func NewForm(title string, fields []Field, onSubmit func(values map[string]string) (bool, error)) *Form {
 	ff := make([]formField, len(fields))
+	orig := make([]string, len(fields))
 	for i, f := range fields {
 		ti := textinput.New()
 		ti.Placeholder = f.Placeholder
@@ -52,8 +56,9 @@ func NewForm(title string, fields []Field, onSubmit func(values map[string]strin
 		ti.Width = f.Width
 		ti.SetValue(f.Value)
 		ff[i] = formField{def: f, input: ti}
+		orig[i] = f.Value
 	}
-	f := &Form{title: title, fields: ff, onSubmit: onSubmit}
+	f := &Form{title: title, fields: ff, originals: orig, onSubmit: onSubmit}
 	if len(ff) > 0 {
 		f.fields[0].input.Focus()
 	}
@@ -106,10 +111,27 @@ func (f *Form) FocusedKey() string {
 	return ""
 }
 
+// dirty сообщает, отличаются ли значения полей от исходных.
+func (f *Form) dirty() bool {
+	for i, ff := range f.fields {
+		if i < len(f.originals) && strings.TrimSpace(ff.input.Value()) != strings.TrimSpace(f.originals[i]) {
+			return true
+		}
+	}
+	return false
+}
+
 func (f *Form) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if k, ok := msg.(tea.KeyMsg); ok {
+		if k.String() != "esc" {
+			f.escArmed = false
+		}
 		switch k.String() {
 		case "esc":
+			if f.dirty() && !f.escArmed {
+				f.escArmed = true
+				return f, nil
+			}
 			if f.onCancel != nil {
 				f.onCancel()
 			}
@@ -176,6 +198,9 @@ func (f *Form) View() string {
 	}
 	if f.err != nil {
 		b.WriteString("\n" + theme.ErrorStyle.Render("Ошибка: "+f.err.Error()))
+	}
+	if f.escArmed {
+		b.WriteString("\n" + theme.AccentText(escHintChanges))
 	}
 	d := dialog{
 		title:   f.title,

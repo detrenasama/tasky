@@ -46,29 +46,39 @@ type settingsScreen struct {
 	store       store.Store
 	cfg         *reportConfig
 	mode        settingsMode
+	esc         escGuard
 	sel         int
 	projects    []db.Project
 	dirInput    textinput.Model
 	periodInput textinput.Model
 	hideInput   textinput.Model
 	feedInput   textinput.Model
+	dirOrig     string
+	periodOrig  string
+	hideOrig    string
+	feedOrig    string
 	hideDays    int
 	feedHour    int
 	projPick    pickList
 	periodPick  pickList
 	lastErr     error
 
-	statuses     []db.StatusDef
-	statusPick   pickList
-	colorPick    pickList
-	editName     textinput.Model
-	editNote     textinput.Model
-	editType     int
-	editColor    int
-	editQuick    bool
-	editFocus    int
-	statusEditID int64
-	statusDelID  int64
+	statuses      []db.StatusDef
+	statusPick    pickList
+	colorPick     pickList
+	editName      textinput.Model
+	editNote      textinput.Model
+	editType      int
+	editColor     int
+	editQuick     bool
+	editFocus     int
+	editNameOrig  string
+	editNoteOrig  string
+	editTypeOrig  int
+	editColorOrig int
+	editQuickOrig bool
+	statusEditID  int64
+	statusDelID   int64
 
 	tagTypes      []db.TagType
 	tagTypePick   pickList

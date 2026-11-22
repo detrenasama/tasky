@@ -34,7 +34,6 @@ const (
 	taskTagConfirm
 	taskChecklist
 	taskChecklistConfirm
-	taskJournalDiscard
 
 	taskTimeList
 	taskTimeEdit
@@ -48,7 +47,6 @@ const (
 	dmView dmState = iota
 	dmSelect
 	dmEdit
-	dmDiscard
 )
 
 type taskFocus int
@@ -145,7 +143,9 @@ type tasksScreen struct {
 	listH   int
 
 	mode        taskMode
+	esc         escGuard
 	input       textinput.Model
+	inputOrig   string
 	inputKind   paneKind
 	editID      int64
 	confirmKind paneKind
@@ -162,18 +162,21 @@ type tasksScreen struct {
 	descV         viewport.Model
 	linkName      textinput.Model
 	linkInput     textinput.Model
+	linkNameOrig  string
+	linkInputOrig string
 	linkList      list.Model
 	journalText   textarea.Model
 	confirmLinkID int64
 	editLinkID    int64
 	journalEditID int64
 
-	statuses     []db.StatusDef
-	statusPick   pickList
-	statusNote   textarea.Model
-	statusKind   paneKind
-	statusID     int64
-	statusTarget *db.StatusDef
+	statuses       []db.StatusDef
+	statusPick     pickList
+	statusNote     textarea.Model
+	statusNoteOrig string
+	statusKind     paneKind
+	statusID       int64
+	statusTarget   *db.StatusDef
 
 	hideDays     int
 	hideSaved    int
@@ -192,6 +195,9 @@ type tasksScreen struct {
 	tagEditType  int64
 	tagEditText  textinput.Model
 	tagEditURL   textinput.Model
+	tagTextOrig  string
+	tagURLOrig   string
+	tagTypeOrig  int64
 	tagEditFocus int
 	tagConfirmID int64
 
@@ -201,16 +207,20 @@ type tasksScreen struct {
 	checklistInput     textinput.Model
 	checklistEditID    int64
 	checklistNew       bool
+	checklistOrig      string
 	checklistConfirmID int64
 
 	// модалка записей времени подзадачи
-	timePick      pickList
-	editTimeID    int64
-	editStart     time.Time
-	editEnd       *time.Time
-	editHasEnd    bool
-	timeField     int
-	confirmTimeID int64
+	timePick       pickList
+	editTimeID     int64
+	editStart      time.Time
+	editEnd        *time.Time
+	editHasEnd     bool
+	editStartOrig  time.Time
+	editEndOrig    *time.Time
+	editHasEndOrig bool
+	timeField      int
+	confirmTimeID  int64
 
 	notice      string
 	extEditPath string

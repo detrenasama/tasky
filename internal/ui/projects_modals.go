@@ -8,6 +8,10 @@ import (
 )
 
 func (s *projectsScreen) startNew() {
+	s.esc.Reset()
+	s.lastErr = nil
+	s.inputOrig = ""
+	s.input.SetValue("")
 	s.mode = projInput
 	s.input.Focus()
 }
@@ -33,6 +37,7 @@ func (s *projectsScreen) startEditDescription() {
 func (s *projectsScreen) openDescModal(sel bool) {
 	s.lastErr = nil
 	s.notice = ""
+	s.esc.Reset()
 	s.loadDesc()
 	s.descWork = s.desc
 	mW, mH := s.descModalDims()
@@ -98,6 +103,7 @@ func (s *projectsScreen) deleteDescSelection() {
 // правка существующей (поля префилливаются из списка ссылок).
 func (s *projectsScreen) startLinkEdit(id int64) {
 	s.lastErr = nil
+	s.esc.Reset()
 	s.editLinkID = id
 	s.linkName.SetValue("")
 	s.linkInput.SetValue("")
@@ -107,6 +113,8 @@ func (s *projectsScreen) startLinkEdit(id int64) {
 			s.linkInput.SetValue(l.URL)
 		}
 	}
+	s.linkNameOrig = s.linkName.Value()
+	s.linkInputOrig = s.linkInput.Value()
 	s.mode = projLinkEdit
 	s.linkName.Focus()
 	s.linkInput.Blur()
@@ -115,6 +123,7 @@ func (s *projectsScreen) startLinkEdit(id int64) {
 // openLinks открывает список ссылок проекта.
 func (s *projectsScreen) openLinks() {
 	s.lastErr = nil
+	s.esc.Reset()
 	s.mode = projLinks
 }
 
@@ -131,6 +140,9 @@ func (s *projectsScreen) dialog() (string, bool) {
 	switch s.mode {
 	case projInput:
 		body := s.input.View()
+		if s.esc.Armed() {
+			body += "\n" + theme.AccentText(escHintInput)
+		}
 		if s.lastErr != nil {
 			body += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
 		}
@@ -156,6 +168,9 @@ func (s *projectsScreen) dialog() (string, bool) {
 			title = "Изменить ссылку"
 		}
 		body := s.linkName.View() + "\n" + s.linkInput.View()
+		if s.esc.Armed() {
+			body += "\n" + theme.AccentText(escHintInput)
+		}
 		if s.lastErr != nil {
 			body += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
 		}

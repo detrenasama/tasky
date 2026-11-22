@@ -48,10 +48,14 @@ type projectsScreen struct {
 	projects      []db.Project
 	list          list.Model
 	mode          projMode
+	esc           escGuard
 	focus         projFocus
 	input         textinput.Model
+	inputOrig     string
 	linkName      textinput.Model
 	linkInput     textinput.Model
+	linkNameOrig  string
+	linkInputOrig string
 	descText      textarea.Model
 	linkList      list.Model
 	confirmID     int64
@@ -84,7 +88,6 @@ type projectsScreen struct {
 
 	// модалка описания
 	dmState  dmState
-	dmPrev   dmState
 	descWork string
 	fullW    int
 	fullH    int

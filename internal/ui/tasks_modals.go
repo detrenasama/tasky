@@ -9,6 +9,9 @@ func (s *tasksScreen) startNewTask() {
 	if s.canCreate(kindTask) {
 		s.inputKind = kindTask
 		s.lastErr = nil
+		s.esc.Reset()
+		s.inputOrig = ""
+		s.input.SetValue("")
 		s.mode = taskInput
 		s.input.Focus()
 	}
@@ -19,6 +22,9 @@ func (s *tasksScreen) startNewSubtask() {
 	if s.canCreate(kindSubtask) {
 		s.inputKind = kindSubtask
 		s.lastErr = nil
+		s.esc.Reset()
+		s.inputOrig = ""
+		s.input.SetValue("")
 		s.mode = taskInput
 		s.input.Focus()
 	}
@@ -66,6 +72,8 @@ func (s *tasksScreen) startEditTitle() {
 		return
 	}
 	s.lastErr = nil
+	s.esc.Reset()
+	s.inputOrig = s.input.Value()
 	s.input.CursorEnd()
 	s.mode = taskTitleEdit
 	s.input.Focus()
@@ -82,6 +90,7 @@ func (s *tasksScreen) startEditDescription() {
 func (s *tasksScreen) openDescModal(sel bool) {
 	s.lastErr = nil
 	s.notice = ""
+	s.esc.Reset()
 	s.loadDesc()
 	s.descWork = s.desc
 	mW, mH := s.descModalDims()
@@ -185,6 +194,7 @@ func (s *tasksScreen) copyDescSelection() {
 // иначе — правка существующей (поля префилливаются из списка ссылок).
 func (s *tasksScreen) startLinkEdit(id int64) {
 	s.lastErr = nil
+	s.esc.Reset()
 	s.editLinkID = id
 	s.linkName.SetValue("")
 	s.linkInput.SetValue("")
@@ -194,6 +204,8 @@ func (s *tasksScreen) startLinkEdit(id int64) {
 			s.linkInput.SetValue(l.URL)
 		}
 	}
+	s.linkNameOrig = s.linkName.Value()
+	s.linkInputOrig = s.linkInput.Value()
 	s.mode = taskLinkEdit
 	s.linkName.Focus()
 	s.linkInput.Blur()
@@ -202,12 +214,14 @@ func (s *tasksScreen) startLinkEdit(id int64) {
 // openLinks открывает список ссылок выбранного элемента.
 func (s *tasksScreen) openLinks() {
 	s.lastErr = nil
+	s.esc.Reset()
 	s.mode = taskLinks
 }
 
 // startSearch открывает модалку поиска по проекту.
 func (s *tasksScreen) startSearch() {
 	s.lastErr = nil
+	s.esc.Reset()
 	s.searchInput.SetValue(s.searchQuery)
 	s.searchInput.Focus()
 	s.mode = taskSearch

@@ -114,11 +114,15 @@ func TestTaskStatusPickAndNote(t *testing.T) {
 		t.Error("заметка не рендерится как модалка")
 	}
 
-	// Esc отменяет — статус не меняется
+	// Esc отменяет — статус не меняется (двойной Esc при введённой заметке)
 	s.statusNote.SetValue("Иван")
 	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
+	if s.mode != taskStatusNote || !s.esc.Armed() {
+		t.Fatalf("первый Esc должен предупредить (mode=%d armed=%v)", s.mode, s.esc.Armed())
+	}
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
 	if s.mode != taskBrowse {
-		t.Fatalf("Esc не отменил заметку (mode=%d)", s.mode)
+		t.Fatalf("второй Esc не отменил заметку (mode=%d)", s.mode)
 	}
 	var status string
 	if err := conn.QueryRow("SELECT status FROM subtasks WHERE id = ?", st.ID).Scan(&status); err != nil {

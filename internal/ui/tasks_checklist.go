@@ -54,6 +54,10 @@ func (s *tasksScreen) openChecklist() {
 		return
 	}
 	s.lastErr = nil
+	s.esc.Reset()
+	s.checklistNew = false
+	s.checklistEditID = 0
+	s.checklistOrig = ""
 	s.checklistLoad(id)
 	s.mode = taskChecklist
 }
@@ -142,6 +146,30 @@ func (s *tasksScreen) checklistCycle(dir int) {
 	s.checklistReload()
 }
 
+// updateTasksChecklist обрабатывает модалку чек-листа и подтверждение удаления.
+func (s *tasksScreen) updateTasksChecklist(m *model, msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
+	switch s.mode {
+	case taskChecklistConfirm:
+		switch msg.String() {
+		case "y", "enter":
+			s.store.DeleteChecklistItem(s.checklistConfirmID)
+			kind, id := s.selectedKindID()
+			if kind == kindSubtask {
+				s.checklistLoad(id)
+			}
+			s.loadData()
+			s.mode = taskChecklist
+		case "n", "esc":
+			s.mode = taskChecklist
+		}
+		return m, nil, true
+	case taskChecklist:
+		mm, cmd := s.updateChecklist(m, msg)
+		return mm, cmd, true
+	}
+	return m, nil, false
+}
+
 // updateChecklist обрабатывает клавиши модального окна чек-листа.
 func (s *tasksScreen) updateChecklist(m *model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if s.checklistNew {
@@ -154,7 +182,7 @@ func (s *tasksScreen) updateChecklist(m *model, msg tea.KeyMsg) (tea.Model, tea.
 			}
 			kind, id := s.selectedKindID()
 			if kind != kindSubtask || id == 0 {
-				s.checklistNew = false
+				s.cancelChecklistInput()
 				s.mode = taskBrowse
 				return m, nil
 			}
@@ -168,15 +196,14 @@ func (s *tasksScreen) updateChecklist(m *model, msg tea.KeyMsg) (tea.Model, tea.
 				s.lastErr = err
 				return m, nil
 			}
-			s.checklistNew = false
-			s.checklistEditID = 0
+			s.cancelChecklistInput()
 			s.lastErr = nil
 			s.checklistReload()
 			return m, nil
 		case "esc":
-			s.checklistNew = false
-			s.checklistEditID = 0
-			s.lastErr = nil
+			if s.esc.Press(s.checklistInputDirty()) {
+				s.cancelChecklistInput()
+			}
 			return m, nil
 		}
 		var cmd tea.Cmd
@@ -223,16 +250,20 @@ func (s *tasksScreen) updateChecklist(m *model, msg tea.KeyMsg) (tea.Model, tea.
 		}
 	case "e":
 		if it, ok := s.checklistPick.selected(); ok {
+			s.esc.Reset()
 			s.checklistEditID = it.value
 			s.checklistNew = true
-			s.checklistInput.SetValue(s.checklistTextOf(it.value))
+			s.checklistOrig = s.checklistTextOf(it.value)
+			s.checklistInput.SetValue(s.checklistOrig)
 			s.checklistInput.CursorEnd()
 			s.checklistInput.Focus()
 			s.lastErr = nil
 		}
 	case "n":
+		s.esc.Reset()
 		s.checklistEditID = 0
 		s.checklistNew = true
+		s.checklistOrig = ""
 		s.checklistInput.SetValue("")
 		s.checklistInput.Focus()
 		s.lastErr = nil
@@ -242,10 +273,25 @@ func (s *tasksScreen) updateChecklist(m *model, msg tea.KeyMsg) (tea.Model, tea.
 			s.mode = taskChecklistConfirm
 		}
 	case "esc":
-		s.checklistNew = false
-		s.checklistEditID = 0
+		s.cancelChecklistInput()
 		s.mode = taskBrowse
 		s.loadData()
 	}
 	return m, nil
+}
+
+// checklistInputDirty — есть ли в вводе несохранённый текст.
+func (s *tasksScreen) checklistInputDirty() bool {
+	return strings.TrimSpace(s.checklistInput.Value()) != strings.TrimSpace(s.checklistOrig)
+}
+
+// cancelChecklistInput сбрасывает ввод пункта чек-листа.
+func (s *tasksScreen) cancelChecklistInput() {
+	s.esc.Reset()
+	s.checklistNew = false
+	s.checklistEditID = 0
+	s.checklistOrig = ""
+	s.lastErr = nil
+	s.checklistInput.SetValue("")
+	s.checklistInput.Blur()
 }

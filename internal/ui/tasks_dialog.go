@@ -15,6 +15,9 @@ func (s *tasksScreen) dialog() (string, bool) {
 			kind = "подзадача"
 		}
 		body := s.input.View()
+		if s.esc.Armed() {
+			body += "\n" + theme.AccentText(escHintInput)
+		}
 		if s.lastErr != nil {
 			body += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
 		}
@@ -27,6 +30,9 @@ func (s *tasksScreen) dialog() (string, bool) {
 			kind = "подзадача"
 		}
 		body := s.input.View()
+		if s.esc.Armed() {
+			body += "\n" + theme.AccentText(escHintInput)
+		}
 		if s.lastErr != nil {
 			body += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
 		}
@@ -61,17 +67,15 @@ func (s *tasksScreen) dialog() (string, bool) {
 		return d.render(), true
 	case taskDescModal:
 		return s.renderDescModal(), true
-	case taskJournalDiscard:
-		d := dialog{title: "Несохранённые изменения",
-			body:    "Запись в журнале изменена, но не сохранена.",
-			primary: "y — отбросить · Ctrl+S — сохранить", esc: "Esc — к редактированию"}
-		return d.render(), true
 	case taskLinkEdit:
 		title := "Добавить ссылку"
 		if s.editLinkID != 0 {
 			title = "Изменить ссылку"
 		}
 		body := s.linkName.View() + "\n" + s.linkInput.View()
+		if s.esc.Armed() {
+			body += "\n" + theme.AccentText(escHintInput)
+		}
 		if s.lastErr != nil {
 			body += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
 		}
@@ -116,6 +120,9 @@ func (s *tasksScreen) dialog() (string, bool) {
 			title = "Изменение записи"
 		}
 		body := s.journalText.View()
+		if s.esc.Armed() {
+			body += "\n" + theme.AccentText(escHintInput)
+		}
 		if s.lastErr != nil {
 			body += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
 		}
@@ -133,6 +140,9 @@ func (s *tasksScreen) dialog() (string, bool) {
 			title = s.statusTarget.Name + " — " + s.statusTarget.NotePrompt
 		}
 		body := s.statusNote.View()
+		if s.esc.Armed() {
+			body += "\n" + theme.AccentText(escHintInput)
+		}
 		if s.lastErr != nil {
 			body += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
 		}
@@ -180,6 +190,9 @@ func (s *tasksScreen) dialog() (string, bool) {
 		}
 		body = append(body, "", theme.Faint("Тип — Enter, Ctrl+S — сохранить"))
 		inner := strings.Join(body, "\n")
+		if s.esc.Armed() {
+			inner += "\n" + theme.AccentText(escHintChanges)
+		}
 		if s.lastErr != nil {
 			inner += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
 		}
@@ -219,18 +232,26 @@ func (s *tasksScreen) dialog() (string, bool) {
 		inner := strings.Join(body, "\n")
 		if s.checklistNew {
 			inner += "\n\n" + s.checklistInput.View()
+			if s.esc.Armed() {
+				inner += "\n" + theme.AccentText(escHintInput)
+			}
 		}
 		if s.lastErr != nil {
 			inner += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
 		}
 		primary := "Enter — переключить"
+		esc := "Esc — закрыть"
 		if s.checklistNew {
 			primary = "Enter — сохранить"
+			esc = "Esc — отмена"
+			if s.esc.Armed() {
+				esc = "Esc ещё раз — отменить ввод"
+			}
 		}
 		d := dialog{title: "Чек-лист",
 			body:    inner,
 			primary: primary,
-			esc:     "Esc — закрыть"}
+			esc:     esc}
 		return d.render(), true
 
 	case taskChecklistConfirm:

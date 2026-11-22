@@ -63,9 +63,9 @@ func TestTasksDescEditSave(t *testing.T) {
 	}
 }
 
-// TestTasksDescDiscardByY — изменение + Esc открывает подтверждение, y
-// отбрасывает изменения, но остаётся в модалке (БД не меняется).
-func TestTasksDescDiscardByY(t *testing.T) {
+// TestTasksDescDiscardByDoubleEsc — изменение + Esc только предупреждает,
+// второй Esc отбрасывает ввод, но остаётся в модалке (БД не меняется).
+func TestTasksDescDiscardByDoubleEsc(t *testing.T) {
 	conn, s, task, _ := tasksSeedProject(t)
 	if err := db.UpdateTaskDescription(conn, task.ID, "исходное"); err != nil {
 		t.Fatal(err)
@@ -76,26 +76,27 @@ func TestTasksDescDiscardByY(t *testing.T) {
 	s.updateTasksMsg(key('e'))
 	s.descText.SetValue("изменённое")
 	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
-	if s.dmState != dmDiscard {
-		t.Fatalf("Esc с изменениями должен открыть подтверждение, dm=%d", s.dmState)
+	if s.dmState != dmEdit || !s.esc.Armed() {
+		t.Fatalf("первый Esc должен предупредить, dm=%d armed=%v", s.dmState, s.esc.Armed())
 	}
-	if d, open := s.dialog(); !open || !strings.Contains(d, "Несохранённые") {
-		t.Errorf("подтверждение должно показываться, open=%v", open)
+	if !strings.Contains(s.descModalFooter(), "ещё раз") {
+		t.Errorf("подсказка о повторном Esc не показана: %q", s.descModalFooter())
 	}
-	s.updateTasksMsg(key('y'))
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
 	if s.mode != taskDescModal || s.dmState != dmView {
-		t.Fatalf("y должен остаться в модалке, mode=%d dm=%d", s.mode, s.dmState)
+		t.Fatalf("второй Esc должен выйти в просмотр, mode=%d dm=%d", s.mode, s.dmState)
 	}
 	if s.descWork != "исходное" {
-		t.Errorf("y должен отбросить изменения, descWork=%q", s.descWork)
+		t.Errorf("отмена должна отбросить ввод, descWork=%q", s.descWork)
 	}
 	if got, _ := db.TaskDescription(conn, task.ID); got != "исходное" {
-		t.Errorf("y не должен сохранять изменения: %q", got)
+		t.Errorf("отмена не должна сохранять изменения: %q", got)
 	}
 }
 
-// TestTasksDescDiscardCancel — n в подтверждении возвращает к правке.
-func TestTasksDescDiscardCancel(t *testing.T) {
+// TestTasksDescEscHintResetOnTyping — первая клавиша после предупреждения
+// снимает его, Esc снова требует двойного нажатия.
+func TestTasksDescEscHintResetOnTyping(t *testing.T) {
 	conn, s, task, _ := tasksSeedProject(t)
 	if err := db.UpdateTaskDescription(conn, task.ID, "исходное"); err != nil {
 		t.Fatal(err)
@@ -106,12 +107,23 @@ func TestTasksDescDiscardCancel(t *testing.T) {
 	s.updateTasksMsg(key('e'))
 	s.descText.SetValue("изменённое")
 	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
-	s.updateTasksMsg(key('n'))
-	if s.dmState != dmEdit {
-		t.Fatalf("n должен вернуть к правке, dm=%d", s.dmState)
+	if !s.esc.Armed() {
+		t.Fatal("первый Esc должен предупредить")
 	}
-	if s.mode != taskDescModal {
-		t.Fatalf("n не должен выходить из модалки, mode=%d", s.mode)
+	s.updateTasksMsg(key('x'))
+	if s.esc.Armed() {
+		t.Fatal("ввод должен снять предупреждение")
+	}
+	if s.dmState != dmEdit {
+		t.Fatalf("ввод не должен закрывать правку, dm=%d", s.dmState)
+	}
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
+	if !s.esc.Armed() || s.dmState != dmEdit {
+		t.Fatalf("Esc снова должен предупредить, dm=%d armed=%v", s.dmState, s.esc.Armed())
+	}
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
+	if s.dmState != dmView {
+		t.Fatalf("второй Esc должен выйти в просмотр, dm=%d", s.dmState)
 	}
 }
 
@@ -144,12 +156,15 @@ func TestTasksDescModalSelectDelete(t *testing.T) {
 		t.Fatalf("после удаления dm=%d", s.dmState)
 	}
 	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
-	if s.dmState != dmDiscard {
-		t.Fatalf("Esc с несохранённым должен подтверждать, dm=%d", s.dmState)
+	if !s.esc.Armed() || s.dmState != dmView {
+		t.Fatalf("первый Esc с несохранённым должен предупредить, dm=%d armed=%v", s.dmState, s.esc.Armed())
 	}
-	s.updateTasksMsg(key('n'))
-	if s.mode != taskDescModal {
-		t.Fatalf("n не должен выходить, mode=%d", s.mode)
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
+	if s.mode != taskDescModal || s.dmState != dmView {
+		t.Fatalf("второй Esc не должен выходить, mode=%d", s.mode)
+	}
+	if s.descWork != "абвгде" {
+		t.Errorf("второй Esc должен отбросить правку, descWork=%q", s.descWork)
 	}
 	if got, _ := db.TaskDescription(conn, task.ID); got != "абвгде" {
 		t.Errorf("БД не должна меняться без Ctrl+S: %q", got)
@@ -226,7 +241,7 @@ func TestTasksDescModalEditorUnchanged(t *testing.T) {
 }
 
 // TestProjectsDescModalOpen + save/discard (зеркало для проектов).
-func TestProjectsDescDiscardByY(t *testing.T) {
+func TestProjectsDescDiscardByDoubleEsc(t *testing.T) {
 	conn, err := db.Open(t.TempDir() + "/test.db")
 	if err != nil {
 		t.Fatal(err)
@@ -251,18 +266,21 @@ func TestProjectsDescDiscardByY(t *testing.T) {
 	m.updateProjects(key('e'))
 	m.proj.descText.SetValue("изменённое")
 	m.updateProjects(tea.KeyMsg{Type: tea.KeyEsc})
-	if m.proj.dmState != dmDiscard {
-		t.Fatalf("Esc должен подтверждать, dm=%d", m.proj.dmState)
+	if m.proj.dmState != dmEdit || !m.proj.esc.Armed() {
+		t.Fatalf("первый Esc должен предупредить, dm=%d armed=%v", m.proj.dmState, m.proj.esc.Armed())
 	}
-	m.updateProjects(key('y'))
+	if !strings.Contains(m.proj.descModalFooter(), "ещё раз") {
+		t.Errorf("подсказка о повторном Esc не показана: %q", m.proj.descModalFooter())
+	}
+	m.updateProjects(tea.KeyMsg{Type: tea.KeyEsc})
 	if m.proj.mode != projDescModal || m.proj.dmState != dmView {
-		t.Fatalf("y должен остаться в модалке, mode=%d dm=%d", m.proj.mode, m.proj.dmState)
+		t.Fatalf("второй Esc должен выйти в просмотр, mode=%d dm=%d", m.proj.mode, m.proj.dmState)
 	}
 	if m.proj.descWork != "исходное" {
-		t.Errorf("y должен отбросить изменения, descWork=%q", m.proj.descWork)
+		t.Errorf("отмена должна отбросить ввод, descWork=%q", m.proj.descWork)
 	}
 	if got, _ := db.ProjectDescription(conn, p.ID); got != "исходное" {
-		t.Errorf("y не должен сохранять изменения: %q", got)
+		t.Errorf("отмена не должна сохранять изменения: %q", got)
 	}
 }
 

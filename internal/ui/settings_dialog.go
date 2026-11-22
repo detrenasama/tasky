@@ -10,8 +10,12 @@ import (
 func (s *settingsScreen) dialog() (string, bool) {
 	switch s.mode {
 	case settingsDirInput:
+		body := s.dirInput.View()
+		if s.esc.Armed() {
+			body += "\n" + theme.AccentText(escHintInput)
+		}
 		d := dialog{title: "Каталог сохранения отчётов",
-			body:    s.dirInput.View(),
+			body:    body,
 			primary: "Enter — сохранить", esc: "Esc — отмена"}
 		return d.render(), true
 	case settingsProjList:
@@ -26,6 +30,9 @@ func (s *settingsScreen) dialog() (string, bool) {
 		return d.render(), true
 	case settingsPeriodInput:
 		body := s.periodInput.View()
+		if s.esc.Armed() {
+			body += "\n" + theme.AccentText(escHintInput)
+		}
 		if s.lastErr != nil {
 			body += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
 		}
@@ -35,6 +42,9 @@ func (s *settingsScreen) dialog() (string, bool) {
 		return d.render(), true
 	case settingsHideInput:
 		body := s.hideInput.View()
+		if s.esc.Armed() {
+			body += "\n" + theme.AccentText(escHintInput)
+		}
 		if s.lastErr != nil {
 			body += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
 		}
@@ -44,6 +54,9 @@ func (s *settingsScreen) dialog() (string, bool) {
 		return d.render(), true
 	case settingsFeedInput:
 		body2 := s.feedInput.View()
+		if s.esc.Armed() {
+			body2 += "\n" + theme.AccentText(escHintInput)
+		}
 		if s.lastErr != nil {
 			body2 += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
 		}
@@ -82,6 +95,9 @@ func (s *settingsScreen) dialog() (string, bool) {
 		}
 		body = append(body, "", theme.Faint("Тип — Enter, цвет — Enter, цепочка — Enter, Ctrl+S — сохранить"))
 		inner := strings.Join(body, "\n")
+		if s.esc.Armed() {
+			inner += "\n" + theme.AccentText(escHintChanges)
+		}
 		if s.lastErr != nil {
 			inner += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
 		}
@@ -133,6 +149,9 @@ func (s *settingsScreen) dialog() (string, bool) {
 		}
 		body = append(body, "", theme.Faint("Тип — Enter, цвет — Enter, Ctrl+S — сохранить"))
 		inner := strings.Join(body, "\n")
+		if s.esc.Armed() {
+			inner += "\n" + theme.AccentText(escHintChanges)
+		}
 		if s.lastErr != nil {
 			inner += "\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error())
 		}

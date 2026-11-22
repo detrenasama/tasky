@@ -39,6 +39,7 @@ func (s *tasksScreen) openTimeEntries() {
 	s.rebuildTimePick()
 	s.lastErr = nil
 	s.notice = ""
+	s.esc.Reset()
 	s.mode = taskTimeList
 }
 
@@ -75,6 +76,7 @@ func (s *tasksScreen) startTimeEdit() {
 	}
 	s.editTimeID = entry.ID
 	s.editStart = entry.StartedAt
+	s.editStartOrig = entry.StartedAt
 	if entry.EndedAt != nil {
 		e := *entry.EndedAt
 		s.editEnd = &e
@@ -83,8 +85,11 @@ func (s *tasksScreen) startTimeEdit() {
 		s.editEnd = nil
 		s.editHasEnd = false
 	}
+	s.editEndOrig = s.editEnd
+	s.editHasEndOrig = s.editHasEnd
 	s.timeField = 0
 	s.lastErr = nil
+	s.esc.Reset()
 	s.mode = taskTimeEdit
 }
 
@@ -193,6 +198,9 @@ func (s *tasksScreen) renderTimeEdit() string {
 	}
 	if s.lastErr != nil {
 		b.WriteString("\n\n" + theme.ErrorStyle.Render("Ошибка: "+s.lastErr.Error()))
+	}
+	if s.esc.Armed() {
+		b.WriteString("\n" + theme.AccentText(escHintChanges))
 	}
 	return b.String()
 }

@@ -414,27 +414,24 @@ func TestTasksDescEdit(t *testing.T) {
 		t.Errorf("описание в БД = %q", got)
 	}
 
-	// Esc с несохранёнными изменениями — подтверждение, а не выход
+	// Esc с несохранённым вводом — предупреждение, второй Esc отбрасывает ввод
 	s.updateTasksMsg(key('e'))
 	s.descText.SetValue("не сохранять")
 	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
-	if s.dmState != dmDiscard {
-		t.Fatalf("Esc с изменениями должен открыть подтверждение, dm=%d", s.dmState)
+	if s.dmState != dmEdit || !s.esc.Armed() {
+		t.Fatalf("первый Esc должен предупредить, dm=%d armed=%v", s.dmState, s.esc.Armed())
 	}
 	if got, _ := db.TaskDescription(conn, task.ID); got != "новое описание" {
-		t.Errorf("подтверждение не должно сохранять: %q", got)
+		t.Errorf("предупреждение не должно сохранять: %q", got)
 	}
-	// Esc в подтверждении — возврат к правке
-	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
-	if s.dmState != dmEdit {
-		t.Fatalf("Esc в подтверждении должен вернуть к правке, dm=%d", s.dmState)
-	}
-	// неизменённое описание — Esc из правки в просмотр, затем выход
-	s.descText.SetValue("новое описание")
 	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
 	if s.dmState != dmView {
-		t.Fatalf("Esc без изменений должен выйти в просмотр, dm=%d", s.dmState)
+		t.Fatalf("второй Esc должен выйти в просмотр, dm=%d", s.dmState)
 	}
+	if s.descWork != "новое описание" {
+		t.Errorf("второй Esc должен отбросить ввод, descWork=%q", s.descWork)
+	}
+	// неизменённое описание — Esc выходит из модалки
 	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
 	if s.mode != taskBrowse {
 		t.Fatalf("Esc без изменений должен выйти, mode=%d", s.mode)
@@ -485,11 +482,15 @@ func TestTasksTitleEdit(t *testing.T) {
 		t.Errorf("input не префиллен: %q", s.input.Value())
 	}
 
-	// Esc отменяет — название не меняется
+	// Esc отменяет — название не меняется (двойной Esc при изменении)
 	s.input.SetValue("Не сохранять")
 	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
+	if s.mode != taskTitleEdit || !s.esc.Armed() {
+		t.Fatalf("первый Esc должен предупредить (mode=%d armed=%v)", s.mode, s.esc.Armed())
+	}
+	s.updateTasksMsg(tea.KeyMsg{Type: tea.KeyEsc})
 	if s.mode != taskBrowse {
-		t.Fatalf("Esc не закрыл модалку (mode=%d)", s.mode)
+		t.Fatalf("второй Esc не закрыл модалку (mode=%d)", s.mode)
 	}
 	if titleOf() != "T" {
 		t.Errorf("Esc сохранил название: %q", titleOf())

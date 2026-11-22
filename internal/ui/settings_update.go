@@ -13,6 +13,9 @@ import (
 // выбора и ввода).
 func (m *model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	s := m.settings
+	if msg.String() != "esc" {
+		s.esc.Reset()
+	}
 	switch s.mode {
 	case settingsDirInput:
 		s.dirInput, _ = s.dirInput.Update(msg)
@@ -25,6 +28,9 @@ func (m *model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			s.cfg.saveDir = v
 			s.mode = settingsBrowse
 		case "esc":
+			if !s.esc.Press(strings.TrimSpace(s.dirInput.Value()) != strings.TrimSpace(s.dirOrig)) {
+				return m, nil
+			}
 			s.mode = settingsBrowse
 		}
 		return m, nil
@@ -61,6 +67,8 @@ func (m *model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if it, ok := s.periodPick.selected(); ok {
 				if reportPeriod(it.value) == periodCustom {
 					s.periodInput.SetValue(s.customInputValue())
+					s.periodOrig = s.periodInput.Value()
+					s.esc.Reset()
 					s.periodInput.Focus()
 					s.lastErr = nil
 					s.mode = settingsPeriodInput
@@ -88,6 +96,9 @@ func (m *model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			s.mode = settingsBrowse
 		case "esc":
 			s.lastErr = nil
+			if !s.esc.Press(strings.TrimSpace(s.periodInput.Value()) != strings.TrimSpace(s.periodOrig)) {
+				return m, nil
+			}
 			s.mode = settingsBrowse
 		}
 		return m, nil
@@ -109,6 +120,9 @@ func (m *model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			s.mode = settingsBrowse
 		case "esc":
 			s.lastErr = nil
+			if !s.esc.Press(strings.TrimSpace(s.hideInput.Value()) != strings.TrimSpace(s.hideOrig)) {
+				return m, nil
+			}
 			s.mode = settingsBrowse
 		}
 		return m, nil
@@ -130,6 +144,9 @@ func (m *model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			s.mode = settingsBrowse
 		case "esc":
 			s.lastErr = nil
+			if !s.esc.Press(strings.TrimSpace(s.feedInput.Value()) != strings.TrimSpace(s.feedOrig)) {
+				return m, nil
+			}
 			s.mode = settingsBrowse
 		}
 		return m, nil
@@ -188,6 +205,9 @@ func (m *model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			s.saveStatusEdit()
 		case "esc":
 			s.lastErr = nil
+			if !s.esc.Press(s.statusEditDirty()) {
+				return m, nil
+			}
 			s.mode = settingsStatusList
 		default:
 			if s.editFocus == 0 {
@@ -289,6 +309,9 @@ func (m *model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			s.saveTagTypeEdit()
 		case "esc":
 			s.lastErr = nil
+			if !s.esc.Press(s.tagTypeEditDirty()) {
+				return m, nil
+			}
 			s.mode = settingsTagTypeList
 		default:
 			if s.editFocus == 0 {
@@ -352,14 +375,20 @@ func (m *model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			s.cfg.includeJournal = !s.cfg.includeJournal
 		case 3:
 			s.dirInput.SetValue(s.cfg.saveDir)
+			s.dirOrig = s.dirInput.Value()
+			s.esc.Reset()
 			s.dirInput.Focus()
 			s.mode = settingsDirInput
 		case 4:
 			s.hideInput.SetValue(strconv.Itoa(s.hideDays))
+			s.hideOrig = s.hideInput.Value()
+			s.esc.Reset()
 			s.hideInput.Focus()
 			s.mode = settingsHideInput
 		case 5:
 			s.feedInput.SetValue(strconv.Itoa(s.feedHour))
+			s.feedOrig = s.feedInput.Value()
+			s.esc.Reset()
 			s.feedInput.Focus()
 			s.mode = settingsFeedInput
 		case 6:
@@ -385,4 +414,20 @@ func (m *model) updateSettings(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
+
+// statusEditDirty — изменились ли поля редактора статуса.
+func (s *settingsScreen) statusEditDirty() bool {
+	return strings.TrimSpace(s.editName.Value()) != strings.TrimSpace(s.editNameOrig) ||
+		strings.TrimSpace(s.editNote.Value()) != strings.TrimSpace(s.editNoteOrig) ||
+		s.editType != s.editTypeOrig ||
+		s.editColor != s.editColorOrig ||
+		s.editQuick != s.editQuickOrig
+}
+
+// tagTypeEditDirty — изменились ли поля редактора типа тега.
+func (s *settingsScreen) tagTypeEditDirty() bool {
+	return strings.TrimSpace(s.editName.Value()) != strings.TrimSpace(s.editNameOrig) ||
+		s.editKind != s.editTypeOrig ||
+		s.editColor != s.editColorOrig
 }

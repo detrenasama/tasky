@@ -13,6 +13,7 @@ func (s *tasksScreen) startJournal() {
 		return
 	}
 	s.lastErr = nil
+	s.esc.Reset()
 	s.journalText.SetValue("")
 	s.journalOrig = ""
 	s.journalEditID = 0
@@ -39,6 +40,7 @@ func (s *tasksScreen) editTodayJournal() {
 		return
 	}
 	s.lastErr = nil
+	s.esc.Reset()
 	s.journalEditID = target.ID
 	s.journalText.SetValue(target.Text)
 	s.journalOrig = target.Text
